@@ -16,14 +16,14 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',sensor_filename='floops.loc',\
                              params={'m':2,'n':1,'r':.25,'R':1,'n_pts':200,'m_pts':20,\
                             'f':1e2,'dt':5e-4,'periods':1,'n_threads':10,'I':10},
-                                doSave='',save_ext=''):
+                                doSave='',save_ext='',):
     
     os.system('rm -rf vector*') 
     
     # Generate sensors, filamanets
     gen_filaments(xml_filename,params)
     #sensors = gen_sensors() 
-    sensors = conv_sensor('/home/rian/Documents/sf_VM_Share/Synthetic_Mirnov/sensorLoc.xyz')[0]
+    sensors = conv_sensor('sensorLoc.xyz')[0]
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,sensor_filename,params)
@@ -185,31 +185,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv, t_pt=
     if doSave:p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
     p.show()
     
-    ################# Currents 
-    hist_file = histfile('floops.hist')
-    plt.close('Currents%s'%save_Ext)
-    fig,ax=plt.subplots(2,1,tight_layout=True,figsize=(4,4),
-                num='Currents%s'%save_Ext,sharex=True)
-    times=np.arange(0,periods/f,dt)
-    ax[0].plot(times*1e3,coil_currs[:,1],label=r'$\phi=0,\theta=0$')
-    # import decimal 
-    # decimal.Decimal(-.25).as_integer_ratio()
-    ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_1'],
-               label=r'Sensor $\phi=-\pi/4$')
-    ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_2'],
-               label=r'Sensor $\phi=0$')
-    ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_3'],
-               label=r'Sensor $\phi=+\pi/4$')
-    ax[0].set_ylabel("I-Mode [A]")
-    ax[1].set_ylabel(r'B$_z$ [T]')
-    ax[1].set_xlabel("Time [ms]")
-    
-    
-    for i in range(2):
-        ax[i].grid()
-        ax[i].legend(fontsize=9,loc='upper right')
-    if doSave:fig.savefig(doSave+'Filament_and_Field%s.pdf'%save_Ext,
-                          transparent=True)
+ 
           
     plt.show()
     return slices, slices_spl
@@ -224,4 +200,35 @@ def calc_filament_coord(m,n,r,R,theta,phi):
     return (R+r*np.cos(n*phi/m + theta))*np.cos(n*phi), \
             (R+r*np.cos(n*phi/m+theta))*np.sin(n*phi), r*np.sin(n*phi/m+theta)
   ########################      
+################# Currents 
+def plot_Currents(params,save_Ext=''):
+   m=params['m'];n=params['n'];r=params['r'];R=params['R'];
+   n_pts=params['n_pts'];m_pts=params['m_pts'];periods=params['periods']
+   f=params['f'];dt=params['dt'];I=params['I']
+   hist_file = histfile('floops.hist')
+   plt.close('Currents%s'%save_Ext)
+   fig,ax=plt.subplots(2,1,tight_layout=True,figsize=(4,4),
+               num='Currents%s'%save_Ext,sharex=True)
+   times=np.arange(0,periods/f,dt)
+   ax[0].plot(times*1e3,coil_currs[:,1],label=r'$\phi=0,\theta=0$')
+   # import decimal 
+   # decimal.Decimal(-.25).as_integer_ratio()
+   ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_1'],
+              label=r'Sensor $\phi=-\pi/4$')
+   ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_2'],
+              label=r'Sensor $\phi=0$')
+   ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_3'],
+              label=r'Sensor $\phi=+\pi/4$')
+   ax[0].set_ylabel("I-Mode [A]")
+   ax[1].set_ylabel(r'B$_z$ [T]')
+   ax[1].set_xlabel("Time [ms]")
+   
+   
+   for i in range(2):
+       ax[i].grid()
+       ax[i].legend(fontsize=9,loc='upper right')
+   if doSave:fig.savefig(doSave+'Filament_and_Field%s.pdf'%save_Ext,
+                         transparent=True)  
+####################################
+  
 if __name__=='__main__':gen_synthetic_Mirnov()
