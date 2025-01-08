@@ -10,6 +10,7 @@ import struct
 import sys
 import os
 import h5py
+import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
