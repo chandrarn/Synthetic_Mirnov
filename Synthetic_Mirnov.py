@@ -115,7 +115,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,doPlot=True):
     tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj)
     
     # Save B-norm surface for later plotting
-    _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save')
+    _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
        
     return coil_currs
 ########################
@@ -185,7 +185,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv, t_pt=
     if doSave:p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
     p.show()
     
- 
+    plot_Currents(params, coil_currs, doSave, save_Ext)
           
     plt.show()
     return slices, slices_spl
@@ -201,10 +201,11 @@ def calc_filament_coord(m,n,r,R,theta,phi):
             (R+r*np.cos(n*phi/m+theta))*np.sin(n*phi), r*np.sin(n*phi/m+theta)
   ########################      
 ################# Currents 
-def plot_Currents(params,save_Ext=''):
+def plot_Currents(params,coil_currs,doSave,save_Ext=''):
    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
    n_pts=params['n_pts'];m_pts=params['m_pts'];periods=params['periods']
    f=params['f'];dt=params['dt'];I=params['I']
+   
    hist_file = histfile('floops.hist')
    plt.close('Currents%s'%save_Ext)
    fig,ax=plt.subplots(2,1,tight_layout=True,figsize=(4,4),

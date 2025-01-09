@@ -21,7 +21,7 @@ def conv_sensor(sensor_file):
         
         pt_1 = dat[i,1:].copy()
         pt_2 = dat[i+int(33),1:] # opposite point
-        pt_3 = dat[i+int(16),1:].copy() # right angle point
+        pt_3 = dat[i+int(15),1:].copy() # right angle point
         
         pt_0 = (pt_2-pt_1)/2 + pt_1 # center point
         
@@ -39,21 +39,30 @@ def conv_sensor(sensor_file):
         norm_v.append(norm)
         x0.append(pt_0)
         sensors.append(Mirnov(pt_0, norm, 'Mirnov_%d'%ind))
+        
         '''
         fig,ax=plt.subplots(1,1,subplot_kw={'projection':'3d'})
-        ax.scatter(dat[i+np.arange(200),1],dat[i+np.arange(200),2],
-                   dat[i+np.arange(200),3],'*')
+        ax.scatter(dat[i+np.arange(0,200,3),1],dat[i+np.arange(0,200,3),2],
+                   dat[i+np.arange(0,200,3),3],'*')
+        ax.scatter(dat[i+np.arange(1,200,3),1],dat[i+np.arange(1,200,3),2],
+                   dat[i+np.arange(1,200,3),3],'*')
+        ax.scatter(dat[i+np.arange(2,200,3),1],dat[i+np.arange(2,200,3),2],
+                   dat[i+np.arange(2,200,3),3],'*')
         ax.scatter(*pt_0,'k*',s=20)
+        
         ax.plot([pt_0[0],pt_0[0]+pt_1[0]],[pt_0[1],pt_0[1]+pt_1[1]],\
                 [pt_0[2],pt_0[2]+pt_1[2]],)
+        
         ax.plot([pt_0[0],pt_0[0]+pt_3[0]],[pt_0[1],pt_0[1]+pt_3[1]],\
                 [pt_0[2],pt_0[2]+pt_3[2]],)
+        
         ax.plot([pt_0[0],pt_0[0]+norm[0]*.1],[pt_0[1],pt_0[1]+norm[1]*.1],\
                 [pt_0[2],pt_0[2]+norm[2]*.1],)    
-        '''
+        
     
-        #plt.show()
-        #break
+        plt.show()
+        break
+        '''
     
     fig,ax=plt.subplots(1,1,subplot_kw={'projection':'3d'})
     for ind,x0_ in enumerate(x0): 
