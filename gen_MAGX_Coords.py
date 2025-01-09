@@ -28,16 +28,22 @@ def gen_Node_Dict():
                     nodes[node_name]['TOR_SET_%03d'%phi]['%s%s'%(pos,ul)]={}
                     for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%s.%s'%(node_name,name_phi,pos,ul,sig)
-                        nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
+                        try:nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
                             float(tree.getNode(tag).getFloatArray())
+                        except:
+                            print('Failure at: %s'%tag)
+                            raise SyntaxError
             if node_name=='FLUX_PARTIAL':
                 for pos in ['IMID','OMID']:
                     for ul in ['_M']:
                         nodes[node_name]['TOR_SET_%03d'%phi]['%s%s'%(pos,ul)]={}
                         for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                             tag = 'SIGNALS.%s.%s.%s%s.%s'%(node_name,name_phi,pos,ul,sig)
-                            nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
+                            try:nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
                                 float(tree.getNode(tag).getFloatArray())
+                            except:
+                                print('Failure at: %s'%tag)
+                                raise SyntaxError
                     
     # Flux_Full
     for node_name in ['FLUX_FULL']:
@@ -47,8 +53,11 @@ def gen_Node_Dict():
                 nodes[node_name]['%s%s'%(pos,ul)]={}
                 for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                     tag = 'SIGNALS.%s.%s%s.%s'%(node_name,pos,ul,sig)
-                    nodes[node_name]['%s%s'%(pos,ul)][sig] = \
+                    try:nodes[node_name]['%s%s'%(pos,ul)][sig] = \
                         float(tree.getNode(tag).getFloatArray())
+                    except:
+                        print('Failure at: %s'%tag)
+                        raise SyntaxError
     
     # Mirnov
     for node_name in ['MIRNOV']:
@@ -61,8 +70,11 @@ def gen_Node_Dict():
                     nodes[node_name][name_phi]['%s%d'%(hv,i)]={}
                     for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%d.%s'%(node_name,name_phi,hv,i,sig)
-                        nodes[node_name][name_phi]['%s%d'%(hv,i)][sig] = \
+                        try:nodes[node_name][name_phi]['%s%d'%(hv,i)][sig] = \
                             float(tree.getNode(tag).getFloatArray())
+                        except:
+                            print('Failure at: %s'%tag)
+                            raise SyntaxError
             
     with open('MAGX_Coordinates.json','w') as f:json.dump(nodes,f)
         
