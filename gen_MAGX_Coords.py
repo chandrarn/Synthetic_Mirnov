@@ -20,7 +20,7 @@ def gen_Node_Dict():
             name_phi='TOR_SET_%03d'%phi
             nodes[node_name][name_phi]={}
             pos_list = ['DT23','DT5B','DT5C','DVT1','DVT4']
-            if node_name != ' FLUX_PARTIAL':pos_list.extend(['OLIM'])
+            if node_name != 'FLUX_PARTIAL':pos_list.extend(['OLIM'])
             if node_name != 'BN':pos_list.extend(['IOL1','IOL2','OOLM','VSCM'])
             if node_name =='FLUX_PARTIAL':pos_list.extend(['DVT6','IMID','OMPS'])
             for pos in pos_list:
