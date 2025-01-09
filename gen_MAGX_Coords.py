@@ -26,7 +26,9 @@ def gen_Node_Dict():
             for pos in pos_list:
                 for ul in ['_L','_U']:
                     nodes[node_name]['TOR_SET_%03d'%phi]['%s%s'%(pos,ul)]={}
-                    for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
+                    sig_list = ['R1','R2','Z1','Z2','PHI1','PHI2','POLARITY'] \
+                        if node_name == 'FLUX_PARTIAL' else ['ANGLE','NA','R','Z','PHI','POLARITY']
+                    for sig in sig_list:
                         tag = 'SIGNALS.%s.%s.%s%s.%s'%(node_name,name_phi,pos,ul,sig)
                         try:nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
                             float(tree.getNode(tag).getFloatArray())
@@ -36,7 +38,7 @@ def gen_Node_Dict():
             if node_name=='FLUX_PARTIAL':
                 for pos in ['IMID','OMID']:
                     for ul in ['_M']:
-                        nodes[node_name]['TOR_SET_%03d'%phi]['%s%s'%(pos,ul)]={}
+                        nodes[node_name][name_phi]['%s%s'%(pos,ul)]={}
                         for sig in ['R1','R2','Z1','Z2','PHI1','PHI2','POLARITY']:
                             tag = 'SIGNALS.%s.%s.%s%s.%s'%(node_name,name_phi,pos,ul,sig)
                             try:nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
