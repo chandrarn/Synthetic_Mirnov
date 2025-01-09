@@ -6,7 +6,7 @@ Created on Thu Jan  9 14:47:17 2025
 @author: rian
 """
 
-import MDsplus as mds
+import MDSplus as mds
 import numpy as np
 import json
 
@@ -29,7 +29,7 @@ def gen_Node_Dict():
                     for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%s.%s'%(node_name,name_phi,pos,ul,sig)
                         nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
-                            float(tree.getNode(tag).getFLoatArray())
+                            float(tree.getNode(tag).getFloatArray())
             if node_name=='FLUX_PARTIAL':
                 for pos in ['IMID','OMID']:
                     for ul in ['_M']:
@@ -37,7 +37,7 @@ def gen_Node_Dict():
                         for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                             tag = 'SIGNALS.%s.%s.%s%s.%s'%(node_name,name_phi,pos,ul,sig)
                             nodes[node_name][name_phi]['%s%s'%(pos,ul)][sig] = \
-                                float(tree.getNode(tag).getFLoatArray())
+                                float(tree.getNode(tag).getFloatArray())
                     
     # Flux_Full
     for node_name in ['FLUX_FULL']:
@@ -48,7 +48,7 @@ def gen_Node_Dict():
                 for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                     tag = 'SIGNALS.%s.%s%s.%s'%(node_name,pos,ul,sig)
                     nodes[node_name]['%s%s'%(pos,ul)][sig] = \
-                        float(tree.getNode(tag).getFLoatArray())
+                        float(tree.getNode(tag).getFloatArray())
     
     # Mirnov
     for node_name in ['MIRNOV']:
@@ -62,7 +62,7 @@ def gen_Node_Dict():
                     for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%d.%s'%(node_name,name_phi,hv,i,sig)
                         nodes[node_name][name_phi]['%s%d'%(hv,i)][sig] = \
-                            float(tree.getNode(tag).getFLoatArray())
+                            float(tree.getNode(tag).getFloatArray())
             
     with open('MAGX_Coordinates.json','w') as f:json.dump(nodes,f)
         
