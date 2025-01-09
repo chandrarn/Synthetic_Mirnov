@@ -70,13 +70,22 @@ def gen_Node_Dict():
             for hv in ['H','V']:
                 for i in np.arange(1,7 if hv=='H' else 10):
                     nodes[node_name][name_phi]['%s%d'%(hv,i)]={}
-                    for sig in ['GAIN','NA','R','Z','PHI','POLARITY']:
+                    for sig in ['GAIN','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%d.%s'%(node_name,name_phi,hv,i,sig)
                         try:nodes[node_name][name_phi]['%s%d'%(hv,i)][sig] = \
                             np.array(tree.getNode(tag).getFloatArray(),dtype=float)
                         except:
                             print('Failure at: %s'%tag)
                             raise SyntaxError
+                    sig='NA'
+                    nodes[node_name][name_phi]['%s%d'%(hv,i)][sig]={}
+                    tag = 'SIGNALS.%s.%s.%s%d.%s'%(node_name,name_phi,hv,i,sig)
+                    tmp=tree.getNode(tag)
+                    nodes[node_name][name_phi]['%s%d'%(hv,i)][sig]['NA']=\
+                        np.array(tmp.data()).squeeze().tolist()
+                    nodes[node_name][name_phi]['%s%d'%(hv,i)][sig]['NA_freq']=\
+                        np.array(tmp.dim_of().data()).squeeze().tolist()
+                    
             
     with open('MAGX_Coordinates.json','w') as f:json.dump(nodes,f)
         
