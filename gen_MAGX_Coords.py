@@ -70,7 +70,7 @@ def gen_Node_Dict():
             for hv in ['H','V']:
                 for i in np.arange(1,7 if hv=='H' else 10):
                     nodes[node_name][name_phi]['%s%d'%(hv,i)]={}
-                    for sig in ['ANGLE','NA','R','Z','PHI','POLARITY']:
+                    for sig in ['GAIN','NA','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%d.%s'%(node_name,name_phi,hv,i,sig)
                         try:nodes[node_name][name_phi]['%s%d'%(hv,i)][sig] = \
                             float(tree.getNode(tag).getFloatArray())
