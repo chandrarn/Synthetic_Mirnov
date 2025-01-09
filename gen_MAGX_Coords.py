@@ -73,7 +73,7 @@ def gen_Node_Dict():
                     for sig in ['GAIN','R','Z','PHI','POLARITY']:
                         tag = 'SIGNALS.%s.%s.%s%d.%s'%(node_name,name_phi,hv,i,sig)
                         try:nodes[node_name][name_phi]['%s%d'%(hv,i)][sig] = \
-                            np.array(tree.getNode(tag).getFloatArray(),dtype=float)
+                            float(tree.getNode(tag).getFloatArray())
                         except:
                             print('Failure at: %s'%tag)
                             raise SyntaxError
