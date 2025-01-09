@@ -66,3 +66,5 @@ def gen_Node_Dict():
             
     with open('MAGX_Coordinates.json','w') as f:json.dump(nodes,f)
         
+
+if __name__ == '__main__':gen_Node_Dict()
