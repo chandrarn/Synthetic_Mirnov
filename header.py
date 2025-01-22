@@ -27,7 +27,10 @@ rc('font',**{'size':11})
 rc('text', usetex=True)
 
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
-from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors
+from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 from OpenFUSIONToolkit.util import build_XDMF, mu0
 from OpenFUSIONToolkit.io import histfile
 
+from freeqdsk import geqdsk
+import cv2
+from scipy.interpolate import make_smoothing_spline

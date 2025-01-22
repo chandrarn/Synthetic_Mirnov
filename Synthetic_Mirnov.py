@@ -8,22 +8,29 @@ Created on Tue Dec 17 11:43:59 2024
 
 # header
 from header import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
-    Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess
+    Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
+        make_smoothing_spline
+from gen_MAGX_Coords import gen_Sensors
 
 from prep_sensors import conv_sensor
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',sensor_filename='floops.loc',\
-                             params={'m':2,'n':1,'r':.25,'R':1,'n_pts':200,'m_pts':20,\
-                            'f':1e2,'dt':5e-4,'periods':1,'n_threads':10,'I':10},
-                                doSave='',save_ext='',):
+                             params={'m':2,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':10,\
+                            'f':1e3,'dt':2e-4,'periods':1,'n_threads':8,'I':10},
+                                doSave='',save_ext='',file_geqdsk='geqdsk'):
     
-    os.system('rm -rf vector*') 
+    #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
+    
+    # Get coordinates for fillaments
+    theta,phi=gen_filament_coords(params)
+    filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
     
     # Generate sensors, filamanets
-    gen_filaments(xml_filename,params)
+    gen_filaments(xml_filename,params,filament_coords)
     #sensors = gen_sensors() 
-    sensors = conv_sensor('sensorLoc.xyz')[0]
+    #sensors = conv_sensor('sensorLoc.xyz')[0]
+    sensors=gen_Sensors()[-1]
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,sensor_filename,params)
@@ -37,7 +44,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     run_td(sensor_obj,tw_mesh,params, coil_currs)
     
     
-    slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_ext,Mc, L_inv)
+    slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
+                                save_ext,Mc, L_inv,filament_coords)
 
     return sensors, coil_currs, tw_mesh, slices,slices_spl
 #    return sensor_,currents
@@ -68,19 +76,20 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,doPlot=True):
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
 ####################################
-def gen_filaments(filament_file,params):
+def gen_filaments(filament_file,params,filament_coords):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
-    theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
+    #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
     eta='1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
     with open(filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
-        for theta in theta_:
+        for filament in filament_coords:
             f.write('\t<coil_set>\n\t\t<coil npts="%d" scale="1.0">\n'%n_pts)
-            for phi in phi_:
-                f.write('\t\t\t %1.1f, %1.1f, %1.1f\n'%(\
-                              calc_filament_coord(m,n,r,R,theta,phi)))
+            for xyz in np.array(filament).T:
+                x=xyz[0];y=xyz[1];z=xyz[2]
+                # for some starting theta, wind in phi
+                f.write('\t\t\t %1.1f, %1.1f, %1.1f\n'%(x,y,z) )
             f.write('\t\t</coil>\n\t</coil_set>\n')
         f.write('\t</icoils>\n\t</thincurr>\n</oft>')
     # Assume we have the shaping jacobian for theta into minor radial corrdinanat
@@ -96,9 +105,11 @@ def gen_sensors():
     return sensors
 ####################################
 def gen_coil_currs(param):
+    # Assign currents to existing fillaments for time dependent calculation
+    # Eventually, the balooning approximation goes here, as does straight field line apprxoiation
     m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
     I=param['I'];n=param['n'];n_pts=param['n_pts']
-    theta_,phi_= gen_filament_coords(m, n, n_pts, m_pts)
+    theta_,phi_= gen_filament_coords(param)
     coil_currs = np.zeros((int(periods/f/dt),m_pts+1))
     for ind,t in enumerate(np.arange(0,periods/f,dt)):
         coil_currs[ind,1:]=[I*np.cos(m*theta+t*f*2*np.pi) for theta in theta_]
@@ -119,7 +130,8 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,doPlot=True):
        
     return coil_currs
 ########################
-def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv, t_pt=0,):
+def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
+              filament_coords, t_pt=0,):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -158,14 +170,12 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv, t_pt=
     
     # Plot Filaments
     colors=['red','green','blue']
-    theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
-    for ind,theta in enumerate(theta_):
-        pts = []
-        for phi in phi_:
-            pts.append(calc_filament_coord(m,n,r,R,theta,phi))
-        print(np.array(calc_filament_coord(m,n,r,R,theta,phi)).shape)
+    #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
+    for ind,filament in enumerate(filament_coords):
+        pts = np.array(filament).T
+        #print(np.array(calc_filament_coord(m,n,r,R,theta,phi)).shape)
         pts=np.array(pts)
-        print(pts.shape,theta)
+        #print(pts.shape,theta)
         spl=pyvista.Spline(pts,100)
         #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
         #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
@@ -190,16 +200,97 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv, t_pt=
     plt.show()
     return slices, slices_spl
 ########################
-def gen_filament_coords(m,n,n_pts,m_pts):
+########################
+def gen_filament_coords(params):
+    m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
+    # gen phi, theta coordinates for fillaments
     return np.linspace(0,2*np.pi/m,m_pts,endpoint=True),\
         np.linspace(0,m*2*np.pi/n,n_pts,endpoint=True)
 ##############################
 def calc_filament_coord(m,n,r,R,theta,phi):
+    # Return x,y,z coordinate of a specific phi, theta point
     # Locally: evolve theta as n*phi/m
     # Treat theta as non-evolved offset parameter (to set initial angle)
     return (R+r*np.cos(n*phi/m + theta))*np.cos(n*phi), \
             (R+r*np.cos(n*phi/m+theta))*np.sin(n*phi), r*np.sin(n*phi/m+theta)
-  ########################      
+  ########################   
+########################
+
+def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False):
+    # FOr a set of theta, phi mode coordinates, for an m/n mode, return the x,y,z coords
+    m=params['m'];n=params['n'];R=params['R'];a=params['r']
+    
+    if file_geqdsk is None:
+        r_theta = lambda theta: a # running circular approximation
+    else: # Using geqdsk equilibrium for flux surfaces
+        # Load eqdsk
+        with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+        
+        # get q(psi(r,z))
+        psi_eqdsk = eqdsk.psi
+        R_eq=np.linspace(eqdsk.rleft,eqdsk.rleft+eqdsk.rdim,len(psi_eqdsk))
+        Z_eq=np.linspace(eqdsk.zmid-eqdsk.zdim/2,eqdsk.zmid+eqdsk.zdim/2,len(psi_eqdsk))
+        psi_lin = np.linspace(eqdsk.simagx,eqdsk.sibdry,eqdsk.nx)
+        p = np.polyfit(psi_lin, eqdsk.qpsi,12)
+        fn_q = lambda psi: np.polyval(p,psi)
+        q_rz = fn_q(psi_eqdsk) # q(r,z)
+        
+        # Contour detect
+        contour,hierarchy=cv2.findContours(np.array(q_rz<m/n,dtype=np.uint8),
+                                           cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+        # Algorithm will find non-closed contours (e.g. around the magnets)
+        try: contour = np.squeeze(contour) # Check if only the main contour was found
+        except:
+            a_avg=[]#track average minor radial distance to contour
+            for s in contour:
+                s=np.squeeze(s) # remove extra dimension
+                a_avg.append(np.mean( (R_eq[s[1]]-eqdsk.rmagx)**2+(Z_eq[s[0]]-eqdsk.zmagx)**2))
+            contour = np.squeeze( contour[np.argmin(a_avg)] )
+        
+                
+        #return contour,R_eq,Z_eq
+    
+        # Calculate r(theta) to stay on surface as we wind around
+        r_norm=np.sqrt((R_eq[contour[:,1]]-eqdsk.rmagx)**2+(Z_eq[contour[:,0]]-eqdsk.zmagx)**2)
+        theta_1=np.arctan2(Z_eq[contour[:,0]]-eqdsk.zmagx,R_eq[contour[:,1]]-eqdsk.rmagx) % (2*np.pi)
+        
+        r_theta_=make_smoothing_spline(theta_1[np.argsort(theta_1)],r_norm[np.argsort(theta_1)],lam=.00001)
+        r_theta = lambda theta: r_theta_(theta%(2*np.pi) )
+        
+    
+    # wind: assume constant d-theta? (assign balooning to currents themselves)
+    # Assume theta is starting value, wind in phi
+    coords=[]
+    for theta_ in theta:
+        r = r_theta(n*phi/m+theta_)
+        z = eqdsk.zmagx+r*np.sin(n*phi/m+theta_)# vertical coordinate
+        r_x = r*np.cos(n*phi/m+theta_) # adjust major radial vector
+        x = (eqdsk.rmagx+r_x)*np.cos(phi)
+        y = (eqdsk.rmagx+r_x)*np.sin(phi)
+        coords.append([x,y,z])
+    
+    # Debug plots
+    if debug:
+        plt.close('filament_debug')
+        fig,ax = plt.subplots(1,3,num='filament_debug',tight_layout=True)
+        ax[0].plot(R_eq[contour[:,1]],Z_eq[contour[:,0]],'*')
+        theta__=np.linspace(0,2*np.pi,50)#-np.pi
+        ax[0].plot(r_theta(theta__)*np.cos(theta__)+eqdsk.rmagx,
+                   r_theta(theta__)*np.sin(theta__)+eqdsk.zmagx,alpha=.6)
+    
+        ax[1].plot(theta_1,r_norm,'*')
+        ax[1].plot(theta__,r_theta(theta__),alpha=.6)
+        
+        fil=8
+        ax[2].plot(coords[fil][0],label='X')
+        ax[2].plot(coords[fil][1],label='Y')
+        ax[2].plot(coords[fil][2],label='Z')
+        ax[2].legend(fontsize=8)
+        
+        for i in range(len(ax)):ax[i].grid()
+        
+        plt.show()
+    return coords
 ################# Currents 
 def plot_Currents(params,coil_currs,doSave,save_Ext=''):
    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -214,11 +305,11 @@ def plot_Currents(params,coil_currs,doSave,save_Ext=''):
    ax[0].plot(times*1e3,coil_currs[:,1],label=r'$\phi=0,\theta=0$')
    # import decimal 
    # decimal.Decimal(-.25).as_integer_ratio()
-   ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_1'],
+   ax[1].plot(hist_file['time']*1e3,hist_file['MIRNOV_TOR_SET_160_H1'],
               label=r'Sensor $\phi=-\pi/4$')
-   ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_2'],
+   ax[1].plot(hist_file['time']*1e3,hist_file['MIRNOV_TOR_SET_160_V1'],
               label=r'Sensor $\phi=0$')
-   ax[1].plot(hist_file['time']*1e3,hist_file['Mirnov_3'],
+   ax[1].plot(hist_file['time']*1e3,hist_file['MIRNOV_TOR_SET_340_H1'],
               label=r'Sensor $\phi=+\pi/4$')
    ax[0].set_ylabel("I-Mode [A]")
    ax[1].set_ylabel(r'B$_z$ [T]')
@@ -232,4 +323,8 @@ def plot_Currents(params,coil_currs,doSave,save_Ext=''):
                          transparent=True)  
 ####################################
   
-if __name__=='__main__':gen_synthetic_Mirnov()
+if __name__=='__main__':
+    mesh_file='SPARC_Sept2023_noPR.h5'
+    # mesh_file='thincurr_ex-torus.h5'
+    sensor_filename='floops_Mirnov.loc'
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_filename=sensor_filename)
