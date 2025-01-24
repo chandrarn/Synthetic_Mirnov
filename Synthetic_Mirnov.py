@@ -133,7 +133,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,doPlot=True):
     return coil_currs
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords, t_pt=0,):
+              filament_coords, t_pt=0,plot_B_surf=False):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -150,9 +150,10 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     with h5py.File('mesh.0001.h5','r') as h5_file:
         r_ = np.asarray(h5_file['R_surf'])
         lc = np.asarray(h5_file['LC_surf'])
-    with h5py.File('vector_dump.0001.h5') as h5_file:
-        Jfull = np.asarray(h5_file['J_v0001'])
-        scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
+    if plot_B_surf:
+        with h5py.File('vector_dump.0001.h5') as h5_file:
+            Jfull = np.asarray(h5_file['J_v0001'])
+            scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
     cells = np.insert(lc, [0,], 3, axis=1)
     grid = pyvista.UnstructuredGrid(cells, celltypes, r_)
@@ -160,7 +161,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     p = pyvista.Plotter()  
     
     # Plot Mesh
-    #p.add_mesh(grid,color="white",opacity=.9,show_edges=True,scalars=Jfull)
+    if plot_B_surf: p.add_mesh(grid,color="white",opacity=.9,show_edges=True,scalars=Jfull)
     #slices=grid.slice_orthogonal()
     slice_coords=[np.linspace(0,1.6,10),[0]*10,np.linspace(-1.5,1.5,10)]
     slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
