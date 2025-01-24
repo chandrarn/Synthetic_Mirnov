@@ -236,5 +236,5 @@ def plot_Currents(params,coil_currs,doSave,save_Ext=''):
 if __name__=='__main__':
     mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
-    sensor_filename='floops_Mirnov.loc'
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_filename=sensor_filename)
+    sensor_set='MIRNOV'
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set)
