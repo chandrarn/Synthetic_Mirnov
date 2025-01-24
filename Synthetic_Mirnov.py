@@ -17,7 +17,7 @@ from prep_sensors import conv_sensor
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',sensor_filename='floops.loc',\
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':50,'m_pts':60,\
-                            'f':1e3,'dt':1e-4,'periods':2,'n_threads':64,'I':10},
+                            'f':500e3,'dt':2e-7,'periods':3,'n_threads':64,'I':10},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='MIRNOV'):
     
@@ -65,7 +65,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,doPlot=True):
     Mc = tw_mesh.compute_Mcoil()
     print('checkpoint 3')
     # Build inductance matrix
-    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='HOLDR_L.save')
+    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='HOLDR_L_%s.save'%sensor_set)
     print('checkpoint 4')
     # Buld resistivity matrix
     tw_mesh.compute_Rmat()
@@ -124,10 +124,10 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,doPlot=True):
     dt=param['dt'];f=param['f'];periods=param['periods']
     tw_mesh.run_td(dt,int(periods/f/dt),
                     coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
-    tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
+    #tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
+    #_, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
        
     return coil_currs
 ########################
