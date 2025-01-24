@@ -77,7 +77,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,doPlot=True):
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
 ####################################
-def gen_filaments(filament_file,params, ):
+def gen_filaments(filament_file,params,filament_coords ):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
@@ -234,5 +234,5 @@ def plot_Currents(params,coil_currs,doSave,save_Ext=''):
 if __name__=='__main__':
     mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
-    sensor_filename='floops_Mirnov.loc'
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_filename=sensor_filename)
+    sensor_set='MIRNOV'
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set)
