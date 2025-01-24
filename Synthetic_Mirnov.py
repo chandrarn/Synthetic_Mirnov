@@ -10,19 +10,16 @@ Created on Tue Dec 17 11:43:59 2024
 from header import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
         make_smoothing_spline
-from gen_MAGX_Coords import gen_Sensors
+from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 
 from prep_sensors import conv_sensor
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',sensor_filename='floops.loc',\
-                             params={'m':2,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':10,\
-<<<<<<< HEAD
-                            'f':1e3,'dt':1e-4,'periods':2,'n_threads':10,'I':10},
-=======
+                             params={'m':12,'n':10,'r':.25,'R':1,'n_pts':50,'m_pts':60,\
                             'f':1e3,'dt':1e-4,'periods':2,'n_threads':64,'I':10},
->>>>>>> refs/remotes/origin/main
-                                doSave='',save_ext='',file_geqdsk='geqdsk'):
+                                doSave='',save_ext='',file_geqdsk='geqdsk',
+                                sensor_set='MIRNOV'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -34,7 +31,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     gen_filaments(xml_filename,params,filament_coords)
     #sensors = gen_sensors() 
     #sensors = conv_sensor('sensorLoc.xyz')[0]
-    sensors=gen_Sensors()[-1]
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,sensor_filename,params)
@@ -80,7 +77,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,doPlot=True):
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
 ####################################
-def gen_filaments(filament_file,params,filament_coords):
+def gen_filaments(filament_file,params, ):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)

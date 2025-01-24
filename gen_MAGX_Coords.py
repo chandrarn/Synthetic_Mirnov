@@ -161,7 +161,7 @@ def gen_Sensors(coord_file='MAGX_Coordinates.json'):
     save_sensors(sensors_BN,'floops_BN.loc')
     save_sensors(sensors_Flux_Partial,'floops_Flux_Partial.loc')
     save_sensors(sensors_Flux_Full,'floops_Flux_Full.loc')
-    save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
+    save_sensors(sensors_Mirnov,'floops_MIRNOV.loc')
     
     
     sensors_all.extend(sensors_BP)
@@ -233,7 +233,7 @@ def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',compari
     with open(coord_file,'w') as f:json.dump(coords,f)
     return coords
 ####################################    
-def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json'):
+def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MIRNOV'):
     coords = json.load(open(coord_file,'r'))
     
     sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
@@ -260,8 +260,8 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json'):
     # Mirnov object itself is directly readable: can extract location
     save_sensors(sensors_BP,'floops_BP_CFS.loc')
     save_sensors(sensors_BN,'floops_BN_CFS.loc')
-    save_sensors(sensors_Flux_Partial,'floops_Flux_Partial_CFS.loc')
-    save_sensors(sensors_Flux_Full,'floops_Flux_Full_CFS.loc')
+    save_sensors(sensors_Flux_Partial,'floops_SL_CFS.loc')
+    save_sensors(sensors_Flux_Full,'floops_FL_CFS.loc')
     #save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
     sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
     
@@ -270,6 +270,13 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json'):
     sensors_all.extend(sensors_Flux_Partial)
     sensors_all.extend(sensors_Flux_Full)
     sensors_all.extend(sensors_Mirnov)
+    
+    if select_sensor == 'BP': return sensors_BP
+    if select_sensor == 'BN': return sensors_BN
+    if select_sensor == 'SL': return sensors_Flux_Partial
+    if select_sensor == 'FL': return sensors_Flux_Full
+    if select_sensor == 'MIRNOV': return sensors_Mirnov
+    if select_sensor == 'ALL': return sensors_all
     
     return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
 ####################################
