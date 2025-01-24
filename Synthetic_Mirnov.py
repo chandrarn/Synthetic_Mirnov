@@ -15,7 +15,7 @@ from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_
 from prep_sensors import conv_sensor
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
-                         xml_filename='oft_in.xml',sensor_filename='floops.loc',\
+                         xml_filename='oft_in.xml',\
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':50,'m_pts':60,\
                             'f':1e3,'dt':1e-4,'periods':2,'n_threads':64,'I':10},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
@@ -34,7 +34,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
-        get_mesh(mesh_file,xml_filename,sensor_filename,params)
+        get_mesh(mesh_file,xml_filename,sensor_set,params)
 
     # Get mode amplitudes, assign to fillaments [eventually, from simulation]
     
@@ -59,7 +59,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,doPlot=True):
     
     print('checkpoint 1')
     # Sensor - mesh and sensor - filament inductances
-    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor(sensor_file)
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_file)
     print('checkpoint 2')
     # Filament - mesh inductance
     Mc = tw_mesh.compute_Mcoil()
