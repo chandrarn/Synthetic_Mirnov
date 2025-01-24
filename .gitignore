@@ -1,4 +1,4 @@
-
+*.pyc
 *.pdf
 *.hist
 *.save
@@ -6,4 +6,4 @@
 *.rst
 *.xmf
 *.dat
-
+*.nc

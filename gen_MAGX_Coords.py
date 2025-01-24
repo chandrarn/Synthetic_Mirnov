@@ -10,7 +10,7 @@ try:import MDSplus as mds
 except:import mdsthin as mds
 import numpy as np
 import json
-from header import Mirnov, save_sensors, flux_loop
+from header import Mirnov, save_sensors, flux_loop, plt
 
 def gen_Node_Dict():
     nodes = {}
@@ -141,7 +141,7 @@ def gen_Sensors(coord_file='MAGX_Coordinates.json'):
             for ul in ['_L','_U']:
                 # Format is different for these: centered on 0,0,Z, radius is R
                 sens = Mirnov([0,0,coords[set_]['%s%s'%(pos,ul)]['Z']],[0,0,1],
-                              coords[set_]['%s%s'%(pos,ul)]['R'])
+                     '%s_%s%s'%(set_,pos,ul), coords[set_]['%s%s'%(pos,ul)]['R'])
                 sensors_Flux_Full.append(sens)
                 
     # Mirnov
@@ -204,6 +204,92 @@ def __coords_xyz_Mirnov(node):
                                  node['R']*np.sin(node['PHI']*np.pi/180),
                                  node['Z']] , [0,0,1] )
         
-
+##################################################
+def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',comparison='MAGX_Equilibrium_XYZ.csv'):
+    #coords_j = json.load(open(coord_file,'r'))
+    comp = np.loadtxt(comparison,delimiter=',',dtype=object,skiprows=1)
+    
+    #BNMX/BNMX
+    coords = {}
+    sets = ['BP','BN','SL','FL']
+    for s in sets:coords[s]={}
+    
+    for sensor in comp:# loop over entries
+        sens_name = sensor[1]
+        if sens_name[:2] in sets[:2]:
+            coords[sens_name[:2]][sens_name]={'PHI':float(sensor[3]),'R':float(sensor[4]),
+           'X':float(sensor[5]),'Y':float(sensor[6]),'Z':float(sensor[7]),
+           'ANGLE':float(sensor[8]),'NA':float(sensor[-1])*float(sensor[-2])}
+            
+        else:
+            if sens_name[:2] == 'SL': # Saddle loop
+                coords[sens_name[:2]][sens_name] = {'R1':float(sensor[4]),
+                'Z1':float(sensor[7]),'PHI1':float(sensor[3]),
+                'PHI2':float(sensor[10]),'R2':float(sensor[11]),
+                'Z2':float(sensor[14])}
+            if sens_name[:2] == 'FL': # Flux loop
+                coords[sens_name[:2]][sens_name] = {'R':float(sensor[4]),
+                                                    'Z':float(sensor[7])}
+    with open(coord_file,'w') as f:json.dump(coords,f)
+    return coords
+####################################    
+def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json'):
+    coords = json.load(open(coord_file,'r'))
+    
+    sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
+    sensors_all=[]
+    for set_ in coords:
+        if set_ in ['BP','BN']:
+            for sensor in coords[set_]:
+                sens = Mirnov(*__coords_xyz_BP_BN(coords[set_][sensor],\
+                      coords[set_][sensor]), '%s_%s'%(set_,sensor))
+                if set_ == 'BP': sensors_BP.append(sens)
+                if set_ == 'BN': sensors_BN.append(sens)
+        if set_ == 'SL': # Saddle loop
+            for sensor in coords[set_]:
+                sens = flux_loop(__coords_xyz_Flux_P(coords[set_][sensor]),
+                     '%s_%s'%(set_,sensor) )
+                sensors_Flux_Partial.append(sens)
+        if set_ == 'FL':
+            for sensor in coords[set_]:
+                sens = Mirnov([0,0,coords[set_][sensor]['Z']],[0,0,1],
+                     '%s_%s'%(set_,sensor), coords[set_][sensor]['R'])
+                sensors_Flux_Full.append(sens)
+        
+    # Save in ThinCurr readable format
+    # Mirnov object itself is directly readable: can extract location
+    save_sensors(sensors_BP,'floops_BP_CFS.loc')
+    save_sensors(sensors_BN,'floops_BN_CFS.loc')
+    save_sensors(sensors_Flux_Partial,'floops_Flux_Partial_CFS.loc')
+    save_sensors(sensors_Flux_Full,'floops_Flux_Full_CFS.loc')
+    #save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
+    sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
+    
+    sensors_all.extend(sensors_BP)
+    sensors_all.extend(sensors_BN)
+    sensors_all.extend(sensors_Flux_Partial)
+    sensors_all.extend(sensors_Flux_Full)
+    sensors_all.extend(sensors_Mirnov)
+    
+    return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
+####################################
+def debug_plots(set_='BP',tor=0,coord_file='MAGX_Coordinates_CFS.json'):
+    coords = json.load(open(coord_file,'r')) 
+    
+    plt.close('debug')
+    fig,ax=plt.subplots(1,1,num='debug',tight_layout=True)
+    for sensor in coords[set_]:
+        if -15 + tor < coords[set_][sensor]['PHI'] < 15 + tor:
+            x0, norm = __coords_xyz_BP_BN(coords[set_][sensor],\
+                  coords[set_][sensor])
+            #print(x0,norm)
+            x0=np.array(x0)[[0,2]];norm=np.array(norm)[[0,2]]
+            #x0=np.array([coords[set_][sensor]['X'],coords[set_][sensor]['Z']])
+            ax.plot(x0[0],x0[1],'k*')
+        
+            ax.plot([x0[0],(x0+np.array(norm)*100)[0]],
+                    [x0[1],(x0+np.array(norm)*100)[1]])
+    
+    plt.grid();plt.show()
 ####################################
 if __name__ == '__main__':gen_Sensors()
