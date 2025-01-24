@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from matplotlib import rc,cm
 import pyvista
-pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
+#pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
 plt.rcParams['axes.labelweight']='bold'
@@ -26,6 +26,7 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 
+sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 from OpenFUSIONToolkit.util import build_XDMF, mu0
