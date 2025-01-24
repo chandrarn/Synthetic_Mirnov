@@ -111,8 +111,9 @@ def gen_coil_currs(param):
     m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
     I=param['I'];n=param['n'];n_pts=param['n_pts']
     theta_,phi_= gen_filament_coords(param)
-    coil_currs = np.zeros((int(periods/f/dt),m_pts+1))
-    for ind,t in enumerate(np.arange(0,periods/f,dt)):
+    time=np.arange(0,periods/f,dt)
+    coil_currs = np.zeros((time.size,m_pts+1))
+    for ind,t in enumerate(time):
         coil_currs[ind,1:]=[I*np.cos(m*theta+t*f*2*np.pi) for theta in theta_]
         
     # Time vector in first column
