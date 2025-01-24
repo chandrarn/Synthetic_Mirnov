@@ -17,7 +17,7 @@ from prep_sensors import conv_sensor
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',sensor_filename='floops.loc',\
                              params={'m':2,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':10,\
-                            'f':1e3,'dt':2e-4,'periods':1,'n_threads':8,'I':10},
+                            'f':1e3,'dt':1e-4,'periods':2,'n_threads':64,'I':10},
                                 doSave='',save_ext='',file_geqdsk='geqdsk'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue

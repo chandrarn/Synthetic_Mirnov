@@ -23,7 +23,8 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 import xarray as xr
-#import C1py
+from sys import path;path.append('/orcd/home/002/rianc/')
+import C1py
 import cv2 # necessary for contour detection
 
 def convert_to_Bnorm(C1file_name='',B=None,psi=None,R=None,Z=None):
@@ -38,10 +39,16 @@ def get_fields_from_C1(filename):
                          rrange=None, zrange=None, iequil=1)
     
     
-    b_field = C1py.read_field('bfield', slice=-1, filename=filename, points=200,
-                        rrange=None, zrange=None, iequil=-1)
-    
+    b_field = C1py.read_field('bfield', slice=[0,1], filename=filename, points=200,
+                        rrange=None, zrange=None, iequil=None,idiff=True)
+    b_field2 = C1py.read_field('bfield', slice=[0,1], filename=filename, points=200,
+                        rrange=None, zrange=None, iequil=None,phi=90,idiff=True)
+ 
     R=b_field.coords['R'].values;Z=b_field.coords['Z']
+
+    psi.to_netcdf('psi.nc')
+    b_field.to_netcdf('bfield_1.nc')
+    b_field2.to_netcdf('b_field2.nc')
     
     
 def calculate_normal_vector(psi_,R,Z,B,samp_pts=200,doPlot=False,ax=None,fig=None):
