@@ -217,19 +217,19 @@ def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',compari
     for sensor in comp:# loop over entries
         sens_name = sensor[1]
         if sens_name[:2] in sets[:2]:
-            coords[sens_name[:2]][sens_name]={'PHI':float(sensor[3]),'R':float(sensor[4]),
-           'X':float(sensor[5]),'Y':float(sensor[6]),'Z':float(sensor[7]),
-           'ANGLE':float(sensor[8]),'NA':float(sensor[-1])*float(sensor[-2])}
+            coords[sens_name[:2]][sens_name]={'PHI':float(sensor[3]),'R':float(sensor[4])*1e-3,
+           'X':float(sensor[5])*1e-3,'Y':float(sensor[6])*1e-3,'Z':float(sensor[7])*1e-3,
+           'ANGLE':float(sensor[8]),'NA':float(sensor[-1])*float(sensor[-2])*1e-6}
             
         else:
             if sens_name[:2] == 'SL': # Saddle loop
-                coords[sens_name[:2]][sens_name] = {'R1':float(sensor[4]),
-                'Z1':float(sensor[7]),'PHI1':float(sensor[3]),
-                'PHI2':float(sensor[10]),'R2':float(sensor[11]),
-                'Z2':float(sensor[14])}
+                coords[sens_name[:2]][sens_name] = {'R1':float(sensor[4])*1e-3,
+                'Z1':float(sensor[7])*1e-3,'PHI1':float(sensor[3]),
+                'PHI2':float(sensor[10]),'R2':float(sensor[11])*1e-3,
+                'Z2':float(sensor[14])*1e-3}
             if sens_name[:2] == 'FL': # Flux loop
-                coords[sens_name[:2]][sens_name] = {'R':float(sensor[4]),
-                                                    'Z':float(sensor[7])}
+                coords[sens_name[:2]][sens_name] = {'R':float(sensor[4])*1e-3,
+                                                    'Z':float(sensor[7])*1e-3}
     with open(coord_file,'w') as f:json.dump(coords,f)
     return coords
 ####################################    

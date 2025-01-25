@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pyvista
 from prep_sensors import conv_sensor
-from gen_MAGX_Coords import gen_Sensors
+from gen_MAGX_Coords import gen_Sensors, gen_Sensors_Updated
 import Synthetic_Mirnov as sM
 
 plt.rcParams['figure.figsize']=(6,6)
@@ -62,11 +62,11 @@ grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for th
 
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
-sensors = gen_Sensors()[0]
+sensors = gen_Sensors_Updated(select_sensor='ALL')
 Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP.loc')
 
 # Gen Currents
-params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':20,\
+params={'m':4,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':40,\
 'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
 theta,phi = sM.gen_filament_coords(params)
 filament_coords = sM.calc_filament_coords_geqdsk('geqdsk', theta, phi, params)

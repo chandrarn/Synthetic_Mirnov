@@ -15,6 +15,7 @@ rc('text', usetex=True)
 from freeqdsk import geqdsk # package name freeqdsk
 import cv2 # package name opencv-python
 from scipy.interpolate import make_smoothing_spline
+from fractions import Fraction
 
 params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':20,\
 'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
@@ -25,8 +26,10 @@ def gen_filament_coords(params):
     # generate phi, theta coordinates for fillaments
     # The points launch in a fractional sector of the poloidal plane, and
     # wrap toroidally enough times to return to their starting point
-    return np.linspace(0,2*np.pi/m,m_pts,endpoint=True),\
-        np.linspace(0,m*2*np.pi*n,n_pts,endpoint=True)
+    ratio = Fraction(m,n)
+    m_local=ratio.numerator;n_local=ratio.denominator
+    return np.linspace(0,2*np.pi/m_local*n_local,m_pts,endpoint=True),\
+        np.linspace(0,m_local*2*np.pi,n_pts,endpoint=True)
  
 ########################
 def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
@@ -38,7 +41,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
     
     if file_geqdsk is None:
         r_theta = lambda theta: a # running circular approximation
-        
+        zmagx=0;rmagx=R
     else: # Using geqdsk equilibrium to locate flux surfaces
         # Load eqdsk
         with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
@@ -72,14 +75,17 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
         r_theta_=make_smoothing_spline(theta_r[np.argsort(theta_r)],r_norm[np.argsort(theta_r)],lam=.00001)
         r_theta = lambda theta: r_theta_(theta%(2*np.pi) ) # Radial coordinate vs theta
         
+        zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
     # Assume theta is starting value, wind in phi
     coords=[]
     for theta_ in theta:
-        r = r_theta(n*phi/m+theta_)
-        z = eqdsk.zmagx+r*np.sin(n*phi/m+theta_)# vertical coordinate
-        r_x = r*np.cos(n*phi/m+theta_) # adjust major radial vector
-        x = (eqdsk.rmagx+r_x)*np.cos(phi)
-        y = (eqdsk.rmagx+r_x)*np.sin(phi)
+        #theta_ = theta_ % (2*np.pi)
+        theta_local = n*phi/m
+        r = r_theta(theta_local+theta_)
+        z = zmagx+r*np.sin(theta_local+theta_)# vertical coordinate
+        r_x = r*np.cos(theta_local+theta_) # adjust major radial vector
+        x = (rmagx+r_x)*np.cos(phi)
+        y = (rmagx+r_x)*np.sin(phi)
         coords.append([x,y,z])
     
     # Debug plots
