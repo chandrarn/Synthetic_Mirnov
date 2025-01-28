@@ -15,8 +15,8 @@ def plot_Current_Surface(params,coil_currs,sensor_file='MAGX_Coordinates.json',
     # Load sensor parameters for voltage conversion
     sensor_params= json.load(open(sensor_file,'r'))
     # Load ThinCurr sensor output
-    hist_file = histfile('floops_%s_m-n_%d-%d_f_%d.hist'%\
-                         (sensor_set,params['m'],params['n'],params['f']*1e-3))
+    hist_file = histfile('floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+                 (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
     
     # Select usable sensors from set
     sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)

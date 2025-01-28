@@ -49,7 +49,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     coil_currs = gen_coil_currs(params)
     
     # Run time dependent simulation
-    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set)
+    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_Ext)
     
     
     slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
@@ -88,7 +88,7 @@ def gen_filaments(filament_file,params,filament_coords ):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
-    eta='1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
+    eta='1E6, 1E6, 1E6, 1E6, 1E6'#'1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
     with open(filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
@@ -128,7 +128,7 @@ def gen_coil_currs(param):
     
     return coil_currs
 ####################################
-def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set):
+def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
     tw_mesh.run_td(dt,int(periods/f/dt),
@@ -139,8 +139,8 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set):
     #_, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
     # Rename output 
-    subprocess.run(['cp','floops.hist','floops_%s_m-n_%d-%d_f_%d.hist'%\
-                    (sensor_set,m,n,f*1e-3)])
+    subprocess.run(['cp','floops.hist','floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (sensor_set,m,n,f*1e-3,save_Ext)])
                     
     return coil_currs
 ########################
