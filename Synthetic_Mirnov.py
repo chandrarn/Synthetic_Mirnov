@@ -16,8 +16,8 @@ from prep_sensors import conv_sensor
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
-                             params={'m':12,'n':10,'r':.25,'R':1,'n_pts':50,'m_pts':60,\
-                            'f':500e3,'dt':2e-7,'periods':3,'n_threads':64,'I':10},
+                             params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
+                            'f':500e3,'dt':1e-7,'periods':4,'n_threads':64,'I':10},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='MIRNOV'):
     
