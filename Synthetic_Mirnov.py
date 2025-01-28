@@ -18,13 +18,8 @@ from plot_sensor_output import plot_Currents
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
-<<<<<<< HEAD
-                             params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
-                            'f':500e3,'dt':1e-7,'periods':4,'n_threads':64,'I':10},
-=======
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
                             'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
->>>>>>> 661e447bff332cba8bb64346baea82c9eb5dab3b
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='MIRNOV'):
     
