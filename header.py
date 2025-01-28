@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from matplotlib import rc,cm
+from matplotlib.colors import Normalize
 import pyvista
 #pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
 plt.rcParams['figure.figsize']=(6,6)
