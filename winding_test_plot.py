@@ -88,3 +88,5 @@ def gen_filament_coords(params):
     m_local=ratio.numerator;n_local=ratio.denominator
     return np.linspace(0,2*np.pi/m_local*n_local,m_pts,endpoint=True),\
         np.linspace(0,m_local*2*np.pi,n_pts,endpoint=True)
+##########################
+if __name__=='__main__':main()
