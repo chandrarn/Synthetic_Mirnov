@@ -18,10 +18,10 @@ from plot_sensor_output import plot_Currents
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
-                             params={'m':12,'n':10,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
-                            'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
-                                doSave='',save_ext='_Very_Resistive',file_geqdsk='geqdsk',
-                                sensor_set='MIRNOV'):
+                             params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
+                            'f':7e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
+                                doSave='',save_ext='',file_geqdsk='geqdsk',
+                                sensor_set='BP'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -61,7 +61,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,sensor_set):
     
     print('checkpoint 1')
     # Sensor - mesh and sensor - filament inductances
-    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_file)
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s_CFS.loc'%sensor_file)
     print('checkpoint 2')
     # Filament - mesh inductance
     Mc = tw_mesh.compute_Mcoil()
@@ -135,7 +135,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
     _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
     # Rename output 
-    subprocess.run(['cp','floops.hist','floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+    subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f*1e-3,save_Ext)])
                     
     return coil_currs
@@ -219,5 +219,5 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 if __name__=='__main__':
     mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
-    sensor_set='MIRNOV'
+    sensor_set='BP'
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set)
