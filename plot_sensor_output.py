@@ -64,7 +64,7 @@ def __gen_surface_data(sensor_dict,hist_file,doVoltage,params,sensor_set,
         Y[-1] = np.array(Y[-1])[inds]
         Z.append([])
         Z[-1].append(np.array([\
-       (field_to_current(hist_file['%s_%s'%(sensor_set,s_['Sensor'])],\
+       (field_to_current(hist_file[s_['Sensor']],\
               dt,f,sensor_params,sensor_set,s_['Sensor']) if doVoltage else \
                 hist_file[s_['Sensor']][:-1]*1e4)  for s_ in s]).squeeze())
         Z[-1]=np.array(Z[-1]).squeeze()[inds]
