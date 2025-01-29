@@ -242,18 +242,18 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MI
         if set_ in ['BP','BN']:
             for sensor in coords[set_]:
                 sens = Mirnov(*__coords_xyz_BP_BN(coords[set_][sensor],\
-                      coords[set_][sensor]), '%s_%s'%(set_,sensor))
+                      coords[set_][sensor]), sensor,7e-3 if set_ == 'BP' else 17e-3)
                 if set_ == 'BP': sensors_BP.append(sens)
                 if set_ == 'BN': sensors_BN.append(sens)
         if set_ == 'SL': # Saddle loop
             for sensor in coords[set_]:
                 sens = flux_loop(__coords_xyz_Flux_P(coords[set_][sensor]),
-                     '%s_%s'%(set_,sensor) )
+                     sensor )
                 sensors_Flux_Partial.append(sens)
         if set_ == 'FL':
             for sensor in coords[set_]:
                 sens = Mirnov([0,0,coords[set_][sensor]['Z']],[0,0,1],
-                     '%s_%s'%(set_,sensor), coords[set_][sensor]['R'])
+                     sensor, coords[set_][sensor]['R'])
                 sensors_Flux_Full.append(sens)
         
     # Save in ThinCurr readable format

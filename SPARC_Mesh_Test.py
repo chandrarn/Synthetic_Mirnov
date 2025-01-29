@@ -45,7 +45,8 @@ tw_plate = ThinCurr(nthreads=4)
 # Mesh file contains dict name 'mesh', and sub attributes LC (mesh cells, n_cells),
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
 # .xml file defines coils 
-tw_plate.setup_model(mesh_file='SPARC_Sept2023_noPR.h5',xml_filename='oft_in.xml')
+# 'SPARC_Sept2023_noPR.h5'
+tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
 tw_plate.setup_io()
 
 print("Building XMDF")
@@ -63,7 +64,7 @@ grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for th
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
 sensors = gen_Sensors_Updated(select_sensor='BP')
-Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP.loc')
+Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP_CFS.loc')
 
 # Gen Currents
 params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
