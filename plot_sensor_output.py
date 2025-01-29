@@ -114,7 +114,7 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
             theta = np.arctan2(Z- zmagx, R-rmagx)*180/np.pi
             
             # poloidal side
-            if phi_sensor[0] - 10 <= PHI <= phi_sensor[0] + 10:
+            if phi_sensor[0] - 20 <= PHI <= phi_sensor[0] + 20:
                 sensor_dict[0].append({'Sensor':'%s'%(s),'y_vals':theta,\
                    'y_label':r'%s$_{\phi=%d}\,\hat{\theta}$ [deg]'%(sensor_set,PHI),
                    })

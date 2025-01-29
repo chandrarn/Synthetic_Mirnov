@@ -19,7 +19,11 @@ from plot_sensor_output import plot_Currents
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
                              params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
+<<<<<<< HEAD
                             'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
+=======
+                            'f':7e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
+>>>>>>> 00db5b2e9cd008410892ece888e15b48583dbd20
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='BP'):
     
@@ -135,7 +139,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
     _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
     # Rename output 
-    subprocess.run(['cp','floops.hist','floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+    subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f*1e-3,save_Ext)])
                     
     return coil_currs
@@ -219,5 +223,5 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 if __name__=='__main__':
     mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
-    sensor_set='MIRNOV'
+    sensor_set='BP'
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set)
