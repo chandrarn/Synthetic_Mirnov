@@ -18,10 +18,10 @@ from plot_sensor_output import plot_Currents
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
-                             params={'m':12,'n':10,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
+                             params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
                             'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
-                                doSave='',save_ext='_Very_Resistive',file_geqdsk='geqdsk',
-                                sensor_set='MIRNOV'):
+                                doSave='',save_ext='',file_geqdsk='geqdsk',
+                                sensor_set='BP'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -61,7 +61,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,sensor_set):
     
     print('checkpoint 1')
     # Sensor - mesh and sensor - filament inductances
-    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_file)
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s_CFS.loc'%sensor_file)
     print('checkpoint 2')
     # Filament - mesh inductance
     Mc = tw_mesh.compute_Mcoil()

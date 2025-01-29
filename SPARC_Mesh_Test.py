@@ -62,11 +62,11 @@ grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for th
 
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
-sensors = gen_Sensors_Updated(select_sensor='MIRNOV')
-Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_MIRNOV.loc')
+sensors = gen_Sensors_Updated(select_sensor='BP')
+Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP.loc')
 
 # Gen Currents
-params={'m':12,'n':10,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
+params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
 'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
 theta,phi = sM.gen_filament_coords(params)
 filament_coords = sM.calc_filament_coords_geqdsk('geqdsk', theta, phi, params)

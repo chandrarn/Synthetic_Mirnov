@@ -8,14 +8,14 @@ Created on Mon Jan 27 15:43:15 2025
 from header import json,plt,np,histfile,geqdsk,factorial, Normalize,cm
 
 # Surface plot for arb sensors
-def plot_Current_Surface(params,coil_currs,sensor_file='MAGX_Coordinates.json',
+def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CFS.json',
                          sensor_set='MIRNOV',doVoltage=True,phi_sensor=[340],
                          doSave='',save_Ext='',timeScale=1e6,file_geqdsk='geqdsk'):
     
     # Load sensor parameters for voltage conversion
     sensor_params= json.load(open(sensor_file,'r'))
     # Load ThinCurr sensor output
-    hist_file = histfile('floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+    hist_file = histfile('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                  (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
     
     # Select usable sensors from set
@@ -24,11 +24,11 @@ def plot_Current_Surface(params,coil_currs,sensor_file='MAGX_Coordinates.json',
     # build datasets
     X,Y,Z = __gen_surface_data(sensor_dict,hist_file,doVoltage,params,
                                sensor_set, sensor_params)
-    #return X,Y,Z
+    # return sensor_dict,X,Y,Z
     # build plot
     doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
            doVoltage)
-    return sensor_dict
+    return sensor_dict,X,Y,Z
 ##########################
 def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params, doVoltage):
     plt.close('%s_Current_Surface%s'%(sensor_set,save_Ext))
@@ -57,16 +57,19 @@ def __gen_surface_data(sensor_dict,hist_file,doVoltage,params,sensor_set,
     dt=params['dt'];f=params['f']
     X = [hist_file['time'][:-1]]*len(sensor_dict)
     Y=[]
-    for s in sensor_dict:Y.append( [s[i]['y_vals'] for i in range(len(s))] )
     Z=[]
     for s in sensor_dict:
+        Y.append( [s[i]['y_vals'] for i in range(len(s))] )
+        inds=np.argsort(Y[-1])
+        Y[-1] = np.array(Y[-1])[inds]
         Z.append([])
         Z[-1].append(np.array([\
-       (field_to_current(hist_file[s_['Sensor']],\
+       (field_to_current(hist_file['%s_%s'%(sensor_set,s_['Sensor'])],\
               dt,f,sensor_params,sensor_set,s_['Sensor']) if doVoltage else \
                 hist_file[s_['Sensor']][:-1]*1e4)  for s_ in s]).squeeze())
-        Z[-1]=np.array(Z[-1]).squeeze()
+        Z[-1]=np.array(Z[-1]).squeeze()[inds]
     #return Z
+    
     return X,Y,Z
 def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
     # Return list of dictionaries for subplots
@@ -95,13 +98,35 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
                 sensor_dict[1].append({'Sensor':'%s_%s_%s'%\
                        (sensor_set,'TOR_SET_%03d'%phi_sensor[0],s), 
                        'y_vals':PHI,'y_label':r'Mirnov-H $\phi$ [deg]'})
-    
+    elif sensor_set == 'BP' or sensor_set == 'BN':
+        subset = sensor_params[sensor_set]
+        sensor_dict.append([]);sensor_dict.append([])
+        for s in subset:
+            # Gen coords
+            if file_geqdsk is None:zmagx=0;rmagx=params['R']
+            else:
+                with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+                zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
+            #print(s,subset[s])
+            R = subset[s]['R']
+            Z = subset[s]['Z']
+            PHI = subset[s]['PHI']
+            theta = np.arctan2(Z- zmagx, R-rmagx)*180/np.pi
+            
+            # poloidal side
+            if phi_sensor[0] - 10 <= PHI <= phi_sensor[0] + 10:
+                sensor_dict[0].append({'Sensor':'%s'%(s),'y_vals':theta,\
+                   'y_label':r'%s$_{\phi=%d}\,\hat{\theta}$ [deg]'%(sensor_set,PHI),
+                   })
+            if 0-10 <= theta <= 10: # Toroidal ''set''
+                sensor_dict[1].append({'Sensor':'%s'%(s),'y_vals':PHI,\
+                   'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta)})
     return sensor_dict
 #######################################################
 ######################################################
 ################# Currents 1D Plot
 def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
-                  sensor_file='MAGX_Coordinates.json',doVoltage=True,
+                  sensor_file='MAGX_Coordinates_CFS.json',doVoltage=True,
                   manualCurrents=True,current_phi=350,file_geqdsk='geqdsk',
                   timeScale=1e6,sensor_set='MIRNOV'):
    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
