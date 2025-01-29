@@ -20,7 +20,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
                             'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
-                                doSave='',save_ext='',file_geqdsk='geqdsk',
+                                doSave='',save_ext='_Very_Resistive',file_geqdsk='geqdsk',
                                 sensor_set='MIRNOV'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
@@ -36,7 +36,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
-        get_mesh(mesh_file,xml_filename,sensor_set,params)
+        get_mesh(mesh_file,xml_filename,sensor_set,params,sensor_set)
 
     # Get mode amplitudes, assign to fillaments [eventually, from simulation]
     
@@ -44,7 +44,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     coil_currs = gen_coil_currs(params)
     
     # Run time dependent simulation
-    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_Ext)
+    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
     
     slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
@@ -53,7 +53,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     return sensors, coil_currs, tw_mesh, slices,slices_spl
 #    return sensor_,currents
 #####################################3
-def get_mesh(mesh_file,filament_file,sensor_file,params,doPlot=True):
+def get_mesh(mesh_file,filament_file,sensor_file,params,sensor_set):
     tw_mesh = ThinCurr(nthreads=params['n_threads'],debug_level=2,)
     tw_mesh.setup_model(mesh_file=mesh_file,xml_filename=filament_file)
     print('checkpoint 0')
@@ -83,7 +83,8 @@ def gen_filaments(filament_file,params,filament_coords ):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
-    eta='1E6, 1E6, 1E6, 1E6, 1E6'#'1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
+    #eta='1E6, 1E6, 1E6, 1E6, 1E6'# Effective insulator wall
+    eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
     with open(filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
@@ -128,10 +129,10 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
     n=param['n']
     tw_mesh.run_td(dt,int(periods/f/dt),
                     coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
-    #tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
+    tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    #_, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
+    _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
     # Rename output 
     subprocess.run(['cp','floops.hist','floops_%s_m-n_%d-%d_f_%d%s.hist'%\
@@ -140,7 +141,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
     return coil_currs
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False):
+              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=True):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
