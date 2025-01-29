@@ -19,11 +19,7 @@ from plot_sensor_output import plot_Currents
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
                              params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
-<<<<<<< HEAD
-                            'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
-=======
                             'f':7e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
->>>>>>> 00db5b2e9cd008410892ece888e15b48583dbd20
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='BP'):
     
@@ -128,15 +124,15 @@ def gen_coil_currs(param):
     
     return coil_currs
 ####################################
-def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
+def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
     tw_mesh.run_td(dt,int(periods/f/dt),
                     coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
-    tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
+    if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
+    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
     # Rename output 
     subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
@@ -145,7 +141,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext):
     return coil_currs
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=True):
+              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
