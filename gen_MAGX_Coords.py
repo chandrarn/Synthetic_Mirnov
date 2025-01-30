@@ -277,7 +277,7 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MR
         if set_ == 'MRNV':
             for sensor in coords[set_]:
                 sens = Mirnov(*__coords_xyz_Mirnov(coords[set_][sensor]),
-                               sensor,dx=3e-2)
+                              name=sensor,dx=3e-2)
                 sensors_Mirnov.append(sens)
     # Save in ThinCurr readable format
     # Mirnov object itself is directly readable: can extract location
@@ -286,6 +286,7 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MR
     save_sensors(sensors_Flux_Partial,'floops_SL.loc')
     save_sensors(sensors_Flux_Full,'floops_FL.loc')
     save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
+    
     #sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
     
     sensors_all.extend(sensors_BP)

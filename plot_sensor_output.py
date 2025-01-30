@@ -20,7 +20,7 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
     
     # Select usable sensors from set
     sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)
-    
+    return sensor_dict, sensor_params
     # build datasets
     X,Y,Z = __gen_surface_data(sensor_dict,hist_file,doVoltage,params,
                                sensor_set, sensor_params)
@@ -98,7 +98,7 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
                 sensor_dict[1].append({'Sensor':'%s_%s_%s'%\
                        (sensor_set,'TOR_SET_%03d'%phi_sensor[0],s), 
                        'y_vals':PHI,'y_label':r'Mirnov-H $\phi$ [deg]'})
-    elif sensor_set == 'BP' or sensor_set == 'BN':
+    elif sensor_set == 'BP' or sensor_set == 'BN' or sensor_set == 'MRNV':
         subset = sensor_params[sensor_set]
         sensor_dict.append([]);sensor_dict.append([])
         for s in subset:
