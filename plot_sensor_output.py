@@ -5,7 +5,7 @@ Created on Mon Jan 27 15:43:15 2025
  Suite of codes for plotting currents from ThinCurr sensor output
 @author: rian
 """
-from header import json,plt,np,histfile,geqdsk,factorial, Normalize,cm
+from header import json,plt,np,histfile,geqdsk,factorial, Normalize,cm, cv2
 
 # Surface plot for arb sensors
 def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CFS.json',
@@ -123,6 +123,71 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
                    'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta)})
     return sensor_dict
 #######################################################
+def __sensor_position_verify(sensor_set,sensor_file='MAGX_Coordinates_CFS.json',
+                             phi_sensor=[0],file_geqdsk='geqdsk',params=None,
+                             highlight=[],doSave=''):
+    sensor_params= json.load(open(sensor_file,'r'))
+    sensor_dict=__select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)
+    
+    R_lcfs, Z_lcfs = __LCFS_Compute(file_geqdsk)
+    if sensor_set == 'BP' or sensor_set == 'BN':
+        plt.close('Sensor_ID')
+        fig,ax=plt.subplots(1,1,num='Sensor_ID',tight_layout=True,figsize=(4,6))
+        with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+        zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
+        ax.plot(rmagx,zmagx,'x',ms=10)
+        for s in sensor_dict[0]:
+            X=sensor_params[sensor_set][s['Sensor']]['X']
+            Z=sensor_params[sensor_set][s['Sensor']]['Z']
+            
+            ax.plot(X,Z,'*k')
+            if s['Sensor'] in highlight:
+                ax.plot([rmagx,X],[zmagx,Z],'--',
+                        label=r'$\theta=%1.1f^\circ$'%s['y_vals'])
+        ax.plot(R_lcfs,Z_lcfs,'k-',alpha=.6)
+        plt.grid()
+        if np.any(highlight):ax.legend(fontsize=8,handlelength=1)
+        ax.set_xlabel('R [m]');ax.set_ylabel('Z [m]')
+        plt.show()
+        if doSave: fig.savefig(doSave+'Sensor_positions.pdf',transparent=True)
+    return sensor_dict
+
+########################################
+def __LCFS_Compute(file_geqdsk='geqdsk',trim=[1,1.5]):
+    with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+    # get q(psi(r,z))
+    psi_eqdsk = eqdsk.psi
+    R_eq=np.linspace(eqdsk.rleft,eqdsk.rleft+eqdsk.rdim,len(psi_eqdsk))
+    Z_eq=np.linspace(eqdsk.zmid-eqdsk.zdim/2,eqdsk.zmid+eqdsk.zdim/2,len(psi_eqdsk))
+    psi_lin = np.linspace(eqdsk.simagx,eqdsk.sibdry,eqdsk.nx)
+    #p = np.polyfit(psi_lin, eqdsk.qpsi,12)
+    #fn_q = lambda psi: np.polyval(p,psi)
+    #q_rz = fn_q(psi_eqdsk) # q(r,z)
+    
+    # Contour detection
+    contour,hierarchy=cv2.findContours(np.array(psi_eqdsk>=eqdsk.sibdry,dtype=np.uint8),
+                                       cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+    # Algorithm will find non-closed contours (e.g. around the magnets)
+    try: contour = np.squeeze(contour) # Check if only the main contour was found
+    except:
+        a_avg=[]#track average minor radial distance to contour
+        for s in contour:
+            s=np.squeeze(s) # remove extra dimensions
+            a_avg.append(np.mean( (R_eq[s[1]]-eqdsk.rmagx)**2+(Z_eq[s[0]]-eqdsk.zmagx)**2))
+        # Select contour closested on average to the magnetic center
+        contour = np.squeeze( contour[np.argmin(a_avg)] )
+    
+    r_lcfs, z_lcfs = R_eq[contour[:,1]],Z_eq[contour[:,0]]
+    if np.any(trim):
+        ind = np.argwhere(r_lcfs>=trim[0]).squeeze()
+        r_lcfs=r_lcfs[ind];z_lcfs=z_lcfs[ind]
+        ind = np.argwhere((-trim[1]<=z_lcfs) & (z_lcfs<=trim[1])).squeeze()
+        r_lcfs=r_lcfs[ind];z_lcfs=z_lcfs[ind]
+        break_ind =  np.argwhere(np.diff(r_lcfs)<-.3).squeeze()+1
+        r_lcfs=np.insert(r_lcfs,break_ind,np.nan)
+        z_lcfs=np.insert(z_lcfs,break_ind,np.nan)
+    plt.figure();plt.plot(r_lcfs,z_lcfs);plt.show()
+    return r_lcfs,z_lcfs 
 ######################################################
 ################# Currents 1D Plot
 def plot_Currents(params,coil_currs,doSave=False,save_Ext='',

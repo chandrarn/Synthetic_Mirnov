@@ -205,35 +205,54 @@ def __coords_xyz_Mirnov(node):
                                  node['Z']] , [0,0,1] )
         
 ##################################################
-def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',comparison='MAGX_Equilibrium_XYZ.csv'):
+def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',
+      coord_file_OG='MAGX_Coordinates.json', comparison='MAGX_Equilibrium_XYZ.csv'):
     #coords_j = json.load(open(coord_file,'r'))
     comp = np.loadtxt(comparison,delimiter=',',dtype=object,skiprows=1)
     
     #BNMX/BNMX
     coords = {}
-    sets = ['BP','BN','SL','FL']
+    sets = ['BP','BN','SL','FL','MRNV']
     for s in sets:coords[s]={}
     
     for sensor in comp:# loop over entries
         sens_name = sensor[1]
         if sens_name[:2] in sets[:2]:
-            coords[sens_name[:2]][sens_name]={'PHI':float(sensor[3]),'R':float(sensor[4])*1e-3,
-           'X':float(sensor[5])*1e-3,'Y':float(sensor[6])*1e-3,'Z':float(sensor[7])*1e-3,
-           'ANGLE':float(sensor[8]),'NA':float(sensor[-1])*float(sensor[-2])*1e-6}
+            coords[sens_name[:2]][sens_name]={'PHI':float('%3.3f'%(float(sensor[3]))),
+              'R':float('%3.3f'%(float(sensor[4])*1e-3)),
+           'X':float('%3.3f'%(float(sensor[5])*1e-3)),'Y':float('%3.3f'%(float(sensor[6])*1e-3)),
+           'Z':float(('%3.3f'%(float(sensor[7])*1e-3))),
+           'ANGLE':float('%3.3f'%(float(sensor[8]))),
+           'NA':float('%3.3f'%(float(sensor[-1])*float(sensor[-2])*1e-6))}
             
         else:
             if sens_name[:2] == 'SL': # Saddle loop
-                coords[sens_name[:2]][sens_name] = {'R1':float(sensor[4])*1e-3,
-                'Z1':float(sensor[7])*1e-3,'PHI1':float(sensor[3]),
-                'PHI2':float(sensor[10]),'R2':float(sensor[11])*1e-3,
-                'Z2':float(sensor[14])*1e-3}
+                coords[sens_name[:2]][sens_name] = {'R1':float('%3.3f'%(float(sensor[4])*1e-3)),
+                'Z1':float('%3.3f'%(float(sensor[7])*1e-3)),'PHI1':float('%3.3f'%(float(sensor[3]))),
+                'PHI2':float('%3.3f'%(float(sensor[10]))),'R2':float('%3.3f'%(float(sensor[11])*1e-3)),
+                'Z2':float('%3.3f'%(float(sensor[14])*1e-3))}
             if sens_name[:2] == 'FL': # Flux loop
-                coords[sens_name[:2]][sens_name] = {'R':float(sensor[4])*1e-3,
-                                                    'Z':float(sensor[7])*1e-3}
+                coords[sens_name[:2]][sens_name] = {'R':float('%3.3f'%(float(sensor[4])*1e-3)),
+                                                    'Z':float('%3.3f'%(float(sensor[7])*1e-3))}
+    # Separately include Mirnov Arrays
+    coords_old = json.load(open(coord_file_OG,'r'))
+    for set_ in ['MIRNOV']:
+        for phi in [160,340]:
+            name_phi='TOR_SET_%03d'%phi
+            for hv in ['H','V']:
+                for i in np.arange(1,7 if hv=='H' else 10):
+                    sens_name = 'MRNV_%dM_%s%d'%(phi,hv,i)
+                    sens = coords_old[set_][name_phi]['%s%d'%(hv,i)]
+                    coords['MRNV'][sens_name] = {'R':float('%3.3f'%sens['R']),
+                                                 'Z':float('%3.3f'%sens['Z']),
+                                     'PHI':float('%3.3f'%sens['PHI']),
+                                     'NA':sens['NA']['NA'][0]}
+    
+    
     with open(coord_file,'w') as f:json.dump(coords,f)
     return coords
 ####################################    
-def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MIRNOV'):
+def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MRNV'):
     coords = json.load(open(coord_file,'r'))
     
     sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
@@ -255,15 +274,19 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MI
                 sens = Mirnov([0,0,coords[set_][sensor]['Z']],[0,0,1],
                      sensor, coords[set_][sensor]['R'])
                 sensors_Flux_Full.append(sens)
-        
+        if set_ == 'MRNV':
+            for sensor in coords[set_]:
+                sens = Mirnov(*__coords_xyz_Mirnov(coords[set_][sensor]),
+                               sensor,dx=3e-2)
+                sensors_Mirnov.append(sens)
     # Save in ThinCurr readable format
     # Mirnov object itself is directly readable: can extract location
-    save_sensors(sensors_BP,'floops_BP_CFS.loc')
-    save_sensors(sensors_BN,'floops_BN_CFS.loc')
-    save_sensors(sensors_Flux_Partial,'floops_SL_CFS.loc')
-    save_sensors(sensors_Flux_Full,'floops_FL_CFS.loc')
-    #save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
-    sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
+    save_sensors(sensors_BP,'floops_BP.loc')
+    save_sensors(sensors_BN,'floops_BN.loc')
+    save_sensors(sensors_Flux_Partial,'floops_SL.loc')
+    save_sensors(sensors_Flux_Full,'floops_FL.loc')
+    save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
+    #sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
     
     sensors_all.extend(sensors_BP)
     sensors_all.extend(sensors_BN)
