@@ -36,7 +36,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
-        get_mesh(mesh_file,xml_filename,sensor_set,params,sensor_set)
+        get_mesh(mesh_file,xml_filename,params,sensor_set)
 
     # Get mode amplitudes, assign to fillaments [eventually, from simulation]
     
@@ -53,7 +53,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     return sensors, coil_currs, tw_mesh, slices,slices_spl
 #    return sensor_,currents
 #####################################3
-def get_mesh(mesh_file,filament_file,sensor_file,params,sensor_set):
+def get_mesh(mesh_file,filament_file,params,sensor_set):
     tw_mesh = ThinCurr(nthreads=params['n_threads'],debug_level=2,)
     tw_mesh.setup_model(mesh_file=mesh_file,xml_filename=filament_file)
     print('checkpoint 0')
@@ -61,7 +61,7 @@ def get_mesh(mesh_file,filament_file,sensor_file,params,sensor_set):
     
     print('checkpoint 1')
     # Sensor - mesh and sensor - filament inductances
-    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_file)
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_set)
     print('checkpoint 2')
     # Filament - mesh inductance
     Mc = tw_mesh.compute_Mcoil()
@@ -134,6 +134,9 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     # Save B-norm surface for later plotting # This may be unnecessar
     if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
+    # Saves floops.hist (?)
+    tw_mesh.build_XDMF()
+    
     # Rename output 
     subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f*1e-3,save_Ext)])
@@ -154,7 +157,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # tw_mesh.save_current(np.dot(L_inv,np.dot(Mc.T,coil_currs[0,1:])), 'Ind_Curr')
     # Necessary to clear old vector file: otherwise vector # keeps counting up
     
-    tw_mesh.build_XDMF()
+    
     with h5py.File('mesh.0001.h5','r') as h5_file:
         r_ = np.asarray(h5_file['R_surf'])
         lc = np.asarray(h5_file['LC_surf'])
@@ -221,4 +224,5 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'
     sensor_set='MRNV'
     mesh_file='vacuum_mesh.h5'
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set)
+    save_ext='_Vac_Mesh'
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,save_ext=save_ext)

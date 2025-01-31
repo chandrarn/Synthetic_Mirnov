@@ -17,6 +17,8 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
     # Load ThinCurr sensor output
     hist_file = histfile('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                  (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
+    print('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+                 (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
     return hist_file
     # Select usable sensors from set
     sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)
