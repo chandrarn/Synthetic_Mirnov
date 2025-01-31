@@ -44,3 +44,60 @@ ntheta = 40
 nphi = 80
 r_grid, bnorm, nfp = build_torus_bnorm_grid('tCurr_mode.dat',ntheta,nphi,resample_type='theta',use_spline=False)
 lc_mesh, r_mesh, tnodeset, pnodesets, r_map = build_periodic_mesh(r_grid,nfp)
+
+write_periodic_mesh('thincurr_mode.h5', r_mesh, lc_mesh+1, np.ones((lc_mesh.shape[0],)),
+                    tnodeset, pnodesets, pmap=r_map, nfp=nfp, include_closures=True)
+
+
+tw_mode = ThinCurr(nthreads=4)
+tw_mode.setup_model(mesh_file='thincurr_mode.h5')
+tw_mode.setup_io(basepath='plasma/')
+
+tw_mode.compute_Lmat()
+# Condense model to single mode period
+if nfp > 1:
+    nelems_new = tw_mode.Lmat.shape[0]-nfp+1
+    Lmat_new = np.zeros((nelems_new,nelems_new))
+    Lmat_new[:-1,:-1] = tw_mode.Lmat[:-nfp,:-nfp]
+    Lmat_new[:-1,-1] = tw_mode.Lmat[:-nfp,-nfp:].sum(axis=1)
+    Lmat_new[-1,:-1] = tw_mode.Lmat[-nfp:,:-nfp].sum(axis=0)
+    Lmat_new[-1,-1] = tw_mode.Lmat[-nfp:,-nfp:].sum(axis=None)
+else:
+    Lmat_new = tw_mode.Lmat
+# Get inverse
+Linv = np.linalg.inv(Lmat_new)
+
+bnorm_flat = bnorm.reshape((2,bnorm.shape[1]*bnorm.shape[2]))
+# Get surface flux from normal field
+flux_flat = bnorm_flat.copy()
+flux_flat[0,r_map] = tw_mode.scale_va(bnorm_flat[0,r_map])
+flux_flat[1,r_map] = tw_mode.scale_va(bnorm_flat[1,r_map])
+if nfp > 1:
+    tw_mode.save_scalar(bnorm_flat[0,r_map],'Bn_c')
+    tw_mode.save_scalar(bnorm_flat[1,r_map],'Bn_s')
+    output = np.zeros((2,nelems_new+nfp-1))
+    for j in range(2):
+        output[j,:nelems_new] = np.dot(Linv,np.r_[flux_flat[j,1:-bnorm.shape[2]],0.0,0.0])
+        output[j,-nfp+1:] = output[j,-nfp]
+else:
+    tw_mode.save_scalar(bnorm_flat[0,:],'Bn_c')
+    tw_mode.save_scalar(bnorm_flat[1,:],'Bn_s')
+    output = np.zeros((2,tw_mode.Lmat.shape[0]))
+    for j in range(2):
+        output[j,:] = np.dot(Linv,np.r_[flux_flat[j,1:],0.0,0.0])
+tw_mode.save_current(output[0,:],'Jc')
+tw_mode.save_current(output[1,:],'Js')
+tw_mode.build_XDMF()
+'''
+fig, ax = plt.subplots(2,2)
+if nfp > 1:
+    ax[0,0].contour(np.r_[0.0,output[0,:-nfp-1]].reshape((nphi-1,ntheta)).transpose(),10)
+    ax[0,1].contour(np.r_[0.0,output[1,:-nfp-1]].reshape((nphi-1,ntheta)).transpose(),10)
+else:
+    ax[0,0].contour(np.r_[0.0,output[0,:-nfp-1]].reshape((nphi,ntheta)).transpose(),10)
+    ax[0,1].contour(np.r_[0.0,output[1,:-nfp-1]].reshape((nphi,ntheta)).transpose(),10)
+ax[1,0].contour(bnorm[0,:,:].transpose(),10)
+_ = ax[1,1].contour(bnorm[1,:,:].transpose(),10)
+'''
+with h5py.File('thincurr_mode.h5', 'r+') as h5_file:
+    h5_file.create_dataset('thincurr/driver', data=output, dtype='f8')
