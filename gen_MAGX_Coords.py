@@ -299,7 +299,7 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MR
     if select_sensor == 'BN': return sensors_BN
     if select_sensor == 'SL': return sensors_Flux_Partial
     if select_sensor == 'FL': return sensors_Flux_Full
-    if select_sensor == 'MIRNOV': return sensors_Mirnov
+    if select_sensor == 'MRNV': return sensors_Mirnov
     if select_sensor == 'ALL': return sensors_all
     
     return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov

@@ -21,7 +21,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
                             'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
-                                sensor_set='BP'):
+                                sensor_set='MRNV'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
