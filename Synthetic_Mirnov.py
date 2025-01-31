@@ -34,6 +34,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     #sensors = gen_sensors() 
     #sensors = conv_sensor('sensorLoc.xyz')[0]
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
+    for s in sensors:print(s._name)
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,params,sensor_set)
@@ -62,6 +63,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set):
     print('checkpoint 1')
     # Sensor - mesh and sensor - filament inductances
     Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_set)
+    print('floops_%s.loc'%sensor_set)
     print('checkpoint 2')
     # Filament - mesh inductance
     Mc = tw_mesh.compute_Mcoil()
@@ -136,7 +138,8 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
      
     # Saves floops.hist (?)
     tw_mesh.build_XDMF()
-    
+    hist_file = histfile('floops.hist');
+    for h in hist_file:print(h)
     # Rename output 
     subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f*1e-3,save_Ext)])
