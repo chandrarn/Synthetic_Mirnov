@@ -17,9 +17,11 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
     # Load ThinCurr sensor output
     hist_file = histfile('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                  (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
+    '''
     print('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                  (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
     return hist_file
+    '''    
     # Select usable sensors from set
     sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)
     #return sensor_dict, sensor_params
@@ -32,14 +34,16 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
            doVoltage)
     return sensor_dict,X,Y,Z
 ##########################
-def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params, doVoltage):
+def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
+           doVoltage,cLims=[[-1,1],[-1.5,1.5]]):
     plt.close('%s_Current_Surface%s'%(sensor_set,save_Ext))
     fig,ax=plt.subplots(len(sensor_dict),1,tight_layout=True,sharex=True,
                         num='%s_Current_Surface%s'%(sensor_set,save_Ext))
     for ind, s in enumerate(sensor_dict):
         norm = Normalize(np.min(Z[ind]),np.max(Z[ind]))
         ax[ind].contourf(X[ind]*timeScale,Y[ind],Z[ind],levels=50,
-                         norm=norm,cmap='plasma',zorder=-5)
+                         norm=norm,cmap='plasma',zorder=-5,
+             vmin=cLims[ind][0] if cLims else None,vmax=cLims[ind][1] if cLims else None)
         ax[ind].set_rasterization_zorder(-1)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax[ind],
                      label= r'V$_\mathrm{out}$ [V]' if doVoltage else \
@@ -99,6 +103,32 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
             if s[0] == 'H':
                 sensor_dict[1].append({'Sensor':'%s_%s_%s'%\
                        (sensor_set,'TOR_SET_%03d'%phi_sensor[0],s), 
+                       'y_vals':PHI,'y_label':r'Mirnov-H $\phi$ [deg]'})
+                    
+    elif sensor_set == 'MRNV':
+        subset = sensor_params[sensor_set]
+        sensor_dict.append([]);sensor_dict.append([])
+        for s in subset:
+            # Gen coords
+            if file_geqdsk is None:zmagx=0;rmagx=params['R']
+            else:
+                with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+                zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
+            #print(s,subset[s])
+            R = subset[s]['R']
+            Z = subset[s]['Z']
+            PHI = subset[s]['PHI']
+            theta = np.arctan2(Z- zmagx, R-rmagx)*180/np.pi
+            
+            #print(s,PHI,not (phi_sensor[0] - 20 <= PHI <= phi_sensor[0] + 20))
+            # separate sets
+            if not (phi_sensor[0] - 20 <= PHI <= phi_sensor[0] + 20): continue
+            
+            if s[-2] == 'V':
+                sensor_dict[0].append({'Sensor':'%s'%s, 
+                       'y_vals':theta,'y_label':r'Mirnov-V $\theta$ [deg]'})
+            if s[-2] == 'H':
+                sensor_dict[1].append({'Sensor':'%s'%s, 
                        'y_vals':PHI,'y_label':r'Mirnov-H $\phi$ [deg]'})
     elif sensor_set == 'BP' or sensor_set == 'BN' or sensor_set == 'MRNV':
         subset = sensor_params[sensor_set]
