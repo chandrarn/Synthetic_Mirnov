@@ -285,7 +285,7 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MR
     save_sensors(sensors_BN,'floops_BN.loc')
     save_sensors(sensors_Flux_Partial,'floops_SL.loc')
     save_sensors(sensors_Flux_Full,'floops_FL.loc')
-    save_sensors(sensors_Mirnov,'floops_Mirnov.loc')
+    save_sensors(sensors_Mirnov,'floops_MRNV.loc')
     
     #sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
     
