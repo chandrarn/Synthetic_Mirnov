@@ -7,7 +7,7 @@
 /
 
 &native_mesh_options
- filename="thincurr_ex-ports.h5"
+ filename="thincurr_ex-torus.h5"
 /
 
 &thincurr_eig_options

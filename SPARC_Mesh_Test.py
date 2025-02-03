@@ -67,7 +67,7 @@ sensors = gen_Sensors_Updated(select_sensor='BP')
 Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP_CFS.loc')
 
 # Gen Currents
-params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':60,\
+params={'m':18,'n':16,'r':.25,'R':1,'n_pts':300,'m_pts':1,\
 'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
 theta,phi = sM.gen_filament_coords(params)
 filament_coords = sM.calc_filament_coords_geqdsk('geqdsk', theta, phi, params)

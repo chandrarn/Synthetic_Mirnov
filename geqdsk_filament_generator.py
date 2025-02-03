@@ -17,8 +17,7 @@ import cv2 # package name opencv-python
 from scipy.interpolate import make_smoothing_spline
 from fractions import Fraction
 
-params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':20,\
-'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
+
     
 ########################
 def gen_filament_coords(params):
@@ -121,6 +120,8 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
     return coords
 ##########################
 if __name__ == '__main__': 
+    params={'m':18,'n':16,'r':.25,'R':1,'n_pts':100,'m_pts':20,\
+    'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     theta ,phi = gen_filament_coords(params)
     coords = calc_filament_coords_geqdsk('geqdsk',theta,phi,params,debug=True)
     
