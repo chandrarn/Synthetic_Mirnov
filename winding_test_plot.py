@@ -9,6 +9,7 @@ Created on Fri Jan 24 18:38:44 2025
 # Test plotting for filament generator
 
 from geqdsk_filament_generator import calc_filament_coords_geqdsk
+from geqdsk_filament_generator import gen_filament_coords as gen_fil_old
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
@@ -16,7 +17,7 @@ from fractions import Fraction
 
 
 def main():
-    params={'m':12,'n':10,'r':.25,'R':1,'n_pts':100,'m_pts':50,\
+    params={'m':18,'n':16,'r':.25,'R':1,'n_pts':300,'m_pts':1,\
     'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     
     
@@ -53,6 +54,7 @@ def main():
     
     # Old way
     theta, phi = gen_filament_coords(params)
+    theta, phi = gen_fil_old(params)
     # theta = theta % (2*np.pi)
     # phi= phi % (2*np.pi)
     coords_old = calc_filament_coords_geqdsk(None,theta,phi,params)
@@ -63,8 +65,8 @@ def main():
     
     other_lines=.2
     for ind, line in enumerate(coords):
-        color = cm.get_cmap('plasma')((np.cos(m_theta_start[ind]*m)+1)/2)
-        color_old = cm.get_cmap('plasma')((np.cos(theta[ind]*m)+1)/2)
+        color = 'k';#cm.get_cmap('plasma')((np.cos(m_theta_start[ind]*m)+1)/2)
+        color_old = 'k'#cm.get_cmap('plasma')((np.cos(theta[ind]*m)+1)/2)
         ax[0].plot(*line[0].T,'*',ms=10,c=color)
         ax[0].plot(*line.T,c=color,alpha=1 if ind==(len(coords)-1) else other_lines,lw=10 if ind==0 else 1)
         
