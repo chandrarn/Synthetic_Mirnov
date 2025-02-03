@@ -226,6 +226,7 @@ if __name__=='__main__':
     mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
     sensor_set='MRNV'
-    mesh_file='vacuum_mesh.h5'
-    save_ext='_Vac_Mesh'
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,save_ext=save_ext)
+    #mesh_file='vacuum_mesh.h5'
+    save_ext=''
+    params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,save_ext=save_ext,params=params)
