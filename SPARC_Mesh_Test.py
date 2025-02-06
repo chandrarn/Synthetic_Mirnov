@@ -23,6 +23,7 @@ import pyvista
 from prep_sensors import conv_sensor
 from gen_MAGX_Coords import gen_Sensors, gen_Sensors_Updated
 import Synthetic_Mirnov as sM
+import geqdsk_filament_generator as gF
 
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
@@ -69,8 +70,8 @@ Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP_CFS.loc')
 # Gen Currents
 params={'m':18,'n':16,'r':.25,'R':1,'n_pts':300,'m_pts':1,\
 'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
-theta,phi = sM.gen_filament_coords(params)
-filament_coords = sM.calc_filament_coords_geqdsk('geqdsk', theta, phi, params)
+theta,phi = gF.gen_filament_coords(params)
+filament_coords = gF.calc_filament_coords_geqdsk('geqdsk', theta, phi, params)
 coil_currs = sM.gen_coil_currs(params)
 
 p = pyvista.Plotter()
@@ -104,7 +105,8 @@ for ind,filament in enumerate(filament_coords):
     #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
     #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
     slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
-    p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/params['I']+1)/2),
+    color='k'#plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/params['I']+1)/2)
+    p.add_mesh(spl,color=color,
                line_width=10,render_points_as_spheres=True,
                label='Filament' if ind==0 else None)
     #p.add_points(pts,render_points_as_spheres=True,opaity=1,point_size=20,color=colors[ind])

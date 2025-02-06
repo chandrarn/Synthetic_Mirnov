@@ -34,7 +34,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     #sensors = gen_sensors() 
     #sensors = conv_sensor('sensorLoc.xyz')[0]
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
-    for s in sensors:print(s._name)
+    #for s in sensors:print(s._name)
+    
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,params,sensor_set)

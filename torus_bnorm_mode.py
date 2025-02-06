@@ -54,7 +54,7 @@ tw_mode.setup_model(mesh_file='thincurr_mode.h5')
 tw_mode.setup_io(basepath='plasma/')
 
 tw_mode.compute_Lmat()
-# Condense model to single mode period
+# Condense model to single mode period (necessary for mesh periodicity reasons)
 if nfp > 1:
     nelems_new = tw_mode.Lmat.shape[0]-nfp+1
     Lmat_new = np.zeros((nelems_new,nelems_new))
@@ -68,7 +68,7 @@ else:
 Linv = np.linalg.inv(Lmat_new)
 
 bnorm_flat = bnorm.reshape((2,bnorm.shape[1]*bnorm.shape[2]))
-# Get surface flux from normal field
+# Get surface flux from normal field (e.g. B-field X mesh vertex area va)
 flux_flat = bnorm_flat.copy()
 flux_flat[0,r_map] = tw_mode.scale_va(bnorm_flat[0,r_map])
 flux_flat[1,r_map] = tw_mode.scale_va(bnorm_flat[1,r_map])
@@ -87,6 +87,7 @@ else:
         output[j,:] = np.dot(Linv,np.r_[flux_flat[j,1:],0.0,0.0])
 tw_mode.save_current(output[0,:],'Jc')
 tw_mode.save_current(output[1,:],'Js')
+print('Preparing XMDF')
 tw_mode.build_XDMF()
 '''
 fig, ax = plt.subplots(2,2)

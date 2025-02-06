@@ -41,8 +41,10 @@ with h5py.File('thincurr_mode.h5', 'r+') as h5_file:
     mode_drive = np.asarray(h5_file['thincurr/driver'])
 
 Msensor_plasma, _, _ = tw_mode.compute_Msensor('floops.loc')
+# Significance? 
 mode_driver = tw_mode.cross_eval(tw_torus,mode_drive)
 sensor_mode = np.dot(mode_drive,Msensor_plasma)
+
 mode_freq = 1.E3
 mode_growth = 2.E3
 dt = (1.0/1.E3)/50.0
@@ -52,14 +54,17 @@ cos_current = timebase_current/mode_growth*np.cos(mode_freq*2.0*np.pi*timebase_c
 sin_current = timebase_current/mode_growth*np.sin(mode_freq*2.0*np.pi*timebase_current); sin_voltage = np.diff(sin_current)/np.diff(timebase_current)
 volt_full = np.zeros((nsteps+2,tw_torus.nelems+1))
 sensor_signals = np.zeros((nsteps+2,sensor_mode.shape[1]+1))
+# Unclear 
 for i in range(nsteps+2):
     volt_full[i,0] = dt*i
     sensor_signals[i,0] = dt*i
     if i > 0:
         volt_full[i,1:] = mode_driver[0,:]*np.interp(volt_full[i,0],timebase_voltage,cos_voltage) \
           + mode_driver[1,:]*np.interp(volt_full[i,0],timebase_voltage,sin_voltage)
+          
         sensor_signals[i,1:] = sensor_mode[0,:]*np.interp(volt_full[i,0],timebase_current,cos_current) \
           + sensor_mode[1,:]*np.interp(volt_full[i,0],timebase_current,sin_current)
+          
 tw_torus.run_td(dt,nsteps,status_freq=10,full_volts=volt_full,sensor_obj=sensor_obj,direct=True,sensor_values=sensor_signals)
 
 hist_file = histfile('floops.hist')

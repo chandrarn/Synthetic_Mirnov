@@ -9,7 +9,7 @@ from header import json,plt,np,histfile,geqdsk,factorial, Normalize,cm, cv2
 
 # Surface plot for arb sensors
 def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CFS.json',
-                         sensor_set='MIRNOV',doVoltage=True,phi_sensor=[340],
+                         sensor_set='MRNV',doVoltage=True,phi_sensor=[340],
                          doSave='',save_Ext='',timeScale=1e6,file_geqdsk='geqdsk'):
     
     # Load sensor parameters for voltage conversion
@@ -35,7 +35,7 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
     return sensor_dict,X,Y,Z
 ##########################
 def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
-           doVoltage,cLims=[[-1,1],[-1.5,1.5]]):
+           doVoltage,cLims=[]):
     plt.close('%s_Current_Surface%s'%(sensor_set,save_Ext))
     fig,ax=plt.subplots(len(sensor_dict),1,tight_layout=True,sharex=True,
                         num='%s_Current_Surface%s'%(sensor_set,save_Ext))

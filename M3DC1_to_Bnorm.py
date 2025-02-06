@@ -24,14 +24,23 @@ rc('font',**{'size':11})
 rc('text', usetex=True)
 import xarray as xr
 from sys import path;path.append('/orcd/home/002/rianc/')
-import C1py
+try:import C1py
+except:pass
 import cv2 # necessary for contour detection
 
-def convert_to_Bnorm(C1file_name='',B=None,psi=None,R=None,Z=None):
-    pass
+def convert_to_Bnorm(C1file_name,n,npts):
     
+    # Pull fields and coordinates from .h5 file
+    psi,B1,B2,R,Z = get_fields_from_C1(C1file_name,False)
     
-def get_fields_from_C1(filename):
+    # Calculate B-normal for two slices
+    B1_norm= calculate_normal_vector(psi,R,Z,B1)[0]
+    B2_norm,_,contour=calculate_normal_vector(psi,R,Z,B2)
+    
+    # Save in ThinCurr format
+    save_Bnorm(C1file_name,contour,B1_norm,B2_norm,n,npts)
+    
+def get_fields_from_C1(filename,saveNetCDF=True):
     # Get psi grid, B grid, R,Z coords
     
     # Get Psi
@@ -46,10 +55,14 @@ def get_fields_from_C1(filename):
  
     R=b_field.coords['R'].values;Z=b_field.coords['Z']
 
-    psi.to_netcdf('psi.nc')
-    b_field.to_netcdf('bfield_1.nc')
-    b_field2.to_netcdf('b_field2.nc')
+    if saveNetCDF:
+        psi.to_netcdf('psi.nc')
+        b_field.to_netcdf('bfield_1.nc')
+        b_field2.to_netcdf('b_field2.nc')
     
+    return psi.data,b_field.data,b_field2.data,psi.coords['R'].values,\
+        psi.coords['Z'].values
+        
     
 def calculate_normal_vector(psi_,R,Z,B,samp_pts=200,doPlot=False,ax=None,fig=None):
     # Get LCFS coordinates
@@ -113,8 +126,15 @@ def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200):
                 np.cos(m*theta),
                 np.sin(m*theta)
             ))
-            
-#####################
+
+##########################################
+def save_Bnorm(C1file_name,contour,B1_norm,B2_norm,n,npts):
+    with open(C1file_name[:-2]+'_tCurr_mode.dat','w+') as f:
+        f.write('{0} {1}\n'.format(npts,n))
+        for ind,z in contour:
+            f.write('{0} {1} {2} {3}\n').format(contour[ind,0],
+                         z,B1_norm[ind],B2_norm[ind])        
+##########################################
 def __plot_time_series(t_points=5):
     fig,ax=plt.subplots(2,2,tight_layout=True)
     psi=xr.open_dataset('psi.nc')
