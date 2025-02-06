@@ -22,7 +22,7 @@ from fractions import Fraction
 ########################
 def gen_filament_coords(params):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
-    # generate phi, theta coordinates for fillaments
+    # generate theta,phi coordinates for fillaments
     # The points launch in a fractional sector of the poloidal plane, and
     # wrap toroidally enough times to return to their starting point
     ratio = Fraction(m,n)

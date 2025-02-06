@@ -233,7 +233,8 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
    # Load sensor parameters for voltage conversion
    sensor_params= json.load(open(sensor_file,'r'))
    
-   hist_file = histfile('floops.hist')
+   hist_file = histfile('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+                (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext) )
    plt.close('Currents%s'%save_Ext)
    fig,ax=plt.subplots(2,1,tight_layout=True,figsize=(4,4),
                num='Currents%s'%save_Ext,sharex=True)
@@ -243,6 +244,7 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
    ax[0].plot(times*timeScale,currents,label=current_label)
    # import decimal 
    sensors=['MIRNOV_TOR_SET_340_V5','MIRNOV_TOR_SET_340_V9','MIRNOV_TOR_SET_340_H6']
+   sensors=['BP-LOMN-008M']
    # decimal.Decimal(-.25).as_integer_ratio()
 
    for ind,s in enumerate(sensors):

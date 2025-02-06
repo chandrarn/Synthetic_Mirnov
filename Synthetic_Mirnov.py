@@ -194,7 +194,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         #print(np.array(calc_filament_coord(m,n,r,R,theta,phi)).shape)
         pts=np.array(pts)
         #print(pts.shape,theta)
-        spl=pyvista.Spline(pts,100)
+        spl=pyvista.Spline(pts,len(pts))
         #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
         #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
         slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()

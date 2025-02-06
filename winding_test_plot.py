@@ -17,7 +17,7 @@ from fractions import Fraction
 
 
 def main():
-    params={'m':18,'n':16,'r':.25,'R':1,'n_pts':300,'m_pts':1,\
+    params={'m':3,'n':1,'r':.25,'R':1,'n_pts':300,'m_pts':10,\
     'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     
     
@@ -65,8 +65,8 @@ def main():
     
     other_lines=.2
     for ind, line in enumerate(coords):
-        color = 'k';#cm.get_cmap('plasma')((np.cos(m_theta_start[ind]*m)+1)/2)
-        color_old = 'k'#cm.get_cmap('plasma')((np.cos(theta[ind]*m)+1)/2)
+        color = cm.get_cmap('plasma')((np.cos(m_theta_start[ind]*m)+1)/2)
+        color_old = cm.get_cmap('plasma')((np.cos(theta[ind]*m)+1)/2)
         ax[0].plot(*line[0].T,'*',ms=10,c=color)
         ax[0].plot(*line.T,c=color,alpha=1 if ind==(len(coords)-1) else other_lines,lw=10 if ind==0 else 1)
         
