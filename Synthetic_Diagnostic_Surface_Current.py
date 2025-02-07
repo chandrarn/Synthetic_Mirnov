@@ -20,7 +20,7 @@ from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk='geqdsk',
 sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
-'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},C1_file='',doPlot=True):
+'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},C1_file='',doPlot=False):
     
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
@@ -51,8 +51,10 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
     fn_ramp = 1# timebase_current/mode_growth
     cos_current = fn_ramp*np.cos(mode_freq*2.0*np.pi*timebase_current);
+    cos_current[:5] *= np.linspace(0,1,5)
     cos_voltage = np.diff(cos_current)/np.diff(timebase_current)
     sin_current = fn_ramp*np.sin(mode_freq*2.0*np.pi*timebase_current);
+    sin_current[:5] *= np.linspace(0,1,5)
     sin_voltage = np.diff(sin_current)/np.diff(timebase_current)
     
     volt_full = np.zeros((nsteps+2,tw_torus.nelems+1))
