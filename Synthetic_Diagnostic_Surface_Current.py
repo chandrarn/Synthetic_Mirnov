@@ -14,7 +14,7 @@ Created on Tue Feb  4 14:23:27 2025
 """
 
 from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
-    h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista
+    h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
@@ -29,13 +29,13 @@ sensor_set='MRNV',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n
     # Build mode mesh
     __gen_b_norm_mesh(C1_file,params['m_pts'],params['n_pts'],params['n_threads'],doPlot)
     
-    return
+    #return
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
     
     # Run time dependent calculation
-    __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj, sensor_set,save_ext)
+    __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj, params,sensor_set,save_ext)
 ########################################################
 def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
              sensor_set,save_Ext):
@@ -43,6 +43,8 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     mode_growth = 2.E3
     dt = params['dt']
     nsteps = params['n_pts']
+    m = params['m']
+    n = params['n']
     
     timebase_current = np.arange(0.0,dt*nsteps+1,dt/4.0); 
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
@@ -69,10 +71,14 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     tw_torus.run_td(dt,nsteps,status_freq=10,full_volts=volt_full,\
                     sensor_obj=sensor_obj,direct=True,sensor_values=sensor_signals)
     
+    # Rename output 
+    subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (sensor_set,m,n,mode_freq*1e-3,save_Ext)])
+    '''
     hist_file = histfile('data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
                          (sensor_set,params['m'],params['n'],\
                           params['f']*1e-3,save_Ext))    
-    
+    '''
 #########################################################
 def __gen_linked_inductances(mesh_file,n_threads,sensor_set):
     
