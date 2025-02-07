@@ -19,7 +19,7 @@ from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk='geqdsk',
-sensor_set='MRNV',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
+sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
 'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},C1_file='',doPlot=True):
     
     # Generate 2D b-norm sin/cos
@@ -27,9 +27,10 @@ sensor_set='MRNV',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n
     else: __gen_b_norm_manual(file_geqdsk,params)
     
     # Build mode mesh
-    __gen_b_norm_mesh(C1_file,params['m_pts'],params['n_pts'],params['n_threads'],doPlot)
+    __gen_b_norm_mesh(C1_file,params['m_pts'],params['n_pts'],params['n_threads'],
+                      sensor_set,doSave,save_ext,params,doPlot)
     
-    #return
+    return
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
@@ -48,10 +49,10 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     
     timebase_current = np.arange(0.0,dt*nsteps+1,dt/4.0); 
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
-    
-    cos_current = timebase_current/mode_growth*np.cos(mode_freq*2.0*np.pi*timebase_current);
+    fn_ramp = 1# timebase_current/mode_growth
+    cos_current = fn_ramp*np.cos(mode_freq*2.0*np.pi*timebase_current);
     cos_voltage = np.diff(cos_current)/np.diff(timebase_current)
-    sin_current = timebase_current/mode_growth*np.sin(mode_freq*2.0*np.pi*timebase_current);
+    sin_current = fn_ramp*np.sin(mode_freq*2.0*np.pi*timebase_current);
     sin_voltage = np.diff(sin_current)/np.diff(timebase_current)
     
     volt_full = np.zeros((nsteps+2,tw_torus.nelems+1))
@@ -111,7 +112,8 @@ def __gen_linked_inductances(mesh_file,n_threads,sensor_set):
     
     return mode_driver, sensor_mode, sensor_obj, tw_torus
 #########################################################
-def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,doPlot=False):
+def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
+                      doSave,save_Ext,params,doPlot=False):
     # Convert B-normal from C1 file LCFS to equivalent suface current via self inductance
     
     # Build mesh on which the surface current lives?
@@ -164,20 +166,25 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,doPlot=False):
     else:
         tw_mode.save_scalar(bnorm_flat[0,:],'Bn_c')
         tw_mode.save_scalar(bnorm_flat[1,:],'Bn_s')
+        
         output = np.zeros((2,tw_mode.Lmat.shape[0]))
         for j in range(2):
             output[j,:] = np.dot(Linv,np.r_[flux_flat[j,1:],0.0,0.0]) 
-    
+            
+        tw_mode.save_scalar(output[0,:-1],'J_c')
+        tw_mode.save_scalar(output[0,:-1],'J_s')
     # Save surface current
     with h5py.File('thincurr_mode.h5', 'r+') as h5_file:
         h5_file.create_dataset('thincurr/driver', data=output, dtype='f8')
     
     # Plot J(theta,phi)
     #return output,nfp,n_phi,n_theta,bnorm
-    if doPlot:__do_plot_B_J(output,nfp,n_phi,n_theta,bnorm)
+    if doPlot:__do_plot_B_J(output,nfp,n_phi,n_theta,bnorm,tw_mode,sensor_set,
+                            doSave,save_Ext,params)
         
 #########################################################
-def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm):
+def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
+                  save_Ext,params):
     
     # 2D Plot of B-norm and J
     theta=np.linspace(0,2*np.pi,ntheta,endpoint=False)
@@ -195,27 +202,48 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm):
     _ = ax[1,1].contour(phi_bnorm,theta,bnorm[1,:,:].transpose(),10)
     
     ax[0,0].set_ylabel(r'$\sigma(\theta)$')
-    ax[1,0].set_ylabel(r'$B_\perp(\theta)$')
+    ax[1,0].set_ylabel(r'$B_{\hat{n}}(\theta)$')
     for i in range(2):ax[1,i].set_xlabel(r'$\phi$')
+    ax[0,0].set_title(r'Cosine')
+    ax[0,1].set_title('Sine')
     plt.show()
-    
+    m=params['m'];n=params['n'];mode_freq=params['f']
+    if doSave:fig.savefig(doSave+'Surface_Current_2D_%s_m-n_%d-%d_f_%d%s.pdf'%\
+                    (sensor_set,m,n,mode_freq*1e-3,save_Ext))
     
     ###############################
     # mesh plotting
-    with h5py.File('mesh.0001.h5','r') as h5_file:
+    tw_mode.build_XDMF()
+    with h5py.File('plasma/mesh.0001.h5','r') as h5_file:
         r = np.asarray(h5_file['R_surf'])
         lc = np.asarray(h5_file['LC_surf'])
-    
+    with h5py.File('plasma/scalar_dump.0001.h5','r') as h5_file:
+        bn_c = np.asarray(h5_file['Bn_c0000'])
+        bn_s = np.asarray(h5_file['Bn_s0000'])
+        bn_c = np.asarray(h5_file['Bn_c0000'])
+        J_s = np.asarray(h5_file['J_s0000'])
+        J_c = np.asarray(h5_file['J_c0000'])
+
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
     cells = np.insert(lc, [0,], 3, axis=1)
     grid = pyvista.UnstructuredGrid(cells, celltypes, r)
     
     p = pyvista.Plotter()
-    p.add_mesh(grid, color="white", opacity=1.0, show_edges=True)
+    p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
+               scalars=bn_c,scalar_bar_args={'title':'Bn_c'})
+    #p.add_scalar_bar(title='J_c')
+    # Plot Sensors
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
+    for ind,s in enumerate(sensors):
+        p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
+                     render_points_as_spheres=True,
+                     label='Sensor' if ind==0 else None)
+    if doSave:p.save_graphic(doSave+'Surface_bnorm_%s_m-n_%d-%d_f_%d%s.pdf'%\
+                    (sensor_set,m,n,mode_freq*1e-3,save_Ext))
     p.show()
 
 #########################################################
-def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=False):
+def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=False,doPlot=False):
     
     if orig_example_bnorm:
         def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=params['n_pts']):
@@ -239,12 +267,13 @@ def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=False):
         # Get radial vector
         r_theta,Z0,R0 = __gen_r_theta(file_geqdsk, a, R, m, n)
         theta = np.linspace(0,2*np.pi,n_pts_n,endpoint=False)
-        plt.figure(tight_layout=True);
-        plt.plot(r_theta(theta)*np.cos(theta)+R0,r_theta(theta)*np.sin(theta)+Z0)
-        plt.xlabel('R [m]');plt.ylabel('Z [m]')
-        plt.legend([r'$\psi_{%d/%d}(\vec{r})$'%(m,n)],fontsize=8)
-        plt.grid()
-        plt.show()
+        if doPlot:
+            plt.figure(tight_layout=True);
+            plt.plot(r_theta(theta)*np.cos(theta)+R0,r_theta(theta)*np.sin(theta)+Z0)
+            plt.xlabel('R [m]');plt.ylabel('Z [m]')
+            plt.legend([r'$\psi_{%d/%d}(\vec{r})$'%(m,n)],fontsize=8)
+            plt.grid()
+            plt.show()
         # Write output
         with open('tCurr_mode.dat','w+') as fid:
             fid.write('{0} {1}\n'.format(n_pts_n,n))

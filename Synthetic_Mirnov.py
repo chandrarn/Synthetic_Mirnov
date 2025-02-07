@@ -130,6 +130,7 @@ def gen_coil_currs(param):
 def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
+    # run time depenent simulation, save floops.hist file
     tw_mesh.run_td(dt,int(periods/f/dt),
                     coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
     if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
@@ -137,7 +138,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     # Save B-norm surface for later plotting # This may be unnecessar
     if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
      
-    # Saves floops.hist (?)
+    # Saves floops.hist (no, run_Td does this?)
     tw_mesh.build_XDMF()
     hist_file = histfile('floops.hist');
     for h in hist_file:print(h)
