@@ -143,7 +143,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     hist_file = histfile('floops.hist');
     for h in hist_file:print(h)
     # Rename output 
-    subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+    subprocess.run(['cp','floops.hist','data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f*1e-3,save_Ext)])
                     
     return coil_currs

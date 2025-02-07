@@ -10,13 +10,15 @@ from header import json,plt,np,histfile,geqdsk,factorial, Normalize,cm, cv2
 # Surface plot for arb sensors
 def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CFS.json',
                          sensor_set='MRNV',doVoltage=True,phi_sensor=[340],
-                         doSave='',save_Ext='',timeScale=1e6,file_geqdsk='geqdsk'):
+                         doSave='',save_Ext='',timeScale=1e6,file_geqdsk='geqdsk',
+                         filament=True):
     
     # Load sensor parameters for voltage conversion
     sensor_params= json.load(open(sensor_file,'r'))
     # Load ThinCurr sensor output
-    hist_file = histfile('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
-                 (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
+    hist_file = histfile('data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
+             ('filament' if filament else 'surface', sensor_set,params['m'],
+              params['n'],params['f']*1e-3,save_Ext))
     '''
     print('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
                  (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))

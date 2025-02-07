@@ -30,7 +30,7 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_p
     __gen_b_norm_mesh(C1_file,params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
-    return
+    #return
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
@@ -75,7 +75,7 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
                     sensor_obj=sensor_obj,direct=True,sensor_values=sensor_signals)
     
     # Rename output 
-    subprocess.run(['cp','floops.hist','data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
+    subprocess.run(['cp','floops.hist','data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,mode_freq*1e-3,save_Ext)])
     '''
     hist_file = histfile('data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
