@@ -64,12 +64,22 @@ def get_fields_from_C1(filename,saveNetCDF=True):
         psi.coords['Z'].values
         
     
-def calculate_normal_vector(psi_,R,Z,B,samp_pts=200,doPlot=False,ax=None,fig=None):
+def calculate_normal_vector(psi_,R,Z,B,rmagx,zmagx,psi_LCFS,samp_pts=200,doPlot=False,ax=None,fig=None):
     # Get LCFS coordinates
-    psi=np.array(psi_.T>=.575,dtype=np.uint8)
+    psi=np.array(psi_.T>=psi_LCFS*1.05,dtype=np.uint8)
     contour,hierarchy=cv2.findContours(psi,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
     #return contour
-    contour=np.squeeze(contour)
+    # Algorithm will find non-closed contours (e.g. around the magnets)
+    try: contour = np.squeeze(contour) # Check if only the main contour was found
+    except:
+        a_avg=[]#track average minor radial distance to contour
+        for s in contour:
+            s=np.squeeze(s).T # remove extra dimensions
+            a_avg.append(np.mean( (R[s[1]]-rmagx)**2+(Z[s[0]]-zmagx)**2))
+        # Select contour closested on average to the magnetic center
+        
+        #print(a_avg)
+        contour = np.squeeze( contour[np.argmin(a_avg)] )
     
     # Calculate tangency vector
     deriv = np.zeros(contour.shape)
@@ -96,22 +106,27 @@ def calculate_normal_vector(psi_,R,Z,B,samp_pts=200,doPlot=False,ax=None,fig=Non
         all_norm.append(norm)
     
     if doPlot:
-        if ax==None:fig,ax=plt.subplots(1,1,tight_layout=True,figsize=(3.6,4.2))
+        if ax==None:
+            fig,ax=plt.subplots(1,3,tight_layout=True,figsize=(6,3.2))
         norm = colors.Normalize(vmin=min(b_norm),vmax=max(b_norm))
         #ax.contour(R,Z,psi_.T,[1],hold='on',origin='lower')
-        
+        vmin=np.min(B);vmax=np.max(B)
         extent=[R[0],R[-1],Z[0],Z[-1]]
-        ax.imshow(B[0].T,origin='lower',extent=extent)
-        for i in range(len(contour)):
-            ax.plot(R[contour[i,0]],Z[contour[i,1]],'*',
-            c=cm.get_cmap('plasma')(norm(b_norm[i]) ))
-            ax.plot([R[contour[i,0]],R[contour[i,0]]+all_norm[i][0]*.05],
-                    [Z[contour[i,1]],Z[contour[i,1]]+all_norm[i][2]*.05],'k-',
-                    zorder=-1)
-        ax.set_xlabel('R [m]')
-        ax.set_ylabel('Z [m]')
+        for j in range(3):
+            ax[j].imshow(B[j].T,origin='lower',extent=extent,vmin=vmin,vmax=vmax)
+            for i in range(len(contour)):
+                ax[j].plot(R[contour[i,0]],Z[contour[i,1]],'*',
+                        c=cm.get_cmap('plasma')(norm(b_norm[i]) ),alpha=.1)
+                ax[j].plot([R[contour[i,0]],R[contour[i,0]]+all_norm[i][0]*.05],
+                        [Z[contour[i,1]],Z[contour[i,1]]+all_norm[i][2]*.05],'k-',
+                        zorder=5)
+            ax[j].set_xlabel('R [m]')
+        ax[0].set_ylabel('Z [m]')
+        ax[0].set_title(r'B$_\mathrm{r}$')
+        ax[1].set_title(r'B$_\phi$')
+        ax[2].set_title(r'B$_\mathrm{z}$')
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('plasma')),
-                     label=r'$\tilde{\mathrm{B}}_\perp$ [?]',ax=ax)
+                     label=r'$\tilde{\mathrm{B}}_\perp$ [?]',ax=ax[2])
         plt.show()
     return b_norm,all_norm, contour
         

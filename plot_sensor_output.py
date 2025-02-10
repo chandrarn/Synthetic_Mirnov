@@ -33,15 +33,21 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
     # return sensor_dict,X,Y,Z
     # build plot
     doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
-           doVoltage)
+           doVoltage,filament)
     return sensor_dict,X,Y,Z
 ##########################
 def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
-           doVoltage,cLims=[]):
-    plt.close('%s_Current_Surface%s'%(sensor_set,save_Ext))
+           doVoltage,filament,cLims=[]):
+    plt.close('%s_Current_Surface_%s%s'%(sensor_set,
+                         'filament' if filament else 'surface',save_Ext))
     fig,ax=plt.subplots(len(sensor_dict),1,tight_layout=True,sharex=True,
-                        num='%s_Current_Surface%s'%(sensor_set,save_Ext))
+                        num='%s_Current_Surface_%s%s'%(sensor_set,
+                           'filament' if filament else 'surface',save_Ext))
     for ind, s in enumerate(sensor_dict):
+        if not filament:
+            trimTime=10
+            X[ind] = X[ind][trimTime:]
+            Z[ind] = Z[ind][:,trimTime:]
         norm = Normalize(np.min(Z[ind]),np.max(Z[ind]))
         ax[ind].contourf(X[ind]*timeScale,Y[ind],Z[ind],levels=50,
                          norm=norm,cmap='plasma',zorder=-5,
@@ -55,8 +61,9 @@ def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
     ax[-1].set_xlabel(r'Time [%s]'%('ms' if timeScale==1e3 else '$\mu$s'))
     plt.show()
     if doSave: 
-        fName=doSave+'Sensor_surface_%s_%d-%d_%dkHz_%s%s.pdf'%\
-            (sensor_set,params['m'],params['n'],params['f']*1e-3,'V' ,save_Ext)
+        fName=doSave+'Sensor_surface_%s_%s_%d-%d_%dkHz_%s%s.pdf'%\
+            ('filament' if filament else 'surface',sensor_set,params['m'],
+             params['n'],params['f']*1e-3,'V' ,save_Ext)
         fig.savefig(fName)
         print('Saved: %s'%fName)
 def __gen_surface_data(sensor_dict,hist_file,doVoltage,params,sensor_set,

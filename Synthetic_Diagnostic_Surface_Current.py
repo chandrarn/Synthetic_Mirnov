@@ -18,9 +18,9 @@ from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_splin
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
-def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk='geqdsk',
-sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
-'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},C1_file='',doPlot=False):
+def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
+sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':100,\
+'f':7e3,'dt':1e-6,'periods':3,'n_threads':64,'I':10},C1_file='',doPlot=True):
     
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
@@ -30,7 +30,7 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_p
     __gen_b_norm_mesh(C1_file,params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
-    #return
+    return
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
@@ -154,10 +154,11 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
     # Get surface flux from normal field [scale B-field by mesh vertex area va]
     flux_flat = bnorm_flat.copy()
     #print(bnorm_flat.shape,bnorm_flat[0,r_map].shape,flux_flat[0,r_map].shape)
-    flux_flat[0,r_map] = tw_mode.scale_va(bnorm_flat[0,r_map].squeeze())
-    flux_flat[1,r_map] = tw_mode.scale_va(bnorm_flat[1,r_map].squeeze())
+    
     # Field periodicitry issue again
     if nfp > 1:
+        flux_flat[0,r_map] = tw_mode.scale_va(bnorm_flat[0,r_map])
+        flux_flat[1,r_map] = tw_mode.scale_va(bnorm_flat[1,r_map])
         tw_mode.save_scalar(bnorm_flat[0,r_map],'Bn_c')
         tw_mode.save_scalar(bnorm_flat[1,r_map],'Bn_s')
         output = np.zeros((2,nelems_new+nfp-1))
@@ -166,6 +167,8 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
             output[j,:nelems_new] = np.dot(Linv,np.r_[flux_flat[j,1:-bnorm.shape[2]],0.0,0.0]) # 0?
             output[j,-nfp+1:] = output[j,-nfp]
     else:
+        flux_flat[0,r_map] = tw_mode.scale_va(bnorm_flat[0,:])
+        flux_flat[1,r_map] = tw_mode.scale_va(bnorm_flat[1,:])
         tw_mode.save_scalar(bnorm_flat[0,:],'Bn_c')
         tw_mode.save_scalar(bnorm_flat[1,:],'Bn_s')
         
@@ -173,8 +176,8 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
         for j in range(2):
             output[j,:] = np.dot(Linv,np.r_[flux_flat[j,1:],0.0,0.0]) 
             
-        tw_mode.save_scalar(output[0,:-1],'J_c')
-        tw_mode.save_scalar(output[0,:-1],'J_s')
+    tw_mode.save_scalar(output[0,:],'J_c')
+    tw_mode.save_scalar(output[1,:],'J_s')
     # Save surface current
     with h5py.File('thincurr_mode.h5', 'r+') as h5_file:
         h5_file.create_dataset('thincurr/driver', data=output, dtype='f8')
@@ -232,7 +235,7 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
     
     p = pyvista.Plotter()
     p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
-               scalars=bn_c,scalar_bar_args={'title':'Bn_c'})
+               scalars=J_s,scalar_bar_args={'title':'J_s'})
     #p.add_scalar_bar(title='J_c')
     # Plot Sensors
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
@@ -240,7 +243,7 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
         p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
                      render_points_as_spheres=True,
                      label='Sensor' if ind==0 else None)
-    if doSave:p.save_graphic(doSave+'Surface_bnorm_%s_m-n_%d-%d_f_%d%s.pdf'%\
+    if doSave:p.save_graphic(doSave+'Surface_J_s_%s_m-n_%d-%d_f_%d%s.pdf'%\
                     (sensor_set,m,n,mode_freq*1e-3,save_Ext))
     p.show()
 
@@ -290,7 +293,7 @@ def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=False,doPlot=False
 #########################################################        
 def __gen_r_theta(file_geqdsk,a,R,m,n,):
     if file_geqdsk is None:
-        r_theta = lambda theta: a #-0.1*np.cos(2*theta) # running circular approximation
+        r_theta = lambda theta: a +0.01*np.abs(np.sin(theta)) # running circular approximation
         zmagx=0;rmagx=R
     else: # Using geqdsk equilibrium to locate flux surfaces
         # Load eqdsk
