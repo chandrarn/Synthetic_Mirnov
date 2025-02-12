@@ -20,7 +20,7 @@ from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
 sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-'f':7e3,'dt':1e-6,'periods':3,'n_threads':64,'I':10},doPlot=False,\
+'f':7e3,'dt':1e-5,'periods':3,'n_threads':64,'I':10},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/transfer/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
     # Generate 2D b-norm sin/cos
@@ -44,11 +44,12 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     mode_freq = params['f']
     mode_growth = 2.E3
     dt = params['dt']
-    nsteps = params['n_pts']
+    periods = params['periods']
+    nsteps = periods/mode_freq/dt
     m = params['m']
     n = params['n']
     
-    timebase_current = np.arange(0.0,dt*nsteps+1,dt/4.0); 
+    timebase_current = np.arange(0.0,dt*nsteps+1,dt); 
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
     fn_ramp = 1# timebase_current/mode_growth
     cos_current = fn_ramp*np.cos(mode_freq*2.0*np.pi*timebase_current);
