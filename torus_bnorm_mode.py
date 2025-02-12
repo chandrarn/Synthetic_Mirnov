@@ -85,6 +85,9 @@ else:
     output = np.zeros((2,tw_mode.Lmat.shape[0]))
     for j in range(2):
         output[j,:] = np.dot(Linv,np.r_[flux_flat[j,1:],0.0,0.0])
+
+print(r_mesh.shape,lc_mesh.shape,tw_mode.Lmat.shape)
+print(output.shape,bnorm.shape,tw_mode.np)
 tw_mode.save_current(output[0,:],'Jc')
 tw_mode.save_current(output[1,:],'Js')
 print('Preparing XMDF')

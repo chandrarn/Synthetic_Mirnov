@@ -288,22 +288,25 @@ def field_to_current(B,dt,w_mode,sensor_params,sensor_set,sensor_name):
     
     V = np.zeros((len(B)-1,1))
     for ind in range(len(B)-1):
-        # Autodetermine derivative order based on length of availible data
-        s=np.arange(-3 if ind >=3 else -ind,4 if len(B)-ind>=4 else len(B)-ind)
-        V[ind]=np.dot(B[s+ind],__finDiff(s, 1))/dt # Calculate dB/dt
+        deriv_operator,stencil=__finDiff(B,ind,3, 1)
+        V[ind]=np.dot(B[stencil+ind],deriv_operator)/dt # Calculate dB/dt
     
     return V * factor(NA,wc,w_mode)
 
-def __finDiff(s,d): # Finite difference stencil
+def __finDiff(signal,ind,order,deriv): # Finite difference stencil
+    # Autodetermine derivative order based on length of availible data
+    s=np.arange(-order if ind >=order else -ind,
+                (order+1) if len(signal)-ind>=(order+1) else len(signal)-ind)
+
     # Build with automatic s generator: input: order, derivative
-    if not len(s)>d:raise SyntaxError("Insufficient Points for Derivative")
+    if not len(s)>deriv:raise SyntaxError("Insufficient Points for Derivative")
     S_mat=np.zeros((len(s),len(s)))
     for i in range(len(s)):
         S_mat[i]=s**i
     d_vec=np.zeros((len(s),1))
-    d_vec[d]=factorial(d)
+    d_vec[deriv]=factorial(deriv)
 
-    return np.matmul(np.linalg.inv(S_mat),d_vec)
+    return np.matmul(np.linalg.inv(S_mat),d_vec),s
 #####################################
 def gen_label(sensor_set,sensor_name,sensor_params,file_geqdsk,params):
     if file_geqdsk is None:zmagx=0;rmagx=params['R']
