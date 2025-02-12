@@ -160,7 +160,8 @@ def calculate_normal_vector(psi_,R,Z,B,rmagx,zmagx,psi_LCFS,samp_pts=200,
         b_norm.append(fn_dot(B[:,index[0],index[1]],norm))
         all_norm.append(norm)
     
-    b_norm = np.array(b_norm)
+    b_norm = np.array(b_norm)*1e4
+    B *= 1e4
     
     if doPlot:  __b_norm_debug_plots(ax,b_norm,B,R,Z,R_sig,Z_sig,all_tang,
                                      all_norm,contour,rmagx,zmagx,doSave)
@@ -196,9 +197,9 @@ def __b_norm_debug_plots(ax,b_norm,B,R,Z,R_sig,Z_sig,all_tang,all_norm,contour,
      ax[1].set_title(r'B$_\phi$')
      ax[2].set_title(r'B$_\mathrm{z}$')
      fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('plasma')),
-              label=r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [T]',ax=ax[2])
+              label=r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [G]',ax=ax[2])
      fig.colorbar(cm.ScalarMappable(norm=norm_2,cmap=cm.get_cmap('viridis')),
-              label=r'$||\tilde{\mathrm{B}}_j||$ [T]',ax=ax[1])
+              label=r'$||\tilde{\mathrm{B}}_j||$ [G]',ax=ax[1])
      if doSave:fig.savefig(doSave+'B_Contour_Comparison.pdf',transparent=True)
      ############################################
      plt.close('Extraction_Verify')
@@ -234,9 +235,9 @@ def __b_norm_debug_plots(ax,b_norm,B,R,Z,R_sig,Z_sig,all_tang,all_norm,contour,
          ax[i].grid()
          ax[i].set_xlabel('Contour Index \#' if countindex else r'$\theta$ [$\pi$-rad]')
      ax[1].legend(fontsize=8,loc='upper left')
-     ax[0].set_ylabel(r'B$_r$ [T]')
-     ax[1].set_ylabel(r'B$_\phi$ [T]')
-     ax[2].set_ylabel(r'B$_z$ [T]')
+     ax[0].set_ylabel(r'B$_r$ [G]')
+     ax[1].set_ylabel(r'B$_\phi$ [G]')
+     ax[2].set_ylabel(r'B$_z$ [G]')
      ax[0].set_ylim(ylim)
      if doSave:fig.savefig(doSave+'B_Vector_Comparison.pdf',transparent=True)
  

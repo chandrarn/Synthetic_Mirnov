@@ -31,7 +31,7 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_p
     __gen_b_norm_mesh('C1'*bool(C1_file),params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
-    #return 
+    return 
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
@@ -209,23 +209,34 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
                   save_Ext,params):
     
     # 2D Plot of B-norm and J
-    theta=np.linspace(0,2*np.pi,ntheta,endpoint=False)
-    phi=np.linspace(0,2*np.pi,(nphi-1) if nfp>1 else nphi,endpoint=False)
-    phi_bnorm=np.linspace(0,2*np.pi,nphi,endpoint=False)
+    theta=np.linspace(-np.pi,np.pi,ntheta,endpoint=False)/np.pi
+    phi=np.linspace(0,2*np.pi,(nphi-1) if nfp>1 else nphi,endpoint=False)/np.pi
+    phi_bnorm=np.linspace(0,2*np.pi,nphi,endpoint=False)/np.pi
     plt.close('B-norm_J')
     fig, ax = plt.subplots(2,2,sharex=True,sharey=True,num='B-norm_J')
+    redo_inds = np.concatenate(( np.arange(int(len(theta)/2),len(theta)),
+                                np.arange(0,int(len(theta)/2)) ))
+    #theta=theta[redo_inds]
     if nfp > 1:
-        ax[0,0].contour(phi,theta,np.r_[0.0,output[0,:-nfp-1]].reshape((nphi-1,ntheta)).transpose(),50)
-        ax[0,1].contour(phi,theta,np.r_[0.0,output[1,:-nfp-1]].reshape((nphi-1,ntheta)).transpose(),50)
+        out_1=np.r_[0.0,output[0,:-nfp-1]].reshape((nphi-1,ntheta)).transpose()
+        out_2=np.r_[0.0,output[1,:-nfp-1]].reshape((nphi-1,ntheta)).transpose()
     else:
-        ax[0,0].contour(phi,theta,np.r_[0.0,output[0,:-nfp-1]].reshape((nphi,ntheta)).transpose(),50)
-        ax[0,1].contour(phi,theta,np.r_[0.0,output[1,:-nfp-1]].reshape((nphi,ntheta)).transpose(),50)
-    ax[1,0].contour(phi_bnorm,theta,bnorm[0,:,:].transpose(),10)
-    _ = ax[1,1].contour(phi_bnorm,theta,bnorm[1,:,:].transpose(),10)
+        out_1=np.r_[0.0,output[0,:-nfp-1]].reshape((nphi,ntheta)).transpose()
+        out_2=np.r_[0.0,output[1,:-nfp-1]].reshape((nphi,ntheta)).transpose()
+    out_1=out_1[redo_inds,:]
+    out_2=out_2[redo_inds,:]
+    ax[0,0].contour(phi,theta,out_1,50)
+    ax[0,1].contour(phi,theta,out_2,50)
+    print(phi_bnorm.shape, theta.shape,bnorm.shape,bnorm[0,:,redo_inds].transpose().shape)
+    out_1=bnorm[0,:,redo_inds].transpose()
+    out_2=bnorm[1,:,redo_inds].transpose()
+    print(phi_bnorm.shape,theta.shape, out_1.shape)
+    ax[1,0].contour(phi_bnorm,theta,out_1.transpose(),50)
+    _ = ax[1,1].contour(phi_bnorm,theta,out_2.transpose(),50)
     
-    ax[0,0].set_ylabel(r'$\sigma(\theta)$')
-    ax[1,0].set_ylabel(r'$B_{\hat{n}}(\theta)$')
-    for i in range(2):ax[1,i].set_xlabel(r'$\phi$')
+    ax[0,0].set_ylabel(r'$\sigma(\theta)$ [$\pi$-rad]')
+    ax[1,0].set_ylabel(r'$B_{\hat{n}}(\theta)$ [$\pi$-rad]')
+    for i in range(2):ax[1,i].set_xlabel(r'$\phi$ [$\pi$-rad]')
     ax[0,0].set_title(r'Cosine')
     ax[0,1].set_title('Sine')
     plt.show()
@@ -268,7 +279,7 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
 def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=True,doPlot=True):
     
     if orig_example_bnorm:
-        def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200,streach=0):
+        def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200,streach=0.05):
             theta_vals = np.linspace(0.0,2*np.pi,npts,endpoint=False)
             a_local = lambda theta: a +streach*a*np.abs(np.sin(theta))
             with open(filename,'w+') as fid:

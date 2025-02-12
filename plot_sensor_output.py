@@ -276,12 +276,16 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
 ####################################
 def field_to_current(B,dt,w_mode,sensor_params,sensor_set,sensor_name):
     # Assume: wc = 2MHz
-    wc = 2e6*2*np.pi
+    
     
     # Get sensor turns*area
-    if sensor_set != 'MIRNOV':NA = sensor_params[sensor_set][sensor_name]['NA']
-    else: NA = sensor_params[sensor_set][sensor_name[7:18]][sensor_name[19:]]['NA']['NA'][0]
-    
+    if sensor_set != 'MIRNOV':
+        NA = sensor_params[sensor_set][sensor_name]['NA']
+        wc = 23.1875 * 1e3 * 2*np.pi # fitted critical frequency from emperical sensor tests
+    else: 
+        NA = sensor_params[sensor_set][sensor_name[7:18]][sensor_name[19:]]['NA']['NA'][0]
+        wc = 2e6*2*np.pi
+    print(NA)
     # Signal damping factor, in SI units
     factor = lambda NA, wc, w_mode: -1 * NA / (1 + (w_mode*2*np.pi)**2/wc**2)
     
