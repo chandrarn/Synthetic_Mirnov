@@ -354,4 +354,4 @@ def __gen_r_theta(file_geqdsk,a,R,m,n,):
     return r_theta, zmagx,rmagx
     
 #########################################################
-if __name__=='__main__':Synthetic_Mirnov_Surface()
+if __name__=='__main__':Synthetic_Mirnov_Surface(C1_file='')
