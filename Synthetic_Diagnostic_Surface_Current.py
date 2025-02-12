@@ -20,7 +20,7 @@ from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
 sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-'f':7e3,'dt':1e-6,'periods':3,'n_threads':64,'I':10},doPlot=True,\
+'f':7e3,'dt':1e-6,'periods':3,'n_threads':64,'I':10},doPlot=False,\
     C1_file='/nobackup1/wenhaw42/transfer/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
     # Generate 2D b-norm sin/cos
@@ -28,7 +28,7 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_p
     else: __gen_b_norm_manual(file_geqdsk,params)
     
     # Build mode mesh
-    __gen_b_norm_mesh('C1',params['m_pts'],params['n_pts'],params['n_threads'],
+    __gen_b_norm_mesh('C1'*bool(C1_file),params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
     #return 
@@ -267,9 +267,9 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
 def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=True,doPlot=True):
     
     if orig_example_bnorm:
-        def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200):
+        def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200,streach=0):
             theta_vals = np.linspace(0.0,2*np.pi,npts,endpoint=False)
-            a_local = lambda theta: a +0.5*a*np.abs(np.sin(theta))
+            a_local = lambda theta: a +streach*a*np.abs(np.sin(theta))
             with open(filename,'w+') as fid:
                 fid.write('{0} {1}\n'.format(npts,n))
                 for theta in theta_vals:

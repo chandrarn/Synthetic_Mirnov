@@ -50,7 +50,8 @@ def convert_to_Bnorm(C1file_name,n,npts):
     
     #return psi, B1,B2, B1_norm, B2_norm, R_contour, Z_contour
     # Save in ThinCurr format
-    save_Bnorm('C1',R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
+    save_Bnorm('C1' if gethostname()[:4]=='orcd' else '',
+               R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
     
 def get_fields_from_C1(filename,saveNetCDF=True):
     # Get psi grid, B grid, R,Z coords
