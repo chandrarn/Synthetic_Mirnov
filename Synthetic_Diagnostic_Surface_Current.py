@@ -28,10 +28,10 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_p
     else: __gen_b_norm_manual(file_geqdsk,params)
     
     # Build mode mesh
-    __gen_b_norm_mesh(C1_file,params['m_pts'],params['n_pts'],params['n_threads'],
+    __gen_b_norm_mesh('C1',params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
-    return 
+    #return 
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
