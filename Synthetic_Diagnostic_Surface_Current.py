@@ -45,7 +45,7 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     mode_growth = 2.E3
     dt = params['dt']
     periods = params['periods']
-    nsteps = periods/mode_freq/dt
+    nsteps = int(periods/mode_freq/dt)
     m = params['m']
     n = params['n']
     
@@ -355,4 +355,4 @@ def __gen_r_theta(file_geqdsk,a,R,m,n,):
     return r_theta, zmagx,rmagx
     
 #########################################################
-if __name__=='__main__':Synthetic_Mirnov_Surface(C1_file='')
+if __name__=='__main__':Synthetic_Mirnov_Surface()
