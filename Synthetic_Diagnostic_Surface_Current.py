@@ -19,9 +19,9 @@ from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
-sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
+sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':2,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
 'f':7e3,'dt':1e-5,'periods':3,'n_threads':64,'I':10},doPlot=True,\
-    C1_file='/nobackup1/wenhaw42/transfer/1000_bate1.0_constbz_0_cp0501/C1.h5'):
+    C1_file='/nobackup1/wenhaw42/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
