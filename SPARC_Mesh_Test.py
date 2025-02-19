@@ -47,7 +47,8 @@ tw_plate = ThinCurr(nthreads=4)
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
 # .xml file defines coils 
 # 'SPARC_Sept2023_noPR.h5'
-tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
+tw_plate.setup_model(mesh_file='SPARC_Sept2023_noPR.h5',xml_filename='oft_in.xml')
+#tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
 tw_plate.setup_io()
 
 print("Building XMDF")
@@ -76,12 +77,13 @@ coil_currs = sM.gen_coil_currs(params)
 p = pyvista.Plotter()
 p2=pyvista.Plotter()
 
-p.add_mesh(grid, color="white", opacity=.2, show_edges=True,label='Mesh')
+p.add_mesh(grid, color="white", opacity=.6, show_edges=True,label='Mesh')
 p.show_bounds()
 
 slice_coords=[np.linspace(0,3,10),[0]*10,np.linspace(-3.5,3.5,10)]
 slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
 slices = grid.slice_along_line(slice_line)
+'''
 #p.add_mesh(slice_line,line_width=5)
 p2.add_mesh(slices,line_width=5)
 
@@ -119,7 +121,7 @@ for ind,filament in enumerate(filament_coords):
                   color=plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/params['I']+1)/2))
     
 p.add_legend()
-
+'''
 
 
 p.save_graphic('SPARC_Cad_Sensors_Mirnov_12-10.pdf')

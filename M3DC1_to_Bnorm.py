@@ -37,7 +37,7 @@ def convert_to_Bnorm(C1file_name,n,npts):
     
     # Pull fields and coordinates from .h5 file
     if gethostname()[:4]=='orcd': # if running on Engaging
-        psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = get_fields_from_C1(C1file_name,False)
+        psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = get_fields_from_C1(C1file_name,n,False)
     else:
         psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = return_local()
     
@@ -53,7 +53,7 @@ def convert_to_Bnorm(C1file_name,n,npts):
     save_Bnorm('C1' if gethostname()[:4]=='orcd' else '',
                R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
     
-def get_fields_from_C1(filename,saveNetCDF=True):
+def get_fields_from_C1(filename,n,saveNetCDF=True):
     # Get psi grid, B grid, R,Z coords
     
     # Get Psi
@@ -64,7 +64,7 @@ def get_fields_from_C1(filename,saveNetCDF=True):
     b_field = C1py.read_field('bfield', slice=[0,1], filename=filename, points=200,
                         rrange=None, zrange=None, iequil=None,idiff=True)
     b_field2 = C1py.read_field('bfield', slice=[0,1], filename=filename, points=200,
-                        rrange=None, zrange=None, iequil=None,phi=90,idiff=True)
+                        rrange=None, zrange=None, iequil=None,phi=90/n,idiff=True)
  
     R=b_field.coords['R'].values;Z=b_field.coords['Z']
 
