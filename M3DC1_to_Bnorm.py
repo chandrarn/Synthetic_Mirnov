@@ -55,6 +55,7 @@ def convert_to_Bnorm(C1file_name,n,npts):
     
 def get_fields_from_C1(filename,n,saveNetCDF=True):
     # Get psi grid, B grid, R,Z coords
+    print('Reading: %s'%filename)
     
     # Get Psi
     psi = C1py.read_field('psi', slice=-1, filename=filename, points=200,
@@ -75,8 +76,8 @@ def get_fields_from_C1(filename,n,saveNetCDF=True):
     zmagx = fio_py.eval_series(fio_py.get_series(isrc, fio_py.FIO_MAGAXIS_Z),0)
     if saveNetCDF:
         psi.to_netcdf('psi.nc')
-        b_field.to_netcdf('bfield_1.nc')
-        b_field2.to_netcdf('b_field2.nc')
+        b_field.to_netcdf('bfield_1_n%d.nc'%n)
+        b_field2.to_netcdf('b_field2_n%d.nc'%n)
     
     return psi.data,b_field.data,b_field2.data,psi.coords['R'].values,\
         psi.coords['Z'].values, rmagx, zmagx, psi_lcfs
@@ -102,7 +103,7 @@ def __debug_local_bnorm(doSave=''):
                 rmagx, zmagx, PsiLCFS,doPlot=True,doSave=doSave)
     return b_norm, all_norm, contour, all_dr, B, R_sig, Z_sig
 def calculate_normal_vector(psi_,R,Z,B,rmagx,zmagx,psi_LCFS,samp_pts=200,
-                    doPlot=True,ax=None,fig=None,doSave=''):
+                    doPlot=True,ax=None,fig=None,doSave='',save_ext=''):
     # Get LCFS coordinates
     psi=np.array(psi_.T>=psi_LCFS*1.05,dtype=np.uint8)
     contour,hierarchy=cv2.findContours(psi,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
@@ -164,17 +165,17 @@ def calculate_normal_vector(psi_,R,Z,B,rmagx,zmagx,psi_LCFS,samp_pts=200,
     B *= 1e4
     
     if doPlot:  __b_norm_debug_plots(ax,b_norm,B,R,Z,R_sig,Z_sig,all_tang,
-                                     all_norm,contour,rmagx,zmagx,doSave)
+                                 all_norm,contour,rmagx,zmagx,doSave,save_ext)
        
     return b_norm, R_sig, Z_sig,all_norm, contour, all_dr, B
 
 def __b_norm_debug_plots(ax,b_norm,B,R,Z,R_sig,Z_sig,all_tang,all_norm,contour,
-                         rmagx,zmagx,doSave,countindex=False):
+                         rmagx,zmagx,doSave,save_ext,countindex=False):
      
      if ax==None:
-         plt.close('B_Norm_Extraction')
+         plt.close('B_Norm_Extraction%s'%save_ext)
          fig,ax=plt.subplots(1,3,tight_layout=True,figsize=(8,3.),
-                             num='B_Norm_Extraction')
+                             num='B_Norm_Extraction%s'%save_ext)
      norm = colors.Normalize(vmin=min(b_norm),vmax=max(b_norm))
      #ax.contour(R,Z,psi_.T,[1],hold='on',origin='lower')
      vmin=np.min(B);vmax=np.max(B)
