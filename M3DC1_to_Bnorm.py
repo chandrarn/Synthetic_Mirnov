@@ -36,10 +36,10 @@ from socket import gethostname
 def convert_to_Bnorm(C1file_name,n,npts):
     
     # Pull fields and coordinates from .h5 file
-    if gethostname()[:4]=='orcd': # if running on Engaging
+    if gethostname()[:4]=='orcd' or gethostname()[:4]=='node': # if running on Engaging
         psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = get_fields_from_C1(C1file_name,n,False)
     else:
-        psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = return_local()
+        psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = return_local(n)
     
     #return psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS
     # Calculate B-normal for two slices
@@ -50,8 +50,8 @@ def convert_to_Bnorm(C1file_name,n,npts):
     
     #return psi, B1,B2, B1_norm, B2_norm, R_contour, Z_contour
     # Save in ThinCurr format
-    save_Bnorm('C1' if gethostname()[:4]=='orcd' else '',
-               R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
+    save_Bnorm('C1' if (gethostname()[:4]=='orcd' or gethostname()[:4]=='node') \
+               else '',  R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
     
 def get_fields_from_C1(filename,n,saveNetCDF=True):
     # Get psi grid, B grid, R,Z coords
@@ -82,10 +82,11 @@ def get_fields_from_C1(filename,n,saveNetCDF=True):
     return psi.data,b_field.data,b_field2.data,psi.coords['R'].values,\
         psi.coords['Z'].values, rmagx, zmagx, psi_lcfs
         
-def return_local():
+def return_local(n):
+    print('Returning local netCDF files: %s'%('bfield_1_n%d.nc'%n))
     psi = xr.load_dataarray('psi.nc')
-    b_field_2=xr.load_dataarray('b_field2.nc')
-    b_field_1=xr.load_dataarray('bfield_1.nc')
+    b_field_2=xr.load_dataarray('b_field2_n%d.nc'%n)
+    b_field_1=xr.load_dataarray('bfield_1_n%d.nc'%n)
     
     R=b_field_1.coords['R'].values;Z=b_field_1.coords['Z'].values
     psi=psi.data
@@ -258,11 +259,13 @@ def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200):
 
 ##########################################
 def save_Bnorm(C1file_name,contour_R,contour_Z,B1_norm,B2_norm,n,npts):
-    with open(C1file_name+'_tCurr_mode.dat','w+') as f:
+    with open((C1file_name+'_tCurr_mode.dat') if C1file_name else 'tCurr_mode.dat','w+') as f:
         f.write('{0} {1}\n'.format(npts,n))
         for ind,r in enumerate(contour_R):
             f.write('{0} {1} {2} {3}\n'.format(r,contour_Z[ind],
-                         B1_norm[ind],B2_norm[ind]) )        
+                         B1_norm[ind],B2_norm[ind]) )  
+    print('Saving B-Norm: %s'%((C1file_name+'_tCurr_mode.dat') if \
+                               C1file_name else 'tCurr_mode.dat'))
 ##########################################
 def __plot_time_series(t_points=5):
     fig,ax=plt.subplots(2,2,tight_layout=True)

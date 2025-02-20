@@ -14,12 +14,13 @@ Created on Tue Feb  4 14:23:27 2025
 """
 
 from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
-    h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess
+    h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
+        gethostname
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
-sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':2,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
+sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':4,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
 'f':7e3,'dt':1e-5,'periods':3,'n_threads':64,'I':10},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
@@ -28,7 +29,8 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':2,'r':.25,'R':1,'n_p
     else: __gen_b_norm_manual(file_geqdsk,params)
     
     # Build mode mesh
-    __gen_b_norm_mesh('C1'*bool(C1_file),params['m_pts'],params['n_pts'],params['n_threads'],
+    server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
+    __gen_b_norm_mesh('C1' if server else '',params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
     return 
