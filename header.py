@@ -40,3 +40,4 @@ from scipy.interpolate import make_smoothing_spline
 from scipy.special import factorial
 import json
 from socket import gethostname
+server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')

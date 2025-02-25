@@ -45,7 +45,7 @@ def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
                            'filament' if filament else 'surface',save_Ext))
     for ind, s in enumerate(sensor_dict):
         if not filament:
-            trimTime=0
+            trimTime=20
             X[ind] = X[ind][trimTime:]
             Z[ind] = Z[ind][:,trimTime:]
         norm = Normalize(np.min(Z[ind]),np.max(Z[ind]))

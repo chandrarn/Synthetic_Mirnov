@@ -15,13 +15,13 @@ Created on Tue Feb  4 14:23:27 2025
 
 from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
     h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
-        gethostname
+        gethostname, server
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
 sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':4,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-'f':7e3,'dt':1e-5,'periods':3,'n_threads':64,'I':10},doPlot=True,\
+'f':7e3,'dt':1e-5,'periods':3,'n_threads':64,'I':10,'T':1e-2},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
     # Generate 2D b-norm sin/cos
@@ -29,11 +29,10 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':4,'r':.25,'R':1,'n_p
     else: __gen_b_norm_manual(file_geqdsk,params)
     
     # Build mode mesh
-    server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
     __gen_b_norm_mesh('C1' if server else '',params['m_pts'],params['n_pts'],params['n_threads'],
                       sensor_set,doSave,save_ext,params,doPlot)
     
-    return 
+    #return 
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
@@ -43,13 +42,17 @@ sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':4,'r':.25,'R':1,'n_p
 ########################################################
 def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
              sensor_set,save_Ext):
-    mode_freq = params['f']
+    
     mode_growth = 2.E3
     dt = params['dt']
     periods = params['periods']
-    nsteps = int(periods/mode_freq/dt)
+    nsteps = int(params['T']/dt)
     m = params['m']
     n = params['n']
+    # Extending support for time dependent frequencies
+    if type(params['f']) == float: mode_freq = params['f']*np.ones((nsteps,)) # always just return f
+    # assume frequency is a function taken [0,1] as the argument
+    else:mode_freq = params['f'](np.linspace(0,1,nsteps)) 
     
     timebase_current = np.arange(0.0,dt*nsteps+1,dt); 
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
