@@ -15,13 +15,13 @@ Created on Tue Feb  4 14:23:27 2025
 
 from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
     h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
-        gethostname, server
+        gethostname, server, I_KM, F_KM
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
-sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':4,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-'f':7e3,'dt':1e-5,'periods':3,'n_threads':64,'I':10,'T':1e-2},doPlot=True,\
+sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
+'f':F_KM,'dt':1e-5,'periods':3,'n_threads':64,'I':I_KM,'T':1e-2},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
     # Generate 2D b-norm sin/cos
@@ -50,17 +50,20 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     m = params['m']
     n = params['n']
     # Extending support for time dependent frequencies
-    if type(params['f']) == float: mode_freq = params['f']*np.ones((nsteps,)) # always just return f
+    if type(params['f']) == float: mode_freq = params['f']*np.ones((nsteps+1,)) # always just return f
     # assume frequency is a function taken [0,1] as the argument
-    else:mode_freq = params['f'](np.linspace(0,1,nsteps)) 
+    else:mode_freq = params['f'](np.linspace(0,1,nsteps+1)) 
     
-    timebase_current = np.arange(0.0,dt*nsteps+1,dt); 
+    if type(params['I']) == int: mode_amp = params['I']*np.ones((nsteps+1,))
+    else: mode_amp = params['I'](np.linspace(0,1,nsteps+1)) 
+    
+    timebase_current = np.arange(0.0,dt*(nsteps+1),dt); 
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
-    fn_ramp = 1# timebase_current/mode_growth
-    cos_current = fn_ramp*np.cos(mode_freq*2.0*np.pi*timebase_current);
+    #fn_ramp = 1# timebase_current/mode_growth
+    cos_current = mode_amp*np.cos(mode_freq*2.0*np.pi*timebase_current);
     cos_current[:5] *= np.linspace(0,1,5)
     cos_voltage = np.diff(cos_current)/np.diff(timebase_current)
-    sin_current = fn_ramp*np.sin(mode_freq*2.0*np.pi*timebase_current);
+    sin_current = mode_amp*np.sin(mode_freq*2.0*np.pi*timebase_current);
     sin_current[:5] *= np.linspace(0,1,5)
     sin_voltage = np.diff(sin_current)/np.diff(timebase_current)
     
@@ -71,7 +74,7 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     for i in range(nsteps+2):
         volt_full[i,0] = dt*i
         sensor_signals[i,0] = dt*i
-        if i > 0:
+        if i > 0: # Leave 0-th step voltage, current, as zero
             volt_full[i,1:] = mode_driver[0,:]*np.interp(volt_full[i,0],timebase_voltage,cos_voltage) \
               + mode_driver[1,:]*np.interp(volt_full[i,0],timebase_voltage,sin_voltage)
               

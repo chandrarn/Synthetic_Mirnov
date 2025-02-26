@@ -41,3 +41,5 @@ from scipy.special import factorial
 import json
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
+
+from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE
