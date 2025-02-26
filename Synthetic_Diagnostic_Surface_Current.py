@@ -21,7 +21,7 @@ from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
 sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-'f':F_KM,'dt':1e-5,'periods':3,'n_threads':64,'I':I_KM,'T':1e-2},doPlot=True,\
+'f':F_KM,'dt':1e-5,'periods':3,'n_threads':8,'I':I_KM,'T':1e-2},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'):
     
     # Generate 2D b-norm sin/cos
@@ -86,7 +86,7 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     
     # Rename output 
     subprocess.run(['cp','floops.hist','data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (sensor_set,m,n,mode_freq*1e-3,save_Ext)])
+                    (sensor_set,m,n,mode_freq[0]*1e-3,save_Ext)])
     '''
     hist_file = histfile('data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
                          (sensor_set,params['m'],params['n'],\
