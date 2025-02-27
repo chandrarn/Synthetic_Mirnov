@@ -44,7 +44,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params)
-    return coil_currs
+    #return coil_currs
     # Run time dependent simulation
     run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
