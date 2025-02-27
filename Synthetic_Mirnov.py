@@ -140,7 +140,7 @@ def gen_coil_currs(param):
 def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
-    nsteps = int(params['T']/dt)
+    nsteps = int(param['T']/dt)
 
     
 
