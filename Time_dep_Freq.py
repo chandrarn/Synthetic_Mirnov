@@ -19,7 +19,7 @@ rc('text', usetex=True)
 
 # Assume F(t), I(t) accepts t in [0,1], any sub "frequency" is normalized to this
 
-debug_plot = False
+debug_plot = True
 
 # Kink-tearing mode
 period=.3e-3
@@ -34,7 +34,10 @@ def I_AE(t,dead_time=.2):
     I_out = np.zeros((len(t)))
     I_out[local_t < (period)*(1-dead_time)] = \
          5 + 1*local_t[local_t < (period)*(1-dead_time)]/((period)*(1-dead_time))
-    I_out[local_t >= (period)*(1-dead_time)] = 0
+    
+    t_shift = local_t[local_t >= (period)*(1-dead_time)]
+    step_val = np.where(local_t >= (period)*(1-dead_time))[0][0]-1
+    I_out[local_t >= (period)*(1-dead_time)] = I_out[step_val]*np.exp(-1e5*(t_shift-(period)*(1-dead_time)) )
     return I_out
     
 def F_AE(t,dead_time=.2,lam=5e3,f_carrier=50e3,f_mod=30e3):
@@ -49,8 +52,9 @@ def F_AE(t,dead_time=.2,lam=5e3,f_carrier=50e3,f_mod=30e3):
         2*np.pi*(f_carrier*t_shift - f_mod*(t_shift+np.exp(-t_shift*lam)/lam))
         #300e3 - 30e3 * (1-np.exp(-t_shift*4))
          
-         
-    f_out[local_t >= (period)*(1-dead_time)] = 0
+    t_shift = local_t[local_t >= (period)*(1-dead_time)]
+    step_val = np.where(local_t >= (period)*(1-dead_time))[0][0]-1
+    f_out[local_t >= (period)*(1-dead_time)] = f_out[step_val]*np.exp(-1*(t_shift-(period)*(1-dead_time)) )
     return f_out
 
 def F_AE_plot(t,dead_time=.2,lam=5e3,f_carrier=50e3,f_mod=30e3):
