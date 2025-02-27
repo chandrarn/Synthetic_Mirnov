@@ -118,18 +118,20 @@ def gen_coil_currs(param):
     I=param['I'];n=param['n'];n_pts=param['n_pts']
     nsteps = int(param['T']/dt)
     
-    if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
-    else: mode_amp = param['I'](np.linspace(0,1,nsteps+1)) 
-    if type(param['f']) == float: mode_freq = param['f']*np.ones((nsteps+1,)) # always just return f
-    # assume frequency is a function taken [0,1] as the argument
-    else:mode_freq = param['f'](np.linspace(0,1,nsteps+1)) 
-    
     theta_,phi_= gen_filament_coords(param)
     time=np.linspace(0,param['T'],nsteps)
     coil_currs = np.zeros((time.size,m_pts+1))
+    
+    if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
+    else: mode_amp = param['I'](time) 
+    if type(param['f']) == float: mode_freq = param['f']*2*np.pi*time # always just return f
+    # assume frequency is a function taken [0,1] as the argument
+    else:mode_freq = param['f'](time) 
+    
+
     for ind,t in enumerate(time):
         coil_currs[ind,1:] = \
-            [mode_amp[ind]*np.cos(m*theta+t*mode_freq[ind]*2*np.pi) for theta in theta_]
+            [mode_amp[ind]*np.cos(m*theta+mode_freq[ind]) for theta in theta_]
         
     # Time vector in first column
     coil_currs[:,0]=time
@@ -157,8 +159,9 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     hist_file = histfile('floops.hist');
     for h in hist_file:print(h)
     # Rename output 
-    subprocess.run(['cp','floops.hist','data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (sensor_set,m,n,f[0]*1e-3,save_Ext)])
+    f_out = f*1e-3 if type(f) is float else f(0)*1e3
+    subprocess.run(['cp','floops.hist','data_output/floops_filament_%s_m-n_%d-%d_f_%s%s.hist'%\
+                    (sensor_set,m,n,f_out,save_Ext)])
                     
     return coil_currs
 ########################

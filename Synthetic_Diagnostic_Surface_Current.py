@@ -49,21 +49,24 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     nsteps = int(params['T']/dt)
     m = params['m']
     n = params['n']
-    # Extending support for time dependent frequencies
-    if type(params['f']) == float: mode_freq = params['f']*np.ones((nsteps+1,)) # always just return f
-    # assume frequency is a function taken [0,1] as the argument
-    else:mode_freq = params['f'](np.linspace(0,1,nsteps+1)) 
-    
-    if type(params['I']) == int: mode_amp = params['I']*np.ones((nsteps+1,))
-    else: mode_amp = params['I'](np.linspace(0,1,nsteps+1)) 
     
     timebase_current = np.arange(0.0,dt*(nsteps+1),dt); 
     timebase_voltage = (timebase_current[1:]+timebase_current[:-1])/2.0
+    
+    # Extending support for time dependent frequencies
+    if type(params['f']) == float: mode_freq = params['f']*2*np.pi*timebase_current # always just return f
+    # assume frequency is a function taken [0,1] as the argument
+    else:mode_freq = params['f'](timebase_current) 
+    
+    if type(params['I']) == int: mode_amp = params['I']*np.ones((nsteps+1,))
+    else: mode_amp = params['I'](timebase_current) 
+    
+
     #fn_ramp = 1# timebase_current/mode_growth
-    cos_current = mode_amp*np.cos(mode_freq*2.0*np.pi*timebase_current);
+    cos_current = mode_amp*np.cos(mode_freq);
     cos_current[:5] *= np.linspace(0,1,5)
     cos_voltage = np.diff(cos_current)/np.diff(timebase_current)
-    sin_current = mode_amp*np.sin(mode_freq*2.0*np.pi*timebase_current);
+    sin_current = mode_amp*np.sin(mode_freq);
     sin_current[:5] *= np.linspace(0,1,5)
     sin_voltage = np.diff(sin_current)/np.diff(timebase_current)
     
