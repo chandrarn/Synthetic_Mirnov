@@ -23,7 +23,7 @@ debug_plot = False
 
 # Kink-tearing mode
 periods=3
-I_KM = lambda t: 10 + 2*np.sin(2*np.pi*t*3)
+I_KM = lambda t: 10 + 0*np.sin(2*np.pi*t*3)
 F_KM = lambda t: 7e3 - 2e3*np.sin(2*np.pi*t*3)
 
 # AE 

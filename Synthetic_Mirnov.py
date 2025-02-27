@@ -9,7 +9,7 @@ Created on Tue Dec 17 11:43:59 2024
 # header
 from header import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
-        make_smoothing_spline, factorial, json, subprocess 
+        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk
 from prep_sensors import conv_sensor
@@ -19,7 +19,7 @@ from plot_sensor_output import plot_Currents
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
-                            'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10},
+                            'f':500e3,'dt':1e-5,'T':1e-2,'periods':3,'n_threads':64,'I':10},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='MRNV'):
     
@@ -116,22 +116,36 @@ def gen_coil_currs(param):
     # Eventually, the balooning approximation goes here, as does straight field line apprxoiation
     m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
     I=param['I'];n=param['n'];n_pts=param['n_pts']
+    nsteps = int(params['T']/dt)
+    
+    if type(params['I']) == int: mode_amp = params['I']*np.ones((nsteps+1,))
+    else: mode_amp = params['I'](np.linspace(0,1,nsteps+1)) 
+    if type(params['f']) == float: mode_freq = params['f']*np.ones((nsteps+1,)) # always just return f
+    # assume frequency is a function taken [0,1] as the argument
+    else:mode_freq = params['f'](np.linspace(0,1,nsteps+1)) 
+    
     theta_,phi_= gen_filament_coords(param)
-    time=np.arange(0,periods/f,dt)
+    time=np.linspace(0,params['T'],nsteps)
     coil_currs = np.zeros((time.size,m_pts+1))
     for ind,t in enumerate(time):
-        coil_currs[ind,1:]=[I*np.cos(m*theta+t*f*2*np.pi) for theta in theta_]
+        coil_currs[ind,1:] = \
+            [mode_amp[ind]*np.cos(m*theta+t*mode_freq[ind]*2*np.pi) for theta in theta_]
         
     # Time vector in first column
     coil_currs[:,0]=np.arange(0,periods/f,dt)
     
     return coil_currs
+
 ####################################
 def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
+    nsteps = int(params['T']/dt)
+
+    
+
     # run time depenent simulation, save floops.hist file
-    tw_mesh.run_td(dt,int(periods/f/dt),
+    tw_mesh.run_td(dt,nsteps,
                     coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
     if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
     
@@ -144,7 +158,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     for h in hist_file:print(h)
     # Rename output 
     subprocess.run(['cp','floops.hist','data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (sensor_set,m,n,f*1e-3,save_Ext)])
+                    (sensor_set,m,n,f[0]*1e-3,save_Ext)])
                     
     return coil_currs
 ########################
