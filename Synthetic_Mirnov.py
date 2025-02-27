@@ -19,7 +19,7 @@ from plot_sensor_output import plot_Currents
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
-                            'f':F_AE,'dt':1e-7,'T':2e-3,'periods':3,'n_threads':64,'I':I_AE},
+                            'f':F_AE,'dt':5e-7,'T':1e-3,'periods':3,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='MRNV'):
     
@@ -146,8 +146,8 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
 
     # run time depenent simulation, save floops.hist file
     tw_mesh.run_td(dt,nsteps,
-                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
-    if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=100)
+                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=500,plot_freq=500)
+    if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=500)
     
     # Save B-norm surface for later plotting # This may be unnecessar
     if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
