@@ -19,7 +19,7 @@ from plot_sensor_output import plot_Currents
 def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
                          xml_filename='oft_in.xml',\
                              params={'m':12,'n':10,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
-                            'f':500e3,'dt':1e-5,'T':1e-2,'periods':3,'n_threads':64,'I':10},
+                            'f':F_AE,'dt':1e-7,'T':5e-4,'periods':3,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='geqdsk',
                                 sensor_set='MRNV'):
     
@@ -44,7 +44,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params)
-    
+    return coil_currs
     # Run time dependent simulation
     run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
@@ -116,23 +116,23 @@ def gen_coil_currs(param):
     # Eventually, the balooning approximation goes here, as does straight field line apprxoiation
     m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
     I=param['I'];n=param['n'];n_pts=param['n_pts']
-    nsteps = int(params['T']/dt)
+    nsteps = int(param['T']/dt)
     
-    if type(params['I']) == int: mode_amp = params['I']*np.ones((nsteps+1,))
-    else: mode_amp = params['I'](np.linspace(0,1,nsteps+1)) 
-    if type(params['f']) == float: mode_freq = params['f']*np.ones((nsteps+1,)) # always just return f
+    if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
+    else: mode_amp = param['I'](np.linspace(0,1,nsteps+1)) 
+    if type(param['f']) == float: mode_freq = param['f']*np.ones((nsteps+1,)) # always just return f
     # assume frequency is a function taken [0,1] as the argument
-    else:mode_freq = params['f'](np.linspace(0,1,nsteps+1)) 
+    else:mode_freq = param['f'](np.linspace(0,1,nsteps+1)) 
     
     theta_,phi_= gen_filament_coords(param)
-    time=np.linspace(0,params['T'],nsteps)
+    time=np.linspace(0,param['T'],nsteps)
     coil_currs = np.zeros((time.size,m_pts+1))
     for ind,t in enumerate(time):
         coil_currs[ind,1:] = \
             [mode_amp[ind]*np.cos(m*theta+t*mode_freq[ind]*2*np.pi) for theta in theta_]
         
     # Time vector in first column
-    coil_currs[:,0]=np.arange(0,periods/f,dt)
+    coil_currs[:,0]=time
     
     return coil_currs
 

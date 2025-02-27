@@ -23,8 +23,8 @@ debug_plot = False
 
 # Kink-tearing mode
 periods=3
-I_KM = lambda t: 10 + 0*np.sin(2*np.pi*t*3)
-F_KM = lambda t: 7e3 - 2e3*np.sin(2*np.pi*t*3)
+I_KM = lambda t: 10 + 1*np.sin(2*np.pi*t*3)
+F_KM = lambda t: 10e3 - .5e3*np.sin(2*np.pi*t*3)
 
 # AE 
 def I_AE(t,dead_time=.2):
@@ -32,7 +32,7 @@ def I_AE(t,dead_time=.2):
     local_t = t % (1/periods)
     I_out = np.zeros((len(t)))
     I_out[local_t < (1/periods)*(1-dead_time)] = \
-         5 + 4*local_t[local_t < (1/periods)*(1-dead_time)]/((1/periods)*(1-dead_time))
+         5 + 1*local_t[local_t < (1/periods)*(1-dead_time)]/((1/periods)*(1-dead_time))
     I_out[local_t >= (1/periods)*(1-dead_time)] = 0
     return I_out
     
@@ -43,7 +43,7 @@ def F_AE(t,dead_time=.2):
     # Local times slices
     t_shift = local_t[local_t < (1/periods)*(1-dead_time)]/((1/periods)*(1-dead_time))
     f_out[local_t < (1/periods)*(1-dead_time)] = \
-         500e3 - 150e3 * (1-np.exp(-t_shift*4))
+         300e3 - 30e3 * (1-np.exp(-t_shift*4))
     f_out[local_t >= (1/periods)*(1-dead_time)] = 0
     return f_out
 
