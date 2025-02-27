@@ -9,7 +9,7 @@ Created on Tue Dec 17 11:43:59 2024
 # header
 from header import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
-        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE
+        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk
 from prep_sensors import conv_sensor
@@ -159,9 +159,11 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     hist_file = histfile('floops.hist');
     for h in hist_file:print(h)
     # Rename output 
-    f_out = f*1e-3 if type(f) is float else f(0)*1e3
-    subprocess.run(['cp','floops.hist','data_output/floops_filament_%s_m-n_%d-%d_f_%s%s.hist'%\
-                    (sensor_set,m,n,f_out,save_Ext)])
+    f_out = f*1e-3 if type(f) is float else F_AE_plot(0)*1e-3
+    f_save = 'data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (sensor_set,m,n,f_out,save_Ext)
+    subprocess.run(['cp','floops.hist',f_save])
+    print('Saved: %s'%f_save)
                     
     return coil_currs
 ########################

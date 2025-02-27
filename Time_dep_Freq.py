@@ -19,13 +19,13 @@ rc('text', usetex=True)
 
 # Assume F(t), I(t) accepts t in [0,1], any sub "frequency" is normalized to this
 
-debug_plot = True
+debug_plot = False
 
 # Kink-tearing mode
 period=.3e-3
 I_KM = lambda t: 10 - 1*np.sin(2*np.pi*t*1e3)
 F_KM = lambda t:  2*np.pi*7e3*t + 2e3*np.sin(2*np.pi*t*1e3)/1e3 
-F_KM_alone = lambda t: 7e3 + 2e3*np.sin(2*np.pi*t*1e3) 
+F_KM_plot = lambda t: 7e3 + 2e3*np.sin(2*np.pi*t*1e3) 
 
 # AE 
 def I_AE(t,dead_time=.2):
@@ -39,6 +39,7 @@ def I_AE(t,dead_time=.2):
     
 def F_AE(t,dead_time=.2,lam=5e3,f_carrier=50e3,f_mod=30e3):
     # Break into repeating bands
+    t=np.array(t)
     local_t = t % (period)
     f_out = np.zeros((len(t)))
     
@@ -53,6 +54,7 @@ def F_AE(t,dead_time=.2,lam=5e3,f_carrier=50e3,f_mod=30e3):
     return f_out
 
 def F_AE_plot(t,dead_time=.2,lam=5e3,f_carrier=50e3,f_mod=30e3):
+    t=np.array(t,ndmin=1)
     # Break into repeating bands
     local_t = t % (period)
     f_out = np.zeros((len(t)))
@@ -72,7 +74,7 @@ if debug_plot:
     
     time = np.linspace(0,.01,1000)
     
-    I_k = I_KM(time); f_k = F_KM_alone(time)#F_KM(time)
+    I_k = I_KM(time); f_k = F_KM_plot(time)#F_KM(time)
     I_ae = I_AE(time)
     f_ae = F_AE_plot(time)
     f_ae[f_ae==0] = np.nan

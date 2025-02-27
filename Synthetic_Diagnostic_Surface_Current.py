@@ -15,7 +15,7 @@ Created on Tue Feb  4 14:23:27 2025
 
 from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
     h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
-        gethostname, server, I_KM, F_KM
+        gethostname, server, I_KM, F_KM, F_KM_plot
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
@@ -88,8 +88,10 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
                     sensor_obj=sensor_obj,direct=True,sensor_values=sensor_signals)
     
     # Rename output 
-    subprocess.run(['cp','floops.hist','data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (sensor_set,m,n,mode_freq[0]*1e-3,save_Ext)])
+    f_save = 'data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (sensor_set,m,n,F_KM_plot(0)*1e-3,save_Ext)
+    subprocess.run(['cp','floops.hist',f_save])
+    print('Saved: %s'%f_save)
     '''
     hist_file = histfile('data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
                          (sensor_set,params['m'],params['n'],\

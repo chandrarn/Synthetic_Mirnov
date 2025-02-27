@@ -42,4 +42,4 @@ import json
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 
-from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE
+from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot
