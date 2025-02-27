@@ -9,7 +9,7 @@ import numpy as np
 
 
 #Create a spectrogram using a rolling fft^2 over the x data 
-def rolling_specgram(time, x, fft_window=100, pad=0):
+def rolling_spectrogram(time, x, fft_window=100, pad=0):
 
     #Perform a rolling FFT
     #===================================

@@ -76,7 +76,7 @@ if debug_plot:
     plt.close('test_f_i')
     fig = plt.figure(tight_layout=True,num='test_f_i')
     
-    time = np.linspace(0,.01,1000)
+    time = np.linspace(0,.001,1000)
     
     I_k = I_KM(time); f_k = F_KM_plot(time)#F_KM(time)
     I_ae = I_AE(time)
