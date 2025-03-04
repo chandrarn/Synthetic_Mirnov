@@ -7,7 +7,7 @@ Created on Tue Mar  4 13:58:42 2025
 @author: rianc
 """
 
-from header import np, plt
+from header import np, plt, gaussian_filter1d
 
 import get_Cmod_Data as gC
 
@@ -36,6 +36,19 @@ def rawSignal(shotno,tLim,bpt=None):
     ax[1].set_ylabel('PSD [arb]')
     
     for i in range(2):ax[i].grid()
+    
+    #######
+    # do filtering
+
+    dt=time[1]-time[0]
+    timeWidth=3e3
+    #1/(dt*timeWidth*2*_np.pi)#
+    #TODO(John)  This equation is wrong.  Should be dividing by 2.355, not multiplying.  Fix here and with all dependencies
+    sigma= (1./(2*np.pi))*timeWidth/dt #2.355*timeWidth/dt#  
+    fft_abs = np.abs(fft)[:len(fft)//2]
+    fft_f=freq[:len(freq)//2]*1e-3
+    yFiltered=gaussian_filter1d(fft_abs,sigma)
+    ax[1].plot(fft_f,yFiltered,alpha=.6)
     
     plt.show()
     

@@ -45,6 +45,7 @@ from freeqdsk import geqdsk
 import cv2
 from scipy.interpolate import make_smoothing_spline
 from scipy.special import factorial
+from scipy.ndimage import gaussian_filter1d
 import json
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
