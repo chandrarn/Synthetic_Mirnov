@@ -19,7 +19,7 @@ rc('text', usetex=True)
 
 # Assume F(t), I(t) accepts t in [0,1], any sub "frequency" is normalized to this
 
-debug_plot = True
+debug_plot = False
 
 # Kink-tearing mode
 period=.3e-3

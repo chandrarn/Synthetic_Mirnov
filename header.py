@@ -8,6 +8,7 @@ Created on Tue Dec 17 12:04:59 2024
 
 import struct
 import sys
+import importlib.util
 import os
 import h5py
 import subprocess
@@ -17,6 +18,9 @@ import matplotlib.lines as mlines
 from matplotlib import rc,cm
 from matplotlib.colors import Normalize
 import pyvista
+# MDS load may not work on all machines
+try:import MDSplus as mds
+except:import mdsthin as mds
 #pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
@@ -27,13 +31,16 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 
+
 sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
+sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/')
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 from OpenFUSIONToolkit.util import build_XDMF, mu0
 from OpenFUSIONToolkit.io import histfile
 from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh, build_torus_bnorm_grid, build_periodic_mesh, write_periodic_mesh
 
+    
 from freeqdsk import geqdsk
 import cv2
 from scipy.interpolate import make_smoothing_spline
