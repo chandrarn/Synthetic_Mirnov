@@ -8,8 +8,8 @@ Spyder Editor
 from header_Cmod import np, plt, mds, Normalize, cm
 
 ###############################################################################
-# Connect to tree
 def openTree(shotno):
+    # Connect to data tree
     conn = mds.Connection('alcdata')
     conn.openTree('CMOD',shotno)
     return conn
@@ -22,13 +22,13 @@ class BP_T:
         conn = openTree(shotno)
         
         basePath= r'\CMOD::TOP.MHD.MAGNETICS:ACTIVE_MHD:SIGNALS:'
-        # Can load AMP_GAINS but not data itself
         self.ab_data = []   
         self.ab_names = []
         self.ab_theta = []
         self.gh_data = []
         self.gh_names = []
         self.gh_theta = []
+        
         for i in np.arange(1,7):
             
             try:# not ever node is on on every shot
@@ -36,7 +36,6 @@ class BP_T:
                 self.ab_data.append(conn.get(basePath+node).data())
                 self.ab_names.append(node)
                 if debug:print('Loaded %s'%node)
-                #self.ab_theta.append()
             except:pass
             
             try:
@@ -45,6 +44,7 @@ class BP_T:
                 self.gh_names.append(node)
                 if debug:print('Loaded %s'%node)
             except:pass
+            
         self.ab_data = np.array(self.ab_data)
         self.gh_data = np.array(self.gh_data)
         
@@ -133,6 +133,7 @@ class RF_PWR():
         self.time = conn.get(r'dim_of(\CMOD::TOP.RF.ANTENNA:RESULTS:PWR_NET_TOT)').data()
         self.shotno=shotno
         conn.closeAllTrees()
+        
     def makePlot(self):
         plt.close('RF_Pwr')
         fig,ax=plt.subplots(1,1,num='RF_Pwr',figsize=(6,3),tight_layout=True)

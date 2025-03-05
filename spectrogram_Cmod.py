@@ -81,6 +81,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         signals = diag.ab_data if sensor_name == '' else \
             diag.ab_data[(np.array(diag.ab_names) ==  sensor_name)]
         time = diag.time
+    else: raise SyntaxError('Selected Diagnostic Not Yet Implemented')
+    
     if debug: print('Loaded: %s'%sensor_set)
     
     # Desired time range to operate on
@@ -97,7 +99,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     
     if debug: print('Computed Spectrogram, Size ',out_spect.shape)    
         
-    # Plot
+    # Plot Spectrogram
     # Reduce plot resolution:
     time = time[::plot_reduce]
     out_spect = out_spect[:,::plot_reduce]
@@ -118,9 +120,9 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
-    fName = 'C_Mod_Data_%s_%d'%(sensor_set,shotno)
-        
+    fName = 'C_Mod_Data_%s_%d'%(sensor_set,shotno)   
     plt.close(name)
+    
     fig,ax=plt.subplots(1,1,tight_layout=True,num=name)
     ax.pcolormesh(time*tScale,freq*1e-3,out_spect,shading='auto',rasterized=True)
     
@@ -129,7 +131,8 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         plt.tick_params(left = False, bottom = False)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-        fig.savefig(doSave+'Spectrogram_%s.png'%fName,bbox_inches='tight')
+        fig.savefig(doSave+'Spectrogram_%s.png'%fName,
+                    bbox_inches='tight',pad_inches=0)
         ax.get_xaxis().set_visible(True)
         ax.get_yaxis().set_visible(True)
         plt.tick_params(left = True, bottom = True)
