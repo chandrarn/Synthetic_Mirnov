@@ -27,9 +27,11 @@ def rawSignal(shotno,tLim,bpt=None):
     freq = np.fft.fftfreq(len(sig),time[1]-time[0])
     
     plt.close('Mirnov_FFT')
-    fig,ax=plt.subplots(1,2,num='Mirnov_FFT',tight_layout=True,figsize=(6,3))
+    fig,ax=plt.subplots(1,3,num='Mirnov_FFT',tight_layout=True,figsize=(6,3))
     ax[0].plot(time,sig,label=shotno)
     ax[0].legend(fontsize=8,handlelength=1)
+    ax[0].set_xlabel('Time [s]')
+    ax[0].set_ylabel('Signal [V?]')
     
     ax[1].plot(freq[:len(freq)//2]*1e-3,np.abs(fft)[:len(fft)//2])
     ax[1].set_xlabel('Freq [kHz]')
@@ -37,19 +39,30 @@ def rawSignal(shotno,tLim,bpt=None):
     
     for i in range(2):ax[i].grid()
     
+    
     #######
     # do filtering
-
-    dt=time[1]-time[0]
-    timeWidth=3e3
-    #1/(dt*timeWidth*2*_np.pi)#
-    #TODO(John)  This equation is wrong.  Should be dividing by 2.355, not multiplying.  Fix here and with all dependencies
-    sigma= (1./(2*np.pi))*timeWidth/dt #2.355*timeWidth/dt#  
-    fft_abs = np.abs(fft)[:len(fft)//2]
-    fft_f=freq[:len(freq)//2]*1e-3
+    fft_abs = fft#fft[:len(fft)//2]
+    fft_f=freq#freq[:len(freq)//2]*1e-3
+    fft_abs=fft_abs[::10]
+    fft_f=fft_f[::10]
+    f_width=1
+    df=fft_f[1]-fft_f[0]
+    sigma= (1./(2*np.pi))*f_width/df
     yFiltered=gaussian_filter1d(fft_abs,sigma)
-    ax[1].plot(fft_f,yFiltered,alpha=.6)
+    ax[1].plot(fft_f[:len(fft_f)//2]*1e-3,np.abs(yFiltered)[:len(fft_abs)//2],alpha=.6)
+    
+    ########### histogram
+    counts,bins=np.histogram(sig,bins=50)
+    ax[2].stairs(counts,bins)
+    ax[2].grid()
+    ax[2].set_xlabel(r'$\Delta$-Signal [V]')
+    ax[2].set_ylabel(r'Counts [\#]')
+    sigma=2.5;A=25000*6.5
+    fn_norm = lambda x: A*np.exp(-x**2/(2*sigma**2))/np.sqrt(2*np.pi*sigma**2)
+    x_=np.linspace(-15,15,100)
+    ax[2].plot(x_,fn_norm(x_),alpha=.6)
     
     plt.show()
     
-    return bpt
+    return bpt, yFiltered,sig

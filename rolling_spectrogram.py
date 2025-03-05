@@ -3,6 +3,7 @@
 """
 Created on Thu Feb 27 17:58:51 2025
      Rolling spectrogram
+     Adapted from code by Ian Stewart
 @author: rian
 """
 import numpy as np
@@ -33,7 +34,7 @@ def rolling_spectrogram(time, x, fft_window=100, pad=0):
            #Pad each of the windowed arrays
            x_pad2 = np.zeros(len(x_pad[i:i+fft_window])+pad)
            x_pad2[pad//2:len(x_pad[i:i+fft_window])+pad//2] = x_pad[i:i+fft_window]*np.hanning(fft_window)
-           Sxx[i] = np.abs(np.fft.fft(x_pad2)*Normalization)**2
+           Sxx[i] = np.abs(np.fft.fft(x_pad2)*Normalization)**1
    
        frq = frq[range(N//2)]   #Take only the positive frequencies
        Sxx = Sxx[:,range(N//2)]

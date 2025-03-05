@@ -285,7 +285,7 @@ def field_to_current(B,dt,w_mode,sensor_params,sensor_set,sensor_name):
     else: 
         NA = sensor_params[sensor_set][sensor_name[7:18]][sensor_name[19:]]['NA']['NA'][0]
         wc = 2e6*2*np.pi
-    print(NA)
+        
     # Signal damping factor, in SI units
     factor = lambda NA, wc, w_mode: -1 * NA / (1 + (w_mode*2*np.pi)**2/wc**2)
     

@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
 """
 Spyder Editor
-    Gen C-Mod data
-This is a temporary script file.
+    Gen C-Mod data for a variety of diagnostics
 """
 
-from header import np, plt, mds, Normalize, cm
 
+from header_Cmod import np, plt, mds, Normalize, cm
 
+###############################################################################
 # Connect to tree
 def openTree(shotno):
     conn = mds.Connection('alcdata')
     conn.openTree('CMOD',shotno)
     return conn
 
+###############################################################################
 class BP_T:
+    # High frequency Mirnov array
+    
     def __init__(self,shotno,debug=False):
         conn = openTree(shotno)
         
@@ -76,8 +79,10 @@ class BP_T:
         plt.show()
         
     
-######################################################
+###############################################################################
 class ECE:
+    # ECE radial profile [not high frequency ECE data]
+    
     def __init__(self,shotno,debug=True):
         conn = openTree(shotno)
         self.Te=conn.get('\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE').data()
@@ -97,8 +102,10 @@ class ECE:
                      label=r'$\mathrm{T_e}$ [keV]')
         plt.show()
 
-#####################################################
+###############################################################################
 class Ip:
+    # Plasma current
+    
     def __init__(self,shotno):
         conn = openTree(shotno)
         self.shotno=shotno
@@ -116,8 +123,10 @@ class Ip:
         ax.legend(fontsize=8)
         plt.show()
         
-#####################################################
+###############################################################################
 class RF_PWR():
+    # ICRF Injected power
+    
     def __init__(self,shotno):
         conn = openTree(shotno)
         self.pwr = conn.get(r'\CMOD::TOP.RF.ANTENNA:RESULTS:PWR_NET_TOT').data()
@@ -134,5 +143,5 @@ class RF_PWR():
         ax.legend(fontsize=8,handlelength=1)
         plt.show()
         
-        
+###############################################################################
         
