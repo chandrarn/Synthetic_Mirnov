@@ -6,11 +6,7 @@ Created on Thu Jan  9 14:47:17 2025
 @author: rian
 """
 
-try:import MDSplus as mds
-except:import mdsthin as mds
-import numpy as np
-import json
-from header import Mirnov, save_sensors, flux_loop, plt
+from header_signal_generation import Mirnov, save_sensors, flux_loop, plt, mds, np, json
 
 def gen_Node_Dict():
     nodes = {}
@@ -89,10 +85,10 @@ def gen_Node_Dict():
                         np.array(tmp.dim_of().data()).squeeze().tolist()
                     
             
-    with open('MAGX_Coordinates.json','w') as f:json.dump(nodes,f)
+    with open('input_data/MAGX_Coordinates.json','w') as f:json.dump(nodes,f)
         
 #######################################
-def gen_Sensors(coord_file='MAGX_Coordinates.json'):
+def gen_Sensors(coord_file='input_data/MAGX_Coordinates.json'):
     coords = json.load(open(coord_file,'r'))
     
     # Assuming "angle" is references from horizontal, and represents normal vector
@@ -157,11 +153,11 @@ def gen_Sensors(coord_file='MAGX_Coordinates.json'):
 
     # Save in ThinCurr readable format
     # Mirnov object itself is directly readable: can extract location
-    save_sensors(sensors_BP,'floops_BP.loc')
-    save_sensors(sensors_BN,'floops_BN.loc')
-    save_sensors(sensors_Flux_Partial,'floops_Flux_Partial.loc')
-    save_sensors(sensors_Flux_Full,'floops_Flux_Full.loc')
-    save_sensors(sensors_Mirnov,'floops_MIRNOV.loc')
+    save_sensors(sensors_BP,'input_data/floops_BP.loc')
+    save_sensors(sensors_BN,'input_data/floops_BN.loc')
+    save_sensors(sensors_Flux_Partial,'input_data/floops_Flux_Partial.loc')
+    save_sensors(sensors_Flux_Full,'input_data/floops_Flux_Full.loc')
+    save_sensors(sensors_Mirnov,'finput_data/loops_MIRNOV.loc')
     
     
     sensors_all.extend(sensors_BP)
@@ -205,8 +201,8 @@ def __coords_xyz_Mirnov(node):
                                  node['Z']] , [0,0,1] )
         
 ##################################################
-def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',
-      coord_file_OG='MAGX_Coordinates.json', comparison='MAGX_Equilibrium_XYZ.csv'):
+def confluence_spreadsheet_coords(coord_file='input_data/MAGX_Coordinates_CFS.json',
+      coord_file_OG='input_data/MAGX_Coordinates.json', comparison='input_data/MAGX_Equilibrium_XYZ.csv'):
     #coords_j = json.load(open(coord_file,'r'))
     comp = np.loadtxt(comparison,delimiter=',',dtype=object,skiprows=1)
     
@@ -252,7 +248,7 @@ def confluence_spreadsheet_coords(coord_file='MAGX_Coordinates_CFS.json',
     with open(coord_file,'w') as f:json.dump(coords,f)
     return coords
 ####################################    
-def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MRNV'):
+def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',select_sensor='MRNV'):
     coords = json.load(open(coord_file,'r'))
     
     sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
@@ -281,11 +277,11 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MR
                 sensors_Mirnov.append(sens)
     # Save in ThinCurr readable format
     # Mirnov object itself is directly readable: can extract location
-    save_sensors(sensors_BP,'floops_BP.loc')
-    save_sensors(sensors_BN,'floops_BN.loc')
-    save_sensors(sensors_Flux_Partial,'floops_SL.loc')
-    save_sensors(sensors_Flux_Full,'floops_FL.loc')
-    save_sensors(sensors_Mirnov,'floops_MRNV.loc')
+    save_sensors(sensors_BP,'input_data/floops_BP.loc')
+    save_sensors(sensors_BN,'input_data/floops_BN.loc')
+    save_sensors(sensors_Flux_Partial,'input_data/floops_SL.loc')
+    save_sensors(sensors_Flux_Full,'input_data/floops_FL.loc')
+    save_sensors(sensors_Mirnov,'input_data/floops_MRNV.loc')
     
     #sensors_Mirnov = gen_Sensors()[-1] # Need to use last one for this
     
@@ -304,7 +300,7 @@ def gen_Sensors_Updated(coord_file='MAGX_Coordinates_CFS.json',select_sensor='MR
     
     return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
 ####################################
-def debug_plots(set_='BP',tor=0,coord_file='MAGX_Coordinates_CFS.json'):
+def debug_plots(set_='BP',tor=0,coord_file='input_data/MAGX_Coordinates_CFS.json'):
     coords = json.load(open(coord_file,'r')) 
     
     plt.close('debug')

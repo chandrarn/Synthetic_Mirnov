@@ -5,18 +5,9 @@ Created on Wed Jan 22 21:26:44 2025
 
 @author: rian
 """
-# Required libraries
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import rc
-rc('font',**{'family':'serif','serif':['Palatino']})
-rc('font',**{'size':11})
-rc('text', usetex=True)
-from freeqdsk import geqdsk # package name freeqdsk
-import cv2 # package name opencv-python
-from scipy.interpolate import make_smoothing_spline
-from fractions import Fraction
 
+from header_signal_generation import np, plt, geqdsk, cv2, make_smoothing_spline,\
+    Fraction
 
     
 ########################
@@ -43,7 +34,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
         zmagx=0;rmagx=R
     else: # Using geqdsk equilibrium to locate flux surfaces
         # Load eqdsk
-        with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+        with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
         
         # get q(psi(r,z))
         psi_eqdsk = eqdsk.psi

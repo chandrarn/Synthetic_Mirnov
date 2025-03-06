@@ -21,4 +21,7 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 
+import sys
+sys.path.append('../signal_analysis/')
+
 from rolling_spectrogram import rolling_spectrogram

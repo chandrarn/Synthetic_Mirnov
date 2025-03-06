@@ -13,7 +13,7 @@ Created on Tue Feb  4 14:23:27 2025
 @author: rian
 """
 
-from header import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
+from header_signal_generation import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
     h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
         gethostname, server, I_KM, F_KM, F_KM_plot
 from M3DC1_to_Bnorm import convert_to_Bnorm
@@ -106,23 +106,24 @@ def __gen_linked_inductances(mesh_file,n_threads,sensor_set):
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
     tw_torus = ThinCurr(nthreads=n_threads)
-    tw_torus.setup_model(mesh_file=mesh_file,xml_filename='oft_in.xml')
+    tw_torus.setup_model(mesh_file='input_data/'+mesh_file,
+                         xml_filename='input_data/oft_in.xml')
     tw_torus.setup_io()
     
     # Gen sensors
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
-    Msensor, Msc, sensor_obj = tw_torus.compute_Msensor('floops_%s.loc'%sensor_set)
+    Msensor, Msc, sensor_obj = tw_torus.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
 
     Mc = tw_torus.compute_Mcoil()
     tw_torus.compute_Lmat()
     tw_torus.compute_Rmat()
 
     tw_mode = ThinCurr(nthreads=n_threads)
-    tw_mode.setup_model(mesh_file='thincurr_mode.h5')
-    with h5py.File('thincurr_mode.h5', 'r+') as h5_file:
+    tw_mode.setup_model(mesh_file='input_data/thincurr_mode.h5')
+    with h5py.File('input_data/thincurr_mode.h5', 'r+') as h5_file:
         mode_drive = np.asarray(h5_file['thincurr/driver'])
 
-    Msensor_plasma, _, _ = tw_mode.compute_Msensor('floops_%s.loc'%sensor_set)
+    Msensor_plasma, _, _ = tw_mode.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
     # Significance? 
     mode_driver = tw_mode.cross_eval(tw_torus,mode_drive)
     sensor_mode = np.dot(mode_drive,Msensor_plasma)
@@ -141,14 +142,14 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
     # Build a mesh supporting the above grid
     lc_mesh, r_mesh, tnodeset, pnodesets, r_map = build_periodic_mesh(r_grid,nfp)
     
-    write_periodic_mesh('thincurr_mode.h5', r_mesh, lc_mesh+1, np.ones((lc_mesh.shape[0],)),
+    write_periodic_mesh('input_data/thincurr_mode.h5', r_mesh, lc_mesh+1, np.ones((lc_mesh.shape[0],)),
                         tnodeset, pnodesets, pmap=r_map, nfp=nfp, include_closures=True)
 
     #return r_grid, bnorm, nfp,lc_mesh,r_mesh,tnodeset,pnodesets,r_map
     # Plasma vs Driver? 
     # Convert from B-norm to J(theta) using self inductance
     tw_mode = ThinCurr(nthreads= n_threads)
-    tw_mode.setup_model(mesh_file='thincurr_mode.h5')
+    tw_mode.setup_model(mesh_file='input_data/thincurr_mode.h5')
     tw_mode.setup_io(basepath='plasma/')
 
     tw_mode.compute_Lmat()
@@ -209,7 +210,7 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
     tw_mode.save_current(output[0,:],'J_c')
     tw_mode.save_current(output[1,:],'J_s')
     # Save surface current
-    with h5py.File('thincurr_mode.h5', 'r+') as h5_file:
+    with h5py.File('input_data/thincurr_mode.h5', 'r+') as h5_file:
         h5_file.create_dataset('thincurr/driver', data=output, dtype='f8')
     
     # Plot J(theta,phi)
@@ -305,7 +306,7 @@ def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=True,doPlot=True):
                         np.sin(m*theta)
                     ))
         # Create n=2, m=3 mode
-        create_circular_bnorm('tCurr_mode.dat',1.8,0.0,0.4,1,2)
+        create_circular_bnorm('input_data/tCurr_mode.dat',1.8,0.0,0.4,1,2)
         
 
     else:
@@ -325,7 +326,7 @@ def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=True,doPlot=True):
             plt.grid()
             plt.show()
         # Write output
-        with open('tCurr_mode.dat','w+') as fid:
+        with open('input_data/tCurr_mode.dat','w+') as fid:
             fid.write('{0} {1}\n'.format(n_pts_n,n))
             for theta in theta:
                 fid.write('{0} {1} {2} {3}\n'.format(

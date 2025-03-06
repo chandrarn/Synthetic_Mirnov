@@ -7,12 +7,13 @@ Created on Tue Dec 17 11:43:59 2024
 """
 
 # header
-from header import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
+from header_signal_generation import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
-        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot
+        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk
 from prep_sensors import conv_sensor
+sys.path.append('../signal_analysis/')
 from plot_sensor_output import plot_Currents
 
 # main loop
@@ -57,20 +58,20 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
 #####################################3
 def get_mesh(mesh_file,filament_file,params,sensor_set):
     tw_mesh = ThinCurr(nthreads=params['n_threads'],debug_level=2,)
-    tw_mesh.setup_model(mesh_file=mesh_file,xml_filename=filament_file)
+    tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename=filament_file)
     print('checkpoint 0')
     tw_mesh.setup_io()
     
     print('checkpoint 1')
     # Sensor - mesh and sensor - filament inductances
-    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('floops_%s.loc'%sensor_set)
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
     print('floops_%s.loc'%sensor_set)
     print('checkpoint 2')
     # Filament - mesh inductance
     Mc = tw_mesh.compute_Mcoil()
     print('checkpoint 3')
     # Build inductance matrix
-    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='HOLDR_L_%s.save'%sensor_set)
+    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='input_data/HOLDR_L_%s.save'%sensor_set)
     print('checkpoint 4')
     # Buld resistivity matrix
     tw_mesh.compute_Rmat()
@@ -88,7 +89,7 @@ def gen_filaments(filament_file,params,filament_coords ):
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
     #eta='1E6, 1E6, 1E6, 1E6, 1E6'# Effective insulator wall
     eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
-    with open(filament_file,'w+') as f:
+    with open('input_data/'+filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
         for filament in filament_coords:
@@ -112,7 +113,7 @@ def gen_sensors():
     return sensors
 ####################################
 def gen_coil_currs(param):
-    # Assign currents to existing fillaments for time dependent calculation
+    # Assign currents to existing fillaments for time dependent calculationplot_Currents
     # Eventually, the balooning approximation goes here, as does straight field line apprxoiation
     m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
     I=param['I'];n=param['n'];n_pts=param['n_pts']
@@ -152,17 +153,17 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=500)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='HODLR_B.save') 
+    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='input_data/HODLR_B.save') 
      
     # Saves floops.hist (no, run_Td does this?)
     tw_mesh.build_XDMF()
-    hist_file = histfile('floops.hist');
+    hist_file = histfile('../data_output/floops.hist');
     for h in hist_file:print(h)
     # Rename output 
     f_out = f*1e-3 if type(f) is float else F_AE_plot(0)*1e-3
-    f_save = 'data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
+    f_save = '../data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f_out,save_Ext)
-    subprocess.run(['cp','floops.hist',f_save])
+    subprocess.run(['cp','../data_outputfloops.hist',f_save])
     print('Saved: %s'%f_save)
                     
     return coil_currs
@@ -182,11 +183,11 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # Necessary to clear old vector file: otherwise vector # keeps counting up
     
     
-    with h5py.File('mesh.0001.h5','r') as h5_file:
+    with h5py.File('intput_data/mesh.0001.h5','r') as h5_file:
         r_ = np.asarray(h5_file['R_surf'])
         lc = np.asarray(h5_file['LC_surf'])
     if plot_B_surf:
-        with h5py.File('vector_dump.0001.h5') as h5_file:
+        with h5py.File('intput_data/vector_dump.0001.h5') as h5_file:
             Jfull = np.asarray(h5_file['J_v0001'])
             scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)

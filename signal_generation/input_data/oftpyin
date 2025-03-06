@@ -1,5 +1,5 @@
 &runtime_options
- debug=2
+ debug=0
 /
 
 &mesh_options

@@ -46,6 +46,7 @@ import cv2
 from scipy.interpolate import make_smoothing_spline
 from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
+from fractions import Fraction
 import json
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
@@ -53,3 +54,7 @@ server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot
 
 from rolling_spectrogram import rolling_spectrogram
+
+#####################3
+# Add paths
+sys.path.append('signal_analysis/')

@@ -15,11 +15,16 @@ def openTree(shotno):
     return conn
 
 ###############################################################################
+def currentShot(conn):
+    return conn.get('current_shot("cmod")').data()
+
+###############################################################################
 class BP_T:
     # High frequency Mirnov array
     
     def __init__(self,shotno,debug=False):
         conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
         
         basePath= r'\CMOD::TOP.MHD.MAGNETICS:ACTIVE_MHD:SIGNALS:'
         self.ab_data = []   
@@ -85,6 +90,8 @@ class ECE:
     
     def __init__(self,shotno,debug=True):
         conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
         self.Te=conn.get('\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE').data()
         self.R=conn.get('dim_of(\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE,0)').data()
         self.time=conn.get('dim_of(\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE,1)').data()
@@ -103,19 +110,57 @@ class ECE:
         plt.show()
 
 ###############################################################################
+class FRCECE:
+    # High frequency ECE (FR-C-ECE-F), not availible for shots ~< 2010
+    
+    def __init__(self,shotno):
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        basePath = '\CMOD::TOP.ELECTRONS:FRCECE:DATA:'
+        self.ECE = []
+        self.R = []
+        for i in np.arange(1,33):
+            self.ECE.append(conn.get(basePath+'ECEF%02d'%i).data())
+        self.R.append(conn.get(basePath+'R').data())
+        self.ECE = np.array(self.ECE); self.R=np.array(self.R).squeeze()
+        self.time = conn.get('dim_of('+basePath+'ECEF%02d'%i+')').data()
+        # separate timebase for EFIT reconstructions
+        self.time_R = conn.get('dim_of('+basePath+'R'+')').data()
+    
+    def makePlot(self,ax=None,downsample=100,figParams={}):
+        self.R=self.R.squeeze()
+        if ax is None:
+            plt.close('C-ECE-Profile')
+            fig,ax=plt.subplots(1,1,num='C-ECE-Profile',tight_layout=True,figsize=(6,3))
+        else: fig = plt.gcf()
+        ax.contourf(self.time[::downsample],np.mean(self.R,axis=1),
+                    self.ECE[:,::downsample],zorder=-3,cmap='plasma',
+                    levels=np.linspace(-1,np.max(self.ECE)*.5))
+        ax.set_rasterization_zorder(-1)
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('R [m]')
+        norm = Normalize(-1,np.max(self.ECE)*.5)
+        if 'noBar' not in figParams: 
+            fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
+                     label=r'CECE [V?]')
+        plt.show()
+###############################################################################
 class Ip:
     # Plasma current
     
     def __init__(self,shotno):
         conn = openTree(shotno)
-        self.shotno=shotno
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
         self.ip = -1*conn.get('\MAGNETICS::IP').data()
         self.time = conn.get('dim_of(\MAGNETICS::IP)').data()
         conn.closeAllTrees()
         
-    def makePlot(self):
-        plt.close('Ip')
-        fig,ax=plt.subplots(1,1,num='Ip',tight_layout=True,figsize=(6,3))
+    def makePlot(self,ax=None):
+        if ax is None:
+            plt.close('Ip')
+            fig,ax=plt.subplots(1,1,num='Ip',tight_layout=True,figsize=(6,3))
         ax.plot(self.time,self.ip*1e-3,label=self.shotno)
         ax.set_xlabel('Time [s]')
         ax.set_ylabel(r'$\mathrm{I_p}$ [kA]')
@@ -129,19 +174,24 @@ class RF_PWR():
     
     def __init__(self,shotno):
         conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
         self.pwr = conn.get(r'\CMOD::TOP.RF.ANTENNA:RESULTS:PWR_NET_TOT').data()
         self.time = conn.get(r'dim_of(\CMOD::TOP.RF.ANTENNA:RESULTS:PWR_NET_TOT)').data()
         self.shotno=shotno
         conn.closeAllTrees()
         
-    def makePlot(self):
-        plt.close('RF_Pwr')
-        fig,ax=plt.subplots(1,1,num='RF_Pwr',figsize=(6,3),tight_layout=True)
-        ax.plot(self.time,self.pwr,label=self.shotno)
+    def makePlot(self,ax=None,figParams={}):
+        if ax is None:
+            plt.close('RF_Pwr')
+            fig,ax=plt.subplots(1,1,num='RF_Pwr',figsize=(6,3),tight_layout=True)
+        ax.plot(self.time,self.pwr,label=self.shotno,\
+                c=figParams['c'] if 'c' in figParams else plt.get_cmap('tab10')(0),\
+                    alpha=figParams['alpha'] if 'alpha' in figParams else 1)
         ax.set_xlabel('Time [s]')
         ax.set_ylabel(r'$\mathrm{P_{rf}}$ [MW]')
-        ax.grid()
-        ax.legend(fontsize=8,handlelength=1)
+        if 'noGrid' not in figParams: ax.grid()
+        if 'noLeg' not in figParams: ax.legend(fontsize=8,handlelength=1)
         plt.show()
         
 ###############################################################################

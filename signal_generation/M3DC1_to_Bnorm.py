@@ -16,22 +16,15 @@ Created on Wed Jan 15 16:49:17 2025
 @author: rian
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm, colors, rc
-rc('font',**{'family':'serif','serif':['Palatino']})
-rc('font',**{'size':11})
-rc('text', usetex=True)
-import xarray as xr
 from sys import path;path.append('/orcd/home/002/rianc/')
 try:
     import C1py
     import fio_py
 except:pass
-import cv2 # necessary for contour detection
-from scipy.special import factorial
-from scipy.interpolate import make_smoothing_spline
-from socket import gethostname
+
+
+from header_signal_generation import np, plt, cm, colors, xr, cv2, factorial, \
+    make_smoothing_spline, gethostname
 
 def convert_to_Bnorm(C1file_name,n,npts):
     

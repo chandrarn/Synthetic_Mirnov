@@ -120,7 +120,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
-    fName = 'C_Mod_Data_%s_%d'%(sensor_set,shotno)   
+    fName = __gen_fName(params,sensor_set,save_Ext,filament,shotno)   
     plt.close(name)
     
     fig,ax=plt.subplots(1,1,tight_layout=True,num=name)
@@ -155,5 +155,16 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
 
     if doSave: fig.savefig(doSave+'Spectrogram_%s.pdf'%fName,transparent=True)
         
-    
-        
+###############################################################################
+def __gen_fName(params,sensor_set,save_Ext,filament,shotno):
+    if params:
+        fName = 'floops_%s_m-n_%s-%s_f_%s%s'%\
+             ( '-'.join(sensor_set),'-'.join(['%d'%param['m'] for param in params]),
+              '-'.join(['%d'%param['n'] for param in params]),
+              '-'.join(['%d'%(param['f']*1e-3) for param in params]),save_Ext) if \
+                 type(params) is list else 'floops_%s_%s_m-n_%d-%d_f_%d%s.pdf'%\
+             ('filament' if filament else 'surface', sensor_set,params['m'],
+              params['n'],params['f']*1e-3,save_Ext)
+    else:
+        fName = 'C_Mod_Data_%s_%d'%(sensor_set,shotno)
+    return fName

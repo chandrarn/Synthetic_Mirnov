@@ -37,6 +37,8 @@ from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh, build_torus_bnorm_grid, build_periodic_mesh
 from OpenFUSIONToolkit.util import build_XDMF
 
+
+
 '''
 Set up model object, with mesh and set of coil positions. Note that the mesh
 information isn't accessable locally in the object (?) only in the hd5 file (?)
@@ -47,7 +49,7 @@ tw_plate = ThinCurr(nthreads=4)
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
 # .xml file defines coils 
 # 'SPARC_Sept2023_noPR.h5'
-tw_plate.setup_model(mesh_file='SPARC_Sept2023_noPR.h5',xml_filename='oft_in.xml')
+tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
 #tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
 tw_plate.setup_io()
 
@@ -55,7 +57,7 @@ print("Building XMDF")
 tw_plate.build_XDMF()
 print('Built')
 
-with h5py.File('mesh.0001.h5','r') as h5_file:
+with h5py.File('input_data/Smesh.0001.h5','r') as h5_file:
     r = np.asarray(h5_file['R_surf']) # x,y,z coords of surface
     lc = np.asarray(h5_file['LC_surf']) # This is the mesh itself ["mesh triangles"]
     
@@ -66,12 +68,12 @@ grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for th
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
 sensors = gen_Sensors_Updated(select_sensor='BP')
-Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('floops_BP_CFS.loc')
+Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('input_data/Sfloops_BP_CFS.loc')
 
 # Gen Currents
 params={'m':3,'n':1,'r':.25,'R':1,'n_pts':500,'m_pts':70,'f':7e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
 theta,phi = gF.gen_filament_coords(params)
-filament_coords = gF.calc_filament_coords_geqdsk('geqdsk', theta, phi, params)
+filament_coords = gF.calc_filament_coords_geqdsk('input_data/Sgeqdsk', theta, phi, params)
 coil_currs = sM.gen_coil_currs(params)
 
 p = pyvista.Plotter()
@@ -124,8 +126,8 @@ p.add_legend()
 '''
 
 
-p.save_graphic('SPARC_Cad_Sensors_Mirnov_12-10.pdf')
-p2.save_graphic('SPARC_Cad_Sensors_Frame_Mirnov_12-10.pdf')
+p.save_graphic('../output_plots/SPARC_Cad_Sensors_Mirnov_12-10.pdf')
+p2.save_graphic('../output_plots/SPARC_Cad_Sensors_Frame_Mirnov_12-10.pdf')
 p.show()
 # p2.show()
 
