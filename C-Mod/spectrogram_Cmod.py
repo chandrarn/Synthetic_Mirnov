@@ -81,6 +81,10 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         signals = diag.ab_data if sensor_name == '' else \
             diag.ab_data[(np.array(diag.ab_names) ==  sensor_name)]
         time = diag.time
+    elif sensor_set == 'FRCECE':
+        diag = gC.FRCECE(shotno)
+        signals = diag.ECE
+        time = diag.time
     else: raise SyntaxError('Selected Diagnostic Not Yet Implemented')
     
     if debug: print('Loaded: %s'%sensor_set)
