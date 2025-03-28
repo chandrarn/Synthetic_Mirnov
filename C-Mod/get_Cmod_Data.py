@@ -19,6 +19,50 @@ def currentShot(conn):
     return conn.get('current_shot("cmod")').data()
 
 ###############################################################################
+class BP:
+    # Low frequency M/N Mirnov Array
+    
+    def __init__(self,shotno,debug=False):
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        basePath= r'\CMOD::TOP.MHD.MAGNETICS:BP_COILS:'
+        self.BC = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.DE = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.GH = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.JK = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        
+        self.nodeName = conn.get(basePath + 'NODENAME').data()
+        phi = conn.get(basePath + 'PHI').data()
+        theta = conn.get(basePath + 'THETA_POL').data()
+        theta_tor = conn.get(basePath + 'THETA_TOR').data()
+        R = conn.get(basePath + 'R').data()
+        Z = conn.get(basePath + 'Z').data()
+        
+        for ind,name in enumerate(self.nodeName):
+                signal = conn.get(basePath+'SIGNALS:%s'%name)
+                
+                # Reference pass link node
+                if name[-2::] == 'BC': tmp = self.BC
+                if name[-2::] == 'DE': tmp = self.DE
+                if name[-2::] == 'GH': tmp = self.GH
+                if name[-2::] == 'JK': tmp = self.JK
+                
+                tmp['NAMES'].append(str(name))
+                tmp['PHI'].append(float(phi[ind]))
+                tmp['THETA'].append(float(theta[ind]))
+                tmp['THETA_TOR'].append(float(theta_tor[ind]))
+                tmp['R'].append(float(R[ind]))
+                tmp['Z'].append(float(Z[ind]))
+                
+                tmp['SIGNAL'].append(signal.data())
+                
+                
+        self.time = conn.get('dim_of('+basePath+'SIGNALS:%s)'%name).data()
+        
+
+
+###############################################################################
 class BP_T:
     # High frequency Mirnov array
     

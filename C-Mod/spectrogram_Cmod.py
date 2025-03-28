@@ -7,7 +7,9 @@ Created on Wed Mar  5 16:21:32 2025
 @author: rianc
 """
 
-from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram
+from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter, \
+    gaussianHighPassFilter
+
 
 import get_Cmod_Data as gC
 
@@ -17,8 +19,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
                             doSave='',pad=1000,fft_window=500,tLim=[.75,1.1],
                             signal_reduce=2,f_lim=None,sensor_name='BP2T_ABK',
                             debug=True,plot_reduce=3,doColorbar=True,
-                            clabel=r'$\tilde{\mathrm{B}}_\theta$ [G]',
-                            doSave_Extractor=True):
+                            clabel='',HP_Freq=100,
+                            doSave_Extractor=True,block_reduce=[300,100000]):
     '''
     
 
@@ -54,6 +56,9 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         Colorbar label. The default is r'$\tilde{\mathrm{B}}_\theta$ [G]'.
     doSave_Extractor : BOOL, optional
         Save .png without axes labels/etc, for feature extraction. The default is True.
+    block_reduce : [INT, INT]
+        Reduce sample in blocks (preserves high frequency signals, at the cost o
+         introducing aliasing "noise"): cut the signal in blocks of [keep samples, drop samples]
 
     Returns
     -------
@@ -81,10 +86,17 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         signals = diag.ab_data if sensor_name == '' else \
             diag.ab_data[(np.array(diag.ab_names) ==  sensor_name)]
         time = diag.time
+        clabel=r'$\tilde{\mathrm{B}}_\theta$ [G]'
+        
     elif sensor_set == 'FRCECE':
-        diag = gC.FRCECE(shotno)
-        signals = diag.ECE
+        if diag is None: diag = gC.FRCECE(shotno)
+        signals = diag.ECE*1e3 # convert from keV to eV
+        # For the FRC-ECE, sensor_name is just a channel number
+        signals = signals[sensor_name] if sensor_name else signals
+        if np.ndim(signals) == 1: signals = signals[np.newaxis,:]
         time = diag.time
+        clabel = r'$\tilde{\mathrm{T}}_e$ [eV]'
+        
     else: raise SyntaxError('Selected Diagnostic Not Yet Implemented')
     
     if debug: print('Loaded: %s'%sensor_set)
@@ -93,11 +105,20 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     t_inds = np.arange((tLim[0]-time[0])/(time[1]-time[0]),\
               (tLim[1]-time[0])/(time[1]-time[0]),dtype=int)[::signal_reduce]
     
-
+    
+    if block_reduce:
+        del_inds=np.array([],dtype=int)
+        for ind in np.arange(0,len(t_inds)-block_reduce[0],np.sum(block_reduce)):
+            del_inds = np.append(del_inds,np.arange(ind,ind+block_reduce[0],dtype=int))
+        #return t_inds,del_inds
+        t_inds = np.delete(t_inds,del_inds)
+        
+    # Run filtering 
+    signals = gaussianHighPassFilter(signals,time,1/HP_Freq)
     # Run spectrogram
     time, freq, out_spect = rolling_spectrogram(time[t_inds], signals[:,t_inds],pad=pad,
                                                 fft_window=fft_window)
-    
+
     # Average across channels
     out_spect=np.mean(out_spect,axis=0)
     
@@ -128,7 +149,12 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     plt.close(name)
     
     fig,ax=plt.subplots(1,1,tight_layout=True,num=name)
-    ax.pcolormesh(time*tScale,freq*1e-3,out_spect,shading='auto',rasterized=True)
+    
+    # Get fLim
+    f_inds = np.arange(*[np.argmin((freq*1e-3-f)**2) for f in f_lim]) if f_lim\
+        else np.arange(*[0,len(freq)])
+    
+    ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],shading='auto',rasterized=True)
     
     if doSave_Extractor and doSave: 
         # For mode extractor code, remove axes labels/etc
@@ -145,7 +171,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     ax.set_ylabel('Freq [kHz]')
     
     if doColorbar:
-        norm = Normalize(np.min(out_spect),np.max(out_spect))
+        norm = Normalize(np.min(out_spect[f_inds]),np.max(out_spect[f_inds]))
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='viridis'),ax=ax,
                      label=clabel)
         
@@ -153,7 +179,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
             verticalalignment='top',bbox={'boxstyle':'round','alpha':.7,
                                           'facecolor':'white'})
     
-    if f_lim:ax.set_ylim(f_lim)
+    #if f_lim:ax.set_ylim(f_lim)
     
     plt.show()
 
@@ -170,5 +196,5 @@ def __gen_fName(params,sensor_set,save_Ext,filament,shotno):
              ('filament' if filament else 'surface', sensor_set,params['m'],
               params['n'],params['f']*1e-3,save_Ext)
     else:
-        fName = 'C_Mod_Data_%s_%d'%(sensor_set,shotno)
+        fName = 'C_Mod_Data_%s_%d%s'%(sensor_set,shotno,save_Ext)
     return fName
