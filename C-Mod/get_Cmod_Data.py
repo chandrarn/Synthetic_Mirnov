@@ -330,13 +330,13 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
        
         if debug: print('Attempting to load: ' + \
                         data_archive + 'rawData_%d.pk'%shotno)
-        rawData = pk.load(data_archive + 'rawData_%d.pk'%shotno)
+        rawData = pk.load(open(data_archive + 'rawData_%d.pk'%shotno,'rb'))
         
         # If we need to reload something, or need a signal not already saved
         if forceReload or not np.all(pullData,list(rawData.keys())): raise Exception
     except:
         rawData = __genRawData(shotno,pullData,debug)
-        __saveRawData(rawData,shotno)
+        __saveRawData(rawData,shotno,debug,data_archive)
         
 ###################################################
 def __genRawData(shotno,pullData,debug):
@@ -356,7 +356,7 @@ def __genRawData(shotno,pullData,debug):
     
     if 'ip' in pullData: rawData['ip'] = Ip(shotno,debug)
     
-    if 'p_rf' in pullData: rawData['p_rf'] = RF_PWR(shotno)
+    if 'p_rf' in pullData: rawData['p_rf'] = RF_PWR(shotno,debug)
     
     return rawData
 
@@ -364,6 +364,6 @@ def __genRawData(shotno,pullData,debug):
 def __saveRawData(rawData,shotno,debug=False,data_archive=''):
     if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
     
-    with open(data_archive+'rawData_%d.pk'%shotno,'rb') as f:pk.dump(f,rawData)
+    with open(data_archive+'rawData_%d.pk'%shotno,'wb') as f:pk.dump(rawData,f)
     
     if debug: print('Successfully saved: ' + data_archive+'rawData_%d.pk'%shotno)
