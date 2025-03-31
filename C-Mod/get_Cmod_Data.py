@@ -326,7 +326,7 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
         # If we need to reload something, or need a signal not already saved
         if forceReload or not np.all(pullData,list(rawData.keys())): raise Exception
     except:
-        rawData = __genRawData(shotno,debug)
+        rawData = __genRawData(shotno,pullData,debug)
         __saveRawData(rawData,shotno)
         
 ###################################################
