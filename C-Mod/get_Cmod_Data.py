@@ -6,7 +6,7 @@ Spyder Editor
 
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
-    gaussianLowPassFilter, __doFilter
+    gaussianLowPassFilter, __doFilter, pk
 
 ###############################################################################
 def openTree(shotno):
@@ -311,4 +311,50 @@ class RF_PWR():
         plt.show()
         
 ###############################################################################
+# Local data storage functionality
+def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
+               pullData = ['bp','bp_t','gpc','ip','p_rf']):
+    # data_archive can be manually specified if the default file locaiton isn't in use
+    # Defult is to the author's MFE directory
+    if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
+    try: 
+       
+        if debug: print('Attempting to load: ' + \
+                        data_archive + 'rawData_%d.pk'%shotno)
+        rawData = pk.load(data_archive + 'rawData_%d.pk'%shotno)
         
+        # If we need to reload something, or need a signal not already saved
+        if forceReload or not np.all(pullData,list(rawData.keys())): raise Exception
+    except:
+        rawData = __genRawData(shotno,debug)
+        __saveRawData(rawData,shotno)
+        
+###################################################
+def __genRawData(shotno,pullData,debug):
+    # Pull requested diagnostic signals
+    
+    rawData = {} # Initialize empty data container
+    
+    if 'bp' in pullData: rawData['bp'] = BP(shotno,debug)
+    
+    if 'bp_t' in pullData: rawData['bp_t'] = BP_T(shotno, debug)
+    
+    if 'ece' in pullData: rawData['ece'] = ECE(shotno,debug)
+    
+    if 'gpc' in pullData: rawData['gpc'] = GPC(shotno,debug)
+    
+    if 'frcece' in pullData: rawData['frcece'] = FRCECE(shotno, debug)
+    
+    if 'ip' in pullData: rawData['ip'] = Ip(shotno,debug)
+    
+    if 'p_rf' in pullData: rawData['p_rf'] = RF_PWR(shotno)
+    
+    return rawData
+
+###################################################
+def __saveRawData(rawData,shotno,debug=False,data_archive=''):
+    if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
+    
+    with open(data_archive+'rawData_%d.pk'%shotno,'rb') as f:pk.dump(f,rawData)
+    
+    if debug: print('Successfully saved: ' + data_archive+'rawData_%d.pk'%shotno)
