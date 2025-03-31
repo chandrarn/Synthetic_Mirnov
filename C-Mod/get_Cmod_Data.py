@@ -40,8 +40,8 @@ class BP:
         Z = conn.get(basePath + 'Z').data()
         
         for ind,name in enumerate(self.nodeName):
-                signal = conn.get(basePath+'SIGNALS:%s'%name)
-                
+                try:signal = conn.get(basePath+'SIGNALS:%s'%name)
+                except: continue
                 # Reference pass link node
                 if name[-2::] == 'BC': tmp = self.BC
                 if name[-2::] == 'DE': tmp = self.DE
@@ -57,7 +57,21 @@ class BP:
                 
                 tmp['SIGNAL'].append(signal.data())
                 
-                
+        # Convert to numpy arrays
+        for i in range(4):
+            if i == 0: tmp = self.BC
+            if i == 1: tmp = self.DE
+            if i == 2: tmp = self.GH
+            if i == 3: tmp = self.JK
+            
+            tmp['NAMES'] = np.array(tmp['NAMES'])
+            tmp['PHI'] = np.array(tmp['PHI'])
+            tmp['THETA'] = np.array(tmp['THETA'])
+            tmp['THETA_TOR'] = np.array(tmp['THETA_TOR'])
+            tmp['R'] = np.array(tmp['R'])
+            tmp['Z'] = np.array(tmp['Z'])
+            tmp['SIGNAL'] = np.array(tmp['SIGNAL'])
+            
         self.time = conn.get('dim_of('+basePath+'SIGNALS:%s)'%name).data()
         
 
@@ -136,9 +150,9 @@ class ECE:
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
-        self.Te=conn.get('\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE').data()
-        self.R=conn.get('dim_of(\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE,0)').data()
-        self.time=conn.get('dim_of(\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE,1)').data()
+        self.Te=conn.get(r'\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE').data()
+        self.R=conn.get(r'dim_of(\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE,0)').data()
+        self.time=conn.get(r'dim_of(\CMOD::TOP.ELECTRONS:ECE:RESULTS:ECE_TE,1)').data()
         conn.closeAllTrees()
     
     def makePlot(self):
@@ -154,6 +168,46 @@ class ECE:
         plt.show()
 
 ###############################################################################
+class GPC:
+    # ECE radial profile [not high frequency ECE data]
+    
+    def __init__(self,shotno,debug=True):
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        baseAddress = r'\CMOD::TOP.ELECTRONS:ECE.GPC_RESULTS:'
+        
+        self.GPC_freq = conn.get(baseAddress + 'GPC_FREQ').data()
+        
+        self.Cal = []
+        self.Psi = []
+        self.Te = []
+        self.Rad = []
+        for i in np.arange(1,10):
+            self.Cal.append(conn.get(baseAddress+'CAL:CAL%d'%i).data())
+            #self.Psi.append(conn.get(baseAddress+'PSI_GPC:PSI%d'%i).data())
+            self.Te.append(conn.get(baseAddress+'TE:TE%d'%i).data())
+            self.Rad.append(conn.get(baseAddress+'RAD:R%d'%i).data())
+            
+            
+        self.Te = np.array(self.Te)
+        self.Rad = np.array(self.Rad)
+        self.time=conn.get(r'dim_of(\CMOD::TOP.ELECTRONS:ECE:GPC_RESULTS:TE:TE1,0)').data()
+        conn.closeAllTrees()
+    
+    def makePlot(self):
+        plt.close('ECE-Profile')
+        fig,ax=plt.subplots(1,1,num='ECE-Profile',tight_layout=True,figsize=(6,3))
+        ax.contourf(self.time,self.R,self.Te.T,levels=50,zorder=-3,cmap='plasma')
+        ax.set_rasterization_zorder(-1)
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('R [m]')
+        norm = Normalize(np.min(self.Te)*1e-3,np.max(self.Te)*1e-3)
+        fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
+                     label=r'$\mathrm{T_e}$ [keV]')
+        plt.show()
+        
+###############################################################################
 class FRCECE:
     # High frequency ECE (FR-C-ECE-F), not availible for shots ~< 2010
     
@@ -161,7 +215,7 @@ class FRCECE:
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
-        basePath = '\CMOD::TOP.ELECTRONS:FRCECE:DATA:'
+        basePath = r'\CMOD::TOP.ELECTRONS:FRCECE:DATA:'
         self.ECE = []
         self.R = []
         for i in np.arange(1,33):
@@ -197,8 +251,8 @@ class Ip:
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
-        self.ip = -1*conn.get('\MAGNETICS::IP').data()
-        self.time = conn.get('dim_of(\MAGNETICS::IP)').data()
+        self.ip = -1*conn.get(r'\MAGNETICS::IP').data()
+        self.time = conn.get(r'dim_of(\MAGNETICS::IP)').data()
         conn.closeAllTrees()
         
     def makePlot(self,ax=None):

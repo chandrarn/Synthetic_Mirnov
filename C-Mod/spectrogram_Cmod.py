@@ -80,7 +80,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
             ' large to plot, consider increasing signal or plot reduction term')
     
     # Pull C-Mod data from server for a given diagnostic
-    if sensor_set == 'BP':
+    if sensor_set == 'BP_T':
         if diag is None: diag = gC.BP_T(shotno)
         # Extract specific sensor, if desired. Otherwise FFTs will be averaged
         signals = diag.ab_data if sensor_name == '' else \
@@ -97,13 +97,28 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         time = diag.time
         clabel = r'$\tilde{\mathrm{T}}_e$ [eV]'
         
+    elif sensor_set == 'GPC':
+        if diag is None: diag = gC.GPC(shotno)
+        signals = diag.Te*1e3 
+        time = diag.time
+        clabel = r'$\tilde{\mathrm{T}}_e$ [eV]'
+        
+    elif sensor_set == 'BP':
+        if diag is None: diag = gC.BP(shotno)
+        signals = diag.BC['SIGNAL'] if sensor_name == '' else\
+            diag.BC['SIGNAL'][diag.BC['NAMES']==sensor_name]
+        time = diag.time
+        clabel=r'$\tilde{\mathrm{B}}_\theta$ [G]'
+        
     else: raise SyntaxError('Selected Diagnostic Not Yet Implemented')
     
     if debug: print('Loaded: %s'%sensor_set)
     
-    # Desired time range to operate on
-    t_inds = np.arange((tLim[0]-time[0])/(time[1]-time[0]),\
-              (tLim[1]-time[0])/(time[1]-time[0]),dtype=int)[::signal_reduce]
+    # # Desired time range to operate on
+    # t_inds = np.arange((tLim[0]-time[0])/(time[1]-time[0]),\
+    #           (tLim[1]-time[0])/(time[1]-time[0]),dtype=int)[::signal_reduce]
+        
+    t_inds = np.arange(*[np.argmin((time-t)**2) for t in tLim],dtype=int)[::signal_reduce]
     
     
     if block_reduce:
@@ -114,7 +129,9 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         t_inds = np.delete(t_inds,del_inds)
         
     # Run filtering 
-    signals = gaussianHighPassFilter(signals,time,1/HP_Freq)
+    signals = __doFilter(signals, time, HP_Freq, None)
+    
+    
     # Run spectrogram
     time, freq, out_spect = rolling_spectrogram(time[t_inds], signals[:,t_inds],pad=pad,
                                                 fft_window=fft_window)
