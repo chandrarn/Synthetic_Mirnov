@@ -5,7 +5,8 @@ Spyder Editor
 """
 
 
-from header_Cmod import np, plt, mds, Normalize, cm
+from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
+    gaussianLowPassFilter, __doFilter
 
 ###############################################################################
 def openTree(shotno):
@@ -60,6 +61,23 @@ class BP:
                 
         self.time = conn.get('dim_of('+basePath+'SIGNALS:%s)'%name).data()
         
+    def makePlot(self,HP=10,LP=20e3,tLim=[1,1.1]):
+        plt.close('BP_Contour')
+        fig,ax=plt.subplots(2,1,tight_layout=True,num='BP_Contour',sharex=True)
+        
+        out= __doFilter(self.BC['SIGNAL'], self.BC.time, HP, LP)
+        
+        dt = self.time[1]-self.time[0]
+        tInds = np.arange(*[(t-self.time[0])/dt for t in tLim],dtype=int)
+        
+        theta = np.arctan2(self.BC['Z'],self.BC['R']-.67)*180/np.pi
+        ax[0].contourf(theta,self.time[tInds],out[:,tInds])
+        
+        ax[0].set_ylabel(r'$\hat{\theta}$ [deg]')
+        ax[1].set_xlabel('Time [s]')
+        
+        
+        plt.show()
 
 
 ###############################################################################

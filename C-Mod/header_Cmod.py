@@ -43,24 +43,18 @@ def __doFilter(data,time,HP_Freq, LP_Freq):
     
     # Standardize data to 2D signal
     if np.ndim(data)==1: data = np.array(data)[np.newaxis,:]
-    # Detect compound shot
-    if np.any(np.diff(time)<0):t_break_ind=np.argwhere(np.diff(time)<0)[:,0]+1
-    else:t_break_ind=np.array([])
-    t_break_ind=np.concatenate(([0],t_break_ind,[len(time)])).astype(int)
+
+    dat_out=np.zeros(np.shape(data))
+    
     if HP_Freq or LP_Freq:
         for i,dat in enumerate(data):
-            for t in np.arange(len(t_break_ind)-1):
-                if HP_Freq:# Isolate Mode
-                    data[i,t_break_ind[t]:t_break_ind[t+1]] = \
-                        gaussianHighPassFilter(\
-                            dat[t_break_ind[t]:t_break_ind[t+1]],\
-                            time[t_break_ind[t]:t_break_ind[t+1]],1./HP_Freq)[0]
-                if LP_Freq:# Remove Noise
-                    data[i,t_break_ind[t]:t_break_ind[t+1]] = \
-                        gaussianLowPassFilter(\
-                            dat[t_break_ind[t]:t_break_ind[t+1]],\
-                            time[t_break_ind[t]:t_break_ind[t+1]],1./LP_Freq)
-                                
-            
-    return data
+           
+            if HP_Freq:# Isolate Mode
+                dat_out[i] = \
+                    gaussianHighPassFilter(dat,time,1./HP_Freq)
+            if LP_Freq:# Remove Noise
+                dat_out[i] = \
+                    gaussianLowPassFilter(dat_out[i], time,1./LP_Freq)
+                    
+    return dat_out
 
