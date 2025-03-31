@@ -24,6 +24,7 @@ class BP:
     # Low frequency M/N Mirnov Array
     
     def __init__(self,shotno,debug=False):
+        if debug:print('Loading Low m/n B-Dot Signals')
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
@@ -99,6 +100,7 @@ class BP_T:
     # High frequency Mirnov array
     
     def __init__(self,shotno,debug=False):
+        if debug: print('Loading High-Frequency Mirnovs (BPT)')
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
@@ -165,6 +167,7 @@ class ECE:
     # ECE radial profile [not high frequency ECE data]
     
     def __init__(self,shotno,debug=True):
+        if debug: print('Loading ECE Equilibrium Signals')
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
@@ -190,6 +193,7 @@ class GPC:
     # ECE radial profile [not high frequency ECE data]
     
     def __init__(self,shotno,debug=True):
+        if debug: print('Loading GPC-ECE Signals')
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
@@ -229,7 +233,8 @@ class GPC:
 class FRCECE:
     # High frequency ECE (FR-C-ECE-F), not availible for shots ~< 2010
     
-    def __init__(self,shotno):
+    def __init__(self,shotno,debug=False):
+        if debug: print('Loading FRC-ECE Signals')
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
@@ -265,7 +270,9 @@ class FRCECE:
 class Ip:
     # Plasma current
     
-    def __init__(self,shotno):
+    def __init__(self,shotno,debug=False):
+        if debug: print('Loading Ip Signal')
+        
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
@@ -288,7 +295,9 @@ class Ip:
 class RF_PWR():
     # ICRF Injected power
     
-    def __init__(self,shotno):
+    def __init__(self,shotno,debug=False):
+        if debug: print('Loading ICRF Signal')
+        
         conn = openTree(shotno)
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
