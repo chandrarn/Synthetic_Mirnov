@@ -44,17 +44,14 @@ def __doFilter(data,time,HP_Freq, LP_Freq):
     # Standardize data to 2D signal
     if np.ndim(data)==1: data = np.array(data)[np.newaxis,:]
 
-    dat_out=np.zeros(np.shape(data))
-    
+
     if HP_Freq or LP_Freq:
         for i,dat in enumerate(data):
-           
             if HP_Freq:# Isolate Mode
-                dat_out[i] = \
-                    gaussianHighPassFilter(dat,time,1./HP_Freq)
+                data[i] =   gaussianHighPassFilter(data[i], time,1./HP_Freq)
             if LP_Freq:# Remove Noise
-                dat_out[i] = \
-                    gaussianLowPassFilter(dat_out[i], time,1./LP_Freq)
-                    
-    return dat_out
+                data[i] =  gaussianLowPassFilter(  data[i],time,1./LP_Freq)
+                                
+            
+    return data
 
