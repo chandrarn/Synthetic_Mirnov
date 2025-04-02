@@ -20,7 +20,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
                             signal_reduce=2,f_lim=None,sensor_name='BP2T_ABK',
                             debug=True,plot_reduce=3,doColorbar=True,
                             clabel='',HP_Freq=100,cLim=None,
-                            doSave_Extractor=True,block_reduce=[400,20000]):
+                            doSave_Extractor=True,block_reduce=[400,20000],
+                            data_archive=''):
     '''
     
 
@@ -81,7 +82,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     
     # Pull C-Mod data from server for a given diagnostic
     if sensor_set == 'BP_T':
-        if diag is None: gC.__loadData(shotno,pullData=['bp_t'])['bp_t']
+        if diag is None: diag = gC.__loadData(shotno,pullData=['bp_t'],
+                                   data_archive=data_archive)['bp_t']
             
         # Extract specific sensor, if desired. Otherwise FFTs will be averaged
         signals = diag.ab_data if sensor_name == '' else \
