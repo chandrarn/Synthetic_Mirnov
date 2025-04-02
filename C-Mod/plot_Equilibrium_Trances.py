@@ -13,7 +13,7 @@ from get_Cmod_Data import __loadData
 def plot_basic_quantities(shots, LP_Freq = 30e3, doSave=False, tLim=None,
                 save_Ext='', highlightTimes = None, 
                 makePlots = ['ip', 'p_rf', 'gpc', 'bp_t'],
-                plotChan={},\
+                plotChan={},data_archive='',\
                     doCPCI_Zeroing = False, yLims = {},large=False,\
                         overlayOptical=False,reload=[],\
                         indicateTimes=[],narrow=False,\
@@ -62,7 +62,7 @@ def plot_basic_quantities(shots, LP_Freq = 30e3, doSave=False, tLim=None,
     for shot_ind,shot in enumerate(shots):
         
         # Only get the data necssary
-        rawData = __loadData(shot,pullData=makePlots)
+        rawData = __loadData(shot,pullData=makePlots,data_archive=data_archive)
         
         
         # Plots

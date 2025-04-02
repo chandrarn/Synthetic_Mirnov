@@ -19,7 +19,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
                             doSave='',pad=1000,fft_window=500,tLim=[.75,1.1],
                             signal_reduce=2,f_lim=None,sensor_name='BP2T_ABK',
                             debug=True,plot_reduce=3,doColorbar=True,
-                            clabel='',HP_Freq=100,
+                            clabel='',HP_Freq=100,cLim=None,
                             doSave_Extractor=True,block_reduce=[400,20000]):
     '''
     
@@ -81,7 +81,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     
     # Pull C-Mod data from server for a given diagnostic
     if sensor_set == 'BP_T':
-        if diag is None: diag = gC.BP_T(shotno)
+        if diag is None: gC.__loadData(shotno,pullData=['bp_t'])['bp_t']
+            
         # Extract specific sensor, if desired. Otherwise FFTs will be averaged
         signals = diag.ab_data if sensor_name == '' else \
             diag.ab_data[(np.array(diag.ab_names) ==  sensor_name)]
@@ -148,8 +149,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     out_spect = out_spect[:,::plot_reduce]
     plot_spectrogram(time,freq,out_spect,doSave,sensor_set,None,
                  None,'',f_lim,shotno,doSave_Extractor=doSave_Extractor,tScale=1,
-                 doColorbar=doColorbar,
-                 clabel=clabel)
+                 doColorbar=doColorbar,clabel=clabel,cLim=cLim)
     
     if debug: print('Finished Plot')
     
@@ -159,7 +159,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
 
 def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
                      save_Ext,f_lim,shotno=None,
-                     doSave_Extractor=False,tScale=1e3,doColorbar=False,clabel='',):
+                     doSave_Extractor=False,tScale=1e3,doColorbar=False,
+                     clabel='',cLim=None):
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
@@ -172,7 +173,9 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     f_inds = np.arange(*[np.argmin((freq*1e-3-f)**2) for f in f_lim]) if f_lim\
         else np.arange(*[0,len(freq)])
     
-    ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],shading='auto',rasterized=True)
+    vmin,vmax = cLim if cLim else [np.min(out_spect[f_inds]),np.max(out_spect[f_inds])]
+    ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],
+                  shading='auto',rasterized=True,vmin=vmin,vmax=vmax)
     
     if doSave_Extractor and doSave: 
         # For mode extractor code, remove axes labels/etc
@@ -189,7 +192,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     ax.set_ylabel('Freq [kHz]')
     
     if doColorbar:
-        norm = Normalize(np.min(out_spect[f_inds]),np.max(out_spect[f_inds]))
+        norm = Normalize(vmin,vmax)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='viridis'),ax=ax,
                      label=clabel)
         
