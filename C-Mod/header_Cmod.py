@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import mdsthin as mds # Needs to be separately installed through pip
 from matplotlib.colors import Normalize
 from matplotlib import rc,cm
+from matplotlib.patches import Rectangle
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
 plt.rcParams['axes.labelweight']='bold'

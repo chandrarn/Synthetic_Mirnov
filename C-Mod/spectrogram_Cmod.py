@@ -20,7 +20,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
                             signal_reduce=2,f_lim=None,sensor_name='BP2T_ABK',
                             debug=True,plot_reduce=3,doColorbar=True,
                             clabel='',HP_Freq=100,
-                            doSave_Extractor=True,block_reduce=[300,100000]):
+                            doSave_Extractor=True,block_reduce=[400,20000]):
     '''
     
 
@@ -86,7 +86,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         signals = diag.ab_data if sensor_name == '' else \
             diag.ab_data[(np.array(diag.ab_names) ==  sensor_name)]
         time = diag.time
-        clabel=r'$\tilde{\mathrm{B}}_\theta$ [G]'
+        
+        clabel=r'$\partial_t{\mathrm{B}}_\theta$ [T/s]'
         
     elif sensor_set == 'FRCECE':
         if diag is None: diag = gC.FRCECE(shotno)
@@ -131,7 +132,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     # Run filtering 
     signals = __doFilter(signals, time, HP_Freq, None)
     
-    
+    #return t_inds,time
     # Run spectrogram
     time, freq, out_spect = rolling_spectrogram(time[t_inds], signals[:,t_inds],pad=pad,
                                                 fft_window=fft_window)

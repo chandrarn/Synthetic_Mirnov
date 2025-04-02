@@ -42,7 +42,9 @@ class BP:
         Z = conn.get(basePath + 'Z').data()
         
         for ind,name in enumerate(self.nodeName):
-                try:signal = conn.get(basePath+'SIGNALS:%s'%name)
+                try:
+                    signal = conn.get(basePath+'SIGNALS:%s'%name)
+                    assert type(signal.data()) is np.ndarray # signal node may exist but be empty
                 except: continue
                 # Reference pass link node
                 if name[-2::] == 'BC': tmp = self.BC
@@ -73,7 +75,6 @@ class BP:
             tmp['R'] = np.array(tmp['R'])
             tmp['Z'] = np.array(tmp['Z'])
             tmp['SIGNAL'] = np.array(tmp['SIGNAL'])
-            
         self.time = conn.get('dim_of('+basePath+'SIGNALS:%s)'%name).data()
         
     def makePlot(self,HP=10,LP=20e3,tLim=[1,1.1]):
@@ -228,7 +229,49 @@ class GPC:
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
                      label=r'$\mathrm{T_e}$ [keV]')
         plt.show()
+###############################################################################
+class GPC_2:
+    # ECE radial profile [not high frequency ECE data]
+    
+    def __init__(self,shotno,debug=True):
+        if debug: print('Loading GPC_2-ECE Signals')
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
         
+        baseAddress = r'\CMOD::TOP.ELECTRONS:GPC_2:RESULTS:'
+        
+        self.GPC_freq = conn.get(baseAddress + 'GPC2_FREQ').data()
+        
+        # self.Cal = []
+        # #self.Psi = []
+        # self.Te = []
+        # self.Rad = []
+        
+        self.Cal = conn.get(baseAddress+'CALS').data()
+        #self.Psi.append(conn.get(baseAddress+'PSI_GPC:PSI%d'%i).data())
+        self.Te = conn.get(baseAddress+'GPC2_TE').data()
+        self.Rad = conn.get(baseAddress+'RADII').data()
+            
+            
+        #self.Te = np.array(self.Te).squeeze()
+        #self.Rad = np.array(self.Rad).squeeze()
+        self.time=conn.get(r'dim_of(\CMOD::TOP.ELECTRONS:GPC_2:RESULTS:GPC2_TE0)').data()
+        #self.time=conn.get(r'dim_of(\CMOD::TOP.ELECTRONS:ECE:GPC_RESULTS:TE:TE1,0)').data()
+        self.Rad_Times =conn.get(r'dim_of(\CMOD::TOP.ELECTRONS:GPC_2:RESULTS:RADII,1)').data()
+        conn.closeAllTrees()
+    
+    def makePlot(self):
+        plt.close('ECE-Profile')
+        fig,ax=plt.subplots(1,1,num='ECE-Profile',tight_layout=True,figsize=(6,3))
+        ax.contourf(self.time,self.Rad[:,50],self.Te,levels=50,zorder=-3,cmap='plasma')
+        ax.set_rasterization_zorder(-1)
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('R [m]')
+        norm = Normalize(np.min(self.Te),np.max(self.Te))
+        fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
+                     label=r'$\mathrm{T_e}$ [keV]')
+        plt.show()
+                
 ###############################################################################
 class FRCECE:
     # High frequency ECE (FR-C-ECE-F), not availible for shots ~< 2010
@@ -333,11 +376,13 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
         rawData = pk.load(open(data_archive + 'rawData_%d.pk'%shotno,'rb'))
         
         # If we need to reload something, or need a signal not already saved
-        if forceReload or not np.all(pullData,list(rawData.keys())): raise Exception
+        if forceReload or not np.all(np.isin(pullData,list(rawData.keys()))): raise Exception
+        if debug:print('Loaded ' + 'rawData_%d.pk'%shotno +' from archives')
     except:
         rawData = __genRawData(shotno,pullData,debug)
         __saveRawData(rawData,shotno,debug,data_archive)
         
+    return rawData
 ###################################################
 def __genRawData(shotno,pullData,debug):
     # Pull requested diagnostic signals
@@ -351,6 +396,8 @@ def __genRawData(shotno,pullData,debug):
     if 'ece' in pullData: rawData['ece'] = ECE(shotno,debug)
     
     if 'gpc' in pullData: rawData['gpc'] = GPC(shotno,debug)
+    
+    if 'gpc_2' in pullData: rawData['gpc_2'] = GPC_2(shotno,debug)
     
     if 'frcece' in pullData: rawData['frcece'] = FRCECE(shotno, debug)
     
