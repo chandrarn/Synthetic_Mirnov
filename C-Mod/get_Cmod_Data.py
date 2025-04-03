@@ -361,11 +361,74 @@ class RF_PWR():
         if 'noGrid' not in figParams: ax.grid()
         if 'noLeg' not in figParams: ax.legend(fontsize=8,handlelength=1)
         plt.show()
+###############################################################################
+class YAG():
+    # Nd:YAG Thomson scattering laser Te, ne profiles
+    def __init__(self,shotno,debug=False):
+        if debug:  print('Loading Thomson (YAG) Signal')
         
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        # only the old system is availible early on
+        old = shotno < 1020000000
+        edge = shotno > 1000000000 # edge TS only avilible here and newer
+        
+        ne_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:NE_RZ_T' if old else \
+            r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:NE_RZ'
+        ne_err_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:NE_ERR_ZT' if old else \
+            r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:NE_ERR'
+        te_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:TE_RZ_T' if old else \
+            r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:TE_RZ'
+        te_err_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:TE_ERR_ZT' if old else \
+            r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:TE_ERR'
+        r_mapped_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:R_MID_T' if old else \
+            r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:R_MID_T'
+        z_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:Z_SORTED' if old else \
+            r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:Z_SORTED'
+        r_node = r'\ELECTRONS::TOP.YAG.RESULTS.PARAM:R' if old else \
+            r'\ELECTRONS::TOP.YAG.RESULTS.PARAM:R'  
+        
+        self.Ne = np.array(conn.get(ne_node).data())
+        self.Ne_Err = np.array(conn.get(ne_err_node).data())
+        self.Te = np.array(conn.get(te_node).data())
+        self.Te_Err = np.array(conn.get(te_err_node).data())
+        self.R_Map = np.array(conn.get(r_mapped_node).data())
+        self.Z = np.array(conn.get(z_node).data())
+        self.R = np.array(conn.get(r_node).data())
+        self.time = np.array(conn.get('dim_of('+ne_node+')'))
+        
+        # If edge exists, pull it
+        if edge: 
+            self.Ne_Edge = np.array(conn.get(\
+                 r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:NE').data())
+            self.Ne_Err_Edge = np.array(conn.get(\
+                 r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:NE:ERROR').data())
+            self.Te_Edge = np.array(conn.get(\
+                 r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:TE').data())
+            self.T_Err_Edge = np.array(conn.get(\
+                 r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:TE:ERROR').data())
+            self.R_Map_Edge = np.array(conn.get(\
+                 r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:RMID').data())
+            self.Z_Edge = np.array(conn.get(\
+                     r'\ELECTRONS::TOP.YAG_EDGETS.DATA:FIBER_Z').data())
+            self.R_Edge = np.array(conn.get(\
+                     r'\ELECTRONS::TOP.YAG.RESULTS.PARAM:R').data())
+            self.time_Edge = np.array(conn.get(\
+                     r'dim_of(\ELECTRONS::TOP.YAG_EDGETS.RESULTS:NE)').data())
+                
+        conn.closeAllTrees()
+    
+    def makePlot(self,time=1):
+        plt.close('Thomson')
+        fig,ax=plt.subplots(1,1,num='Thomson',tight_layout=True)
+        
+        ax.errorbar()
+###############################################################################
 ###############################################################################
 # Local data storage functionality
 def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
-               pullData = ['bp','bp_t','gpc','ip','p_rf']):
+               pullData = ['bp','bp_t','gpc','ip','p_rf','yag']):
     # data_archive can be manually specified if the default file locaiton isn't in use
     # Defult is to the author's MFE directory
     if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
@@ -404,6 +467,8 @@ def __genRawData(shotno,pullData,debug):
     if 'ip' in pullData: rawData['ip'] = Ip(shotno,debug)
     
     if 'p_rf' in pullData: rawData['p_rf'] = RF_PWR(shotno,debug)
+    
+    if 'yag' in pullData: rawData['yag'] = YAG(shotno,debug)
     
     return rawData
 
