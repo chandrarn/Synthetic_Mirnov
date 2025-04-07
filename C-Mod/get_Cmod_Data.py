@@ -7,7 +7,7 @@ Spyder Editor
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
     gaussianLowPassFilter, __doFilter, pk
-
+    
 ###############################################################################
 def openTree(shotno):
     # Connect to data tree
@@ -19,6 +19,10 @@ def openTree(shotno):
 def currentShot(conn):
     return conn.get('current_shot("cmod")').data()
 
+############################################################################
+def doFilter(data,time,HP_Freq,LP_Freq): # Issue with names with '__' in classes
+    return __doFilter(data, time, HP_Freq, LP_Freq)
+    
 ###############################################################################
 class BP:
     # Low frequency M/N Mirnov Array
@@ -424,6 +428,115 @@ class YAG():
         fig,ax=plt.subplots(1,1,num='Thomson',tight_layout=True)
         
         ax.errorbar()
+###############################################################################
+class POWER_SYSTEM():
+    # Equilibrium coil currents, automatically handles smoothing (some signals noisy)
+    def __init__(self,shotno,debug=False,doSmoothing=1e3):
+        if debug:  print('Loading Equilibrium Coil Current Signals')
+        
+
+        
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        base = r'\ENGINEERING::TOP.POWER_SYSTEM.'
+        
+        
+        self.time = conn.get(r'dim_of('+ base + 'TF.CUR_4)').data()
+        
+        
+        self.EF1_L = doFilter(conn.get(base + 'EF1_L.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.EF1_U = doFilter(conn.get(base + 'EF1_U.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        
+        self.EF2_L = doFilter(conn.get(base + 'EF2_L.A_CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.EF2_U = doFilter(conn.get(base + 'EF2_U.A_CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        
+        self.EF3 = doFilter(conn.get(base + 'EF3.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        #self.EF3_U = conn.get(base + 'EF1_L.CUR').data()
+        
+        self.EF4 = doFilter(conn.get(base + 'EF4.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        #self.EF4_U = conn.get(base + 'EF1_L.CUR').data()
+        
+        
+        self.EFC_A = doFilter(conn.get(base + 'EFC.A_CUR').data(),\
+                                self.time,False,doSmoothing )[0] * 1e-3
+        self.EFC_B = doFilter(conn.get(base + 'EFC.B_CUR').data(),\
+                                self.time,False,doSmoothing )[0] * 1e-3
+        self.EFC_C = doFilter(conn.get(base + 'EFC.C_CUR').data(),\
+                                self.time,False,doSmoothing )[0] * 1e-3
+        
+        
+        self.OH1 = doFilter(conn.get(base + 'OH1.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.OH2_U = doFilter(conn.get(base + 'OH2_L.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.OH2_L = doFilter(conn.get(base + 'OH2_U.CUR').data(),\
+                                self.time,False,doSmoothing )[0]
+        
+        
+        self.TF_1 = doFilter(conn.get(base + 'TF.CUR_1').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.TF_2 = doFilter(conn.get(base + 'TF.CUR_2').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.TF_3 = doFilter(conn.get(base + 'TF.CUR_3').data(),\
+                                self.time,False,doSmoothing )[0]
+        self.TF_4 = doFilter(conn.get(base + 'TF.CUR_4').data(),\
+                                self.time,False,doSmoothing )[0]
+        
+    
+        conn.closeAllTrees()
+        
+        
+
+    def makePlots(self,doSave=False):
+        plt.close('Coil_Currents_%d'%self.shotno)
+        fig,ax=plt.subplots(2,2,num='Coil_Currents_%d'%self.shotno,
+                tight_layout=True,sharex=True,sharey=False,figsize=(4,4))
+        
+        ax[0,1].sharey(ax[0,0])
+        ax[1,1].sharey(ax[1,0])
+        
+        ax[0,0].plot(self.time,self.EF1_L,label='EF1_L',alpha=.7)
+        ax[0,0].plot(self.time,self.EF1_L,label='EF1_U',alpha=.7)
+        ax[0,0].plot(self.time,self.EF1_L,label='EF2_L',alpha=.7)
+        ax[0,0].plot(self.time,self.EF1_L,label='EF2_U',alpha=.7)
+        ax[0,0].plot(self.time,self.EF1_L,label='EF3',alpha=.7)
+        ax[0,0].plot(self.time,self.EF1_L,label='EF4',alpha=.7)
+        
+        ax[0,1].plot(self.time,self.EFC_A,label='EFC_A',alpha=.7)
+        ax[0,1].plot(self.time,self.EFC_B,label='EFC_B',alpha=.7)
+        ax[0,1].plot(self.time,self.EFC_C,label='EFC_C',alpha=.7)
+        
+        ax[1,0].plot(self.time,self.OH1,label='OH1',alpha=.7)
+        ax[1,0].plot(self.time,self.OH2_U,label='OH2_U',alpha=.7)
+        ax[1,0].plot(self.time,self.OH2_L,label='OH2_L',alpha=.7)
+        
+        ax[1,1].plot(self.time,self.TF_1,label='TF_1',alpha=.7)
+        ax[1,1].plot(self.time,self.TF_2,label='TF_2',alpha=.7)
+        ax[1,1].plot(self.time,self.TF_3,label='TF_3',alpha=.7)
+        ax[1,1].plot(self.time,self.TF_4,label='TF_4',alpha=.7)
+        
+        for i in range(2):
+            for j in range(2):
+                if i==0 and j==1:ax[i,j].legend(loc='upper right',fontsize=8,
+                            handlelength=1,title=self.shotno,title_fontsize=9)
+                else: ax[i,j].legend(loc='upper right',fontsize=8,handlelength=1)
+                ax[i,j].grid()
+                if j==0:ax[i,j].set_ylabel('Current [kA]')
+                if i==1:ax[i,j].set_xlabel('Time [s]')
+                if j==1:plt.setp(ax[i,j].get_yticklabels(), visible=False)
+    
+        plt.show()
+        
+        if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
+                              transparent=True)
+    
 ###############################################################################
 ###############################################################################
 # Local data storage functionality
