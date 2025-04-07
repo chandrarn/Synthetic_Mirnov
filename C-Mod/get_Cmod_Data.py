@@ -575,7 +575,7 @@ class AEQDSK_CCBRSP():
         
         conn = openTree(shotno)
         self.currs_all = conn.get('\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp').data()*1e-3
-        self.currs_time = conn.get('dim_of(\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp)').data()
+        self.currs_time = conn.get('dim_of(\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp,1)').data()
     
     def saveOutput(self,tPoint,saveFile='../data_output/'):
         tInd = np.argmin((self.currs_time-tPoint)**2)
@@ -591,8 +591,8 @@ class AEQDSK_CCBRSP():
         fig,ax=plt.subplots(2,2,num='Coil_Currents_aEQDSK_%d'%self.shotno,
                 tight_layout=True,sharex=True,sharey=False,figsize=(4,4))
         
-        ax[0,1].sharey(ax[0,0])
-        ax[1,1].sharey(ax[1,0])
+        #ax[0,1].sharey(ax[0,0])
+        #ax[1,1].sharey(ax[1,0])
         
         ax[0,0].plot(self.currs_time,self.currs_all[:,3],label='EF1U',alpha=.7)
         ax[0,0].plot(self.currs_time,self.currs_all[:,4],label='EF1L',alpha=.7)
@@ -621,13 +621,13 @@ class AEQDSK_CCBRSP():
                 ax[i,j].grid()
                 if j==0:ax[i,j].set_ylabel('Current [kA-turns]')
                 if i==1:ax[i,j].set_xlabel('Time [s]')
-                if j==1:plt.setp(ax[i,j].get_yticklabels(), visible=False)
+                #if j==1:plt.setp(ax[i,j].get_yticklabels(), visible=False)
     
-        plt.show()
+        #plt.show()
         
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
-        
+        plt.show()
 
 ###############################################################################
 ###############################################################################
