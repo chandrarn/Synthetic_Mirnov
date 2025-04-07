@@ -559,7 +559,76 @@ class POWER_SYSTEM():
         
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
+        
+        
+###############################################################################
+class AEQDSK_CCBRSP():
+    # Coil currents in kAmp-Turns, from aEqsdsk file, for simulation
+    # Order is specific: OH1, OH2U, OH2L EF1U, EF1L, EF2U, EF2L, EF3U, EF3L,
+    # EF4U, EF4L, EFCU, EFCL, TFTU, TFTL
+    def __init__(self,shotno,debug=False):
+        
+        if debug:  print('Loading Equilibrium Coil Current Signals from aEQDSK File')
+        
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        conn = openTree(shotno)
+        self.currs_all = conn.get('\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp').data()*1e-3
+        self.currs_time = conn.get('dim_of(\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp)').data()
     
+    def saveOutput(self,tPoint,saveFile='../data_output/'):
+        tInd = np.argmin((self.currs_time-tPoint)**2)
+        
+        if saveFile: 
+            np.savetxt(saveFile+'aEqdsk_Currs_%d_$1.2f.txt'%(self.shotno,tPoint),\
+                       self.currs_all[tInd])
+        return self.currs_all[tInd]
+    
+    
+    def makePlots(self,doSave=False):
+        plt.close('Coil_Currents_aEQDSK_%d'%self.shotno)
+        fig,ax=plt.subplots(2,2,num='Coil_Currents_aEQDSK_%d'%self.shotno,
+                tight_layout=True,sharex=True,sharey=False,figsize=(4,4))
+        
+        ax[0,1].sharey(ax[0,0])
+        ax[1,1].sharey(ax[1,0])
+        
+        ax[0,0].plot(self.currs_time,self.currs_all[:,3],label='EF1U',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,4],label='EF1L',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,5],label='EF2U',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,6],label='EF2L',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,7],label='EF3U',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,8],label='EF3L',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,9],label='EF4U',alpha=.7)
+        ax[0,0].plot(self.currs_time,self.currs_all[:,10],label='EF4L',alpha=.7)
+        
+        ax[0,1].plot(self.currs_time,self.currs_all[:,11],label='EFCU',alpha=.7)
+        ax[0,1].plot(self.currs_time,self.currs_all[:,12],label='EFCL',alpha=.7)
+        
+        ax[1,0].plot(self.currs_time,self.currs_all[:,0],label='OH1',alpha=.7)
+        ax[1,0].plot(self.currs_time,self.currs_all[:,1],label='OH2U',alpha=.7)
+        ax[1,0].plot(self.currs_time,self.currs_all[:,2],label='OH2U',alpha=.7)
+        
+        ax[1,1].plot(self.currs_time,self.currs_all[:,13],label='TFTU',alpha=.7)
+        ax[1,1].plot(self.currs_time,self.currs_all[:,14],label='TFTL',alpha=.7)
+        
+        for i in range(2):
+            for j in range(2):
+                if i==0 and j==1:ax[i,j].legend(loc='upper right',fontsize=8,
+                            handlelength=1,title=self.shotno,title_fontsize=9)
+                else: ax[i,j].legend(loc='upper right',fontsize=8,handlelength=1)
+                ax[i,j].grid()
+                if j==0:ax[i,j].set_ylabel('Current [kA-turns]')
+                if i==1:ax[i,j].set_xlabel('Time [s]')
+                if j==1:plt.setp(ax[i,j].get_yticklabels(), visible=False)
+    
+        plt.show()
+        
+        if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
+                              transparent=True)
+        
+
 ###############################################################################
 ###############################################################################
 # Local data storage functionality
