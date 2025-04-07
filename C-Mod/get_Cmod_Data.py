@@ -406,7 +406,7 @@ class YAG():
                  r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:NE:ERROR').data())
             self.Te_Edge = np.array(conn.get(\
                  r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:TE').data())
-            self.T_Err_Edge = np.array(conn.get(\
+            self.Te_Err_Edge = np.array(conn.get(\
                  r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:TE:ERROR').data())
             self.R_Map_Edge = np.array(conn.get(\
                  r'\ELECTRONS::TOP.YAG_EDGETS.RESULTS:RMID').data())
@@ -421,9 +421,32 @@ class YAG():
     
     def makePlot(self,time=1):
         plt.close('Thomson')
-        fig,ax=plt.subplots(1,1,num='Thomson',tight_layout=True)
+        fig,ax=plt.subplots(1,1,num='Thomson',tight_layout=True,figsize=(4.5,2.))
+        tInd = np.argmin((self.time-time)**2)
+        ax.errorbar(self.R_Map[:,tInd],self.Te[:,tInd],fmt='*',yerr=self.Te_Err[:,tInd])
+        ax1=ax.twinx()
+        ax1.errorbar(self.R_Map[:,tInd],self.Ne[:,tInd]*1e-20,\
+                     yerr=self.Ne_Err[:,tInd]*1e-20,\
+                     c=plt.get_cmap('tab10')(1),fmt='*')
+        tInd = np.argmin((self.time_Edge-time)**2)
         
-        ax.errorbar()
+        ax.errorbar(self.R_Map_Edge[4:,tInd],self.Te_Edge[4:,tInd]*1e-3,fmt='*',\
+                    yerr=self.T_Err_Edge[4:,tInd]*1e-3,c=plt.get_cmap('tab10')(0),\
+                        alpha=.7)
+        ax1.errorbar(self.R_Map_Edge[4:,tInd],self.Ne_Edge[4:,tInd]*1e-20,\
+                     yerr=self.Ne_Err_Edge[4:,tInd]*1e-20,\
+                     c=plt.get_cmap('tab10')(1),fmt='^',alpha=.7)
+        p1=ax.plot(.8,1,'k*',label='TS Core',ms=3)
+        p2=ax.plot(.8,1,'k^',label='TS Edge',ms=1)
+        ax.legend(fontsize=8,title='%d: %1.1f s'%(self.shotno,time),
+                  title_fontsize=9,loc='lower left')
+        p1[0].remove();p2[0].remove()
+        yl1 = ax.get_ylim();ax.set_ylim([0,yl1[1]])
+        yl2 = ax1.get_ylim();ax1.set_ylim([0,yl2[1]])
+        ax.grid()
+        ax.set_xlabel('R [m]')
+        ax.set_ylabel(r'T$_\mathrm{e}$ [keV]')
+        ax1.set_ylabel(r'n$_\mathrm{e}$ [$10^{20}\,\mathrm{m}^{-3}$]')
 ###############################################################################
 ###############################################################################
 # Local data storage functionality
