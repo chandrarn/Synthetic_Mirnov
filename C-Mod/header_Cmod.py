@@ -41,11 +41,11 @@ def gaussianLowPassFilter(y,t,timeWidth):
 def gaussianHighPassFilter(y,t,timeWidth): return y-gaussianLowPassFilter(y, t, timeWidth)    
    
 def __doFilter(data,time,HP_Freq, LP_Freq):
-    
+    # General Finite Impulse Response filter
+    # Can handle highpass, lowpass = False
     
     # Standardize data to 2D signal
     if np.ndim(data)==1: data = np.array(data)[np.newaxis,:]
-
 
     if HP_Freq or LP_Freq:
         for i,dat in enumerate(data):
@@ -57,3 +57,4 @@ def __doFilter(data,time,HP_Freq, LP_Freq):
             
     return data
 
+###############################################################################
