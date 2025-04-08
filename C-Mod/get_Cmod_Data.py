@@ -625,7 +625,7 @@ class A_EQDSK_CCBRSP():
             names = [ 'OH1', 'OH2U', 'OH2L', 'EF1U', 'EF1L', 'EF2U', 'EF2L',
                  'EF3U', 'EF3L', 'EF4U', 'EF4L', 'EFCU', 'EFCL', 'TFTU', 'TFTL']
             np.savetxt(saveFile+'aEqdsk_Currs_%d_%1.2f.txt'%(self.shotno,tPoint),\
-                       [names, self.currs_all[tInd]])
+               np.array([names, self.currs_all[tInd]],dtype=object).T,fmt='%s, %4.4e' )
         return self.currs_all[tInd]
     
     
