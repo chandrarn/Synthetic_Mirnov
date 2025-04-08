@@ -10,14 +10,15 @@ Created on Mon Apr  7 19:12:03 2025
 @author: rian
 """
 
-from header_Cmod import np, sys
+from header_Cmod import np, sys, plt
 from get_Cmod_Data import YAG, A_EQDSK_CCBRSP
 sys.path.append('/home/rianc/Documents/eqtools-1.0/')
 import eqtools as eq
 
 ########################################
 
-def gen_M3DC1_CMod_Input(shotno,timePoint,saveDataFile='../data_output/',
+def gen_M3DC1_CMod_Input(shotno,timePoint,
+             saveDataFile='home/rianc/Documents/Synthetic_Mirnov/data_output/',
                          doPlot=False, doSavePlot='',dropChansTS=[3],
                          dropChansTS_Edge=[0,1,2,3]):
     
@@ -26,6 +27,7 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,saveDataFile='../data_output/',
     eqfile = eq.CModEFITTree(shotno)
     if saveDataFile:eq.filewriter.gfile(eqfile,timePoint,
                     name=saveDataFile+'g%d.%d'(timePoint*1000))
+    if doPlot: __verify_Psi(eqfile,shotno,timePoint)
     
     # Get Equilbirium coil currents
     curr = A_EQDSK_CCBRSP(shotno)
@@ -45,6 +47,30 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,saveDataFile='../data_output/',
     
     return eqfile, curr_out,Te, Ne, R_ts_psi, R_ts
 
+################################################
+def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
+    r = np.linspace(.4,1,50)
+    z = np.linspace(-.25,.25,50)
+    psi = eqfile.rz2psinorm(r,z,timePoint,make_grid=True,sqrt=True)
     
+    plt.close('Psi_%d_%1.1f'%(shotno,timePoint))
+    fig,ax=plt.subplots(1,1,num='Psi_%d_%1.1f'%(shotno,timePoint),figsize=(3,2),
+                        tight_layout=True)
+    cs = ax.contour(r,z,psi)
+    ax.clabel(cs)
+    ax.set_xlabel('R [m]')
+    ax.set_Ylabel('Z [m]')
+    ax.grid()
+    
+    if doSavePlot: fig.savefig(doSavePlot+fig.canvas.manager.get_window_title()+\
+                               '.pdf',transparent=True)
+    plt.show()
+    
+################################################
+if __name__ == '__main__':
+    shotno = int(sys.argv[1])
+    timePoint = float(sys.argv[2])
+    
+    gen_M3DC1_CMod_Input(shotno, timePoint, doPlot=True)
     
 
