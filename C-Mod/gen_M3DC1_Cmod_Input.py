@@ -4,9 +4,11 @@
 Created on Mon Apr  7 19:12:03 2025
     Wrapper for generating M3D-C1 input files from a given C-Mod shot, timepoint
     Should both output and save: gEqdsk, Te(psi_n), ne(psi_n), aEqdsk coil currents
-    Issues with: time alignment: thomson timebase doesn't align with EFIT (?)
-    May have discrepency due to sawtooth cycle? (e.g. EFIT, Thomson at different
-     phases of the crash)
+    
+    Issues with timebase: EFIT, Thomson data is selected based on nerest-neighbor
+    interpolation. This could potentially lead to inconsistencies, particularly
+    with respect to the sawtooth crash cycle (e.g. TS laser could end up reporting
+    from top of cycle, EFIT from bottom)
 @author: rian
 """
 
@@ -41,14 +43,16 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,
     
     # Convert R to psi_N
     R_ts_psi = eqfile.rz2psinorm(R_ts,0,timePoint,sqrt=True,make_grid=True)[0]
-    
     if saveDataFile: np.savetxt(saveDataFile+'TS_%d_%1.1f'%(shotno,timePoint),
                                 [Te,Ne,R_ts_psi])
+    
     
     return eqfile, curr_out,Te, Ne, R_ts_psi, R_ts
 
 ################################################
 def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
+    # Verification plot for Psi_n contours
+    
     r = np.linspace(.4,1,50)
     z = np.linspace(-.25,.25,50)
     psi = eqfile.rz2psinorm(r,z,timePoint,make_grid=True,sqrt=True)
@@ -71,10 +75,11 @@ def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
     plt.show()
     
 ################################################
-if __name__ == '__main__':
+if __name__ == '__main__': #Command line operations
     shotno = int(sys.argv[1])
     timePoint = float(sys.argv[2])
     
-    gen_M3DC1_CMod_Input(shotno, timePoint, doPlot=True,doSavePlot='../output_plots/')
+    gen_M3DC1_CMod_Input(shotno, timePoint, doPlot=True,
+             doSavePlot='/home/rianc/Documents/Synthetic_Mirnov/output_plots/')
     
 
