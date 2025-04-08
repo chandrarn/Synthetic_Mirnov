@@ -443,7 +443,9 @@ class YAG():
         
         return Te[r_sort], Ne[r_sort], R[r_sort]
         
-    def makePlot(self,time=1,dropChansMain=[3],dropChansEdge=[0,1,2,3],doSave=''):
+    def makePlot(self,time=1,dropChansMain=[3],dropChansEdge=[0,1,2,3],
+                 doSave='',eqdsk=None):
+        
         plt.close('Thomson_%d_%1.1f'%(self.shotno,time))
         fig,ax=plt.subplots(1,1,num='Thomson_%d_%1.1f'%(self.shotno,time),
                             tight_layout=True,figsize=(4.5,2.))
@@ -451,20 +453,27 @@ class YAG():
         tInd = np.argmin((self.time-time)**2)
         r_inds = np.delete(np.arange(len(self.R_Map)),dropChansMain)
         
-        ax.errorbar(self.R_Map[r_inds,tInd],self.Te[r_inds,tInd],fmt='*',
+        r_plot = self.R_Map[r_inds,tInd] if eqdsk is None else \
+            eqdsk.rz2psinorm(self.R_Map[r_inds,tInd],0,time,sqrt=True,make_grid=True)[0]
+            
+        ax.errorbar(r_plot,self.Te[r_inds,tInd],fmt='*',
                     yerr=self.Te_Err[r_inds,tInd])
         ax1=ax.twinx()
-        ax1.errorbar(self.R_Map[r_inds,tInd],self.Ne[r_inds,tInd]*1e-20,\
+        ax1.errorbar(r_plot,self.Ne[r_inds,tInd]*1e-20,\
                      yerr=self.Ne_Err[r_inds,tInd]*1e-20,\
                      c=plt.get_cmap('tab10')(1),fmt='*')
             
         tInd = np.argmin((self.time_Edge-time)**2)
         r_inds_Edge = np.delete(np.arange(len(self.R_Map_Edge)),dropChansEdge)
         
-        ax.errorbar(self.R_Map_Edge[r_inds_Edge,tInd],self.Te_Edge[r_inds_Edge,tInd],fmt='*',\
+        r_plot_edge = self.R_Map_Edge[r_inds_Edge,tInd] if eqdsk is None else \
+            eqdsk.rz2psinorm(self.R_Map_Edge[r_inds_Edge,tInd],0,time,
+                             sqrt=True,make_grid=True)[0]
+        
+        ax.errorbar(r_plot_edge,self.Te_Edge[r_inds_Edge,tInd],fmt='*',\
                     yerr=self.Te_Err_Edge[r_inds_Edge,tInd],c=plt.get_cmap('tab10')(0),\
                         alpha=.7)
-        ax1.errorbar(self.R_Map_Edge[r_inds_Edge,tInd],self.Ne_Edge[r_inds_Edge,tInd]*1e-20,\
+        ax1.errorbar(r_plot_edge,self.Ne_Edge[r_inds_Edge,tInd]*1e-20,\
                      yerr=self.Ne_Err_Edge[r_inds_Edge,tInd]*1e-20,\
                      c=plt.get_cmap('tab10')(1),fmt='^',alpha=.7)
             

@@ -21,9 +21,45 @@ import eqtools as eq
 
 def gen_M3DC1_CMod_Input(shotno,timePoint,
              saveDataFile='/home/rianc/Documents/Synthetic_Mirnov/data_output/',
-                         doPlot=False, doSavePlot='',dropChansTS=[3],
+                         doPlot=False, doSavePlot='',dropChansTS=[3,10],
                          dropChansTS_Edge=[0,1,2,3]):
+    '''
     
+
+    Parameters
+    ----------
+    shotno : INT
+        C-Mod shot.
+    timePoint : FLOAT
+        Desired time point in seconds.
+    saveDataFile : STR, optional
+        Directory to save data output in.
+        The default is '/home/rianc/Documents/Synthetic_Mirnov/data_output/'.
+    doPlot : BOOL, optional
+        Make verification plots. The default is False.
+    doSavePlot : STR, optional
+        Directory to save verification plots in . The default is ''.
+    dropChansTS : LIST, INT, optional
+        List of dead or suspect Thomson channels to drop from output. The default is [3,10].
+    dropChansTS_Edge : LIST, INT, optional
+        Same as above, but for edge Thomson laser if active. The default is [0,1,2,3].
+
+    Returns
+    -------
+    eqfile : eqtools object
+        EFIT equilibrium object in eqtools format.
+    curr_out : list, float
+        aEQDSK equilibrium coil currents at desired timepoint.
+    Te : list, float
+        Thomson Te (core + edge if availible).
+    Ne : list, float
+        Thomson ne (core + edge if availible).
+    R_ts_psi : list, float
+        Thomson radial locations converted to sqrt[psi_n].
+    R_ts : TYPE
+        Thomson radial locations in [m].
+
+    '''
     
     # Get gEQDSK file from C-Mod MDSplus server
     eqfile = eq.CModEFITTree(shotno)
@@ -39,7 +75,7 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,
     # Get Thomson Ne, Te
     yag = YAG(shotno)
     Te,Ne,R_ts = yag.return_Profile(timePoint,dropChansTS,dropChansTS_Edge)
-    if doPlot:yag.makePlot(timePoint,dropChansTS,dropChansTS_Edge,doSavePlot)
+    if doPlot:yag.makePlot(timePoint,dropChansTS,dropChansTS_Edge,doSavePlot,eqfile)
     
     # Convert R to psi_N
     R_ts_psi = eqfile.rz2psinorm(R_ts,0,timePoint,sqrt=True,make_grid=True)[0]
