@@ -40,7 +40,7 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,
     if doPlot:yag.makePlot(timePoint,dropChansTS,dropChansTS_Edge,doSavePlot)
     
     # Convert R to psi_N
-    R_ts_psi = eqfile.rz2psinorm(R_ts,0,timePoint,sqrt=False)
+    R_ts_psi = eqfile.rz2psinorm(R_ts,0,timePoint,sqrt=True,make_grid=True)
     
     if saveDataFile: np.savetxt(saveDataFile+'TS_%d_%1.1f'%(shotno,timePoint),
                                 [Te,Ne,R_ts_psi])
