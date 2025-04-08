@@ -485,7 +485,7 @@ class YAG():
         yl1 = ax.get_ylim();ax.set_ylim([0,yl1[1]])
         yl2 = ax1.get_ylim();ax1.set_ylim([0,yl2[1]])
         ax.grid()
-        ax.set_xlabel('R [m]')
+        ax.set_xlabel('R [m]' if eqdsk is None else r'$\sqrt{\psi_n}$')
         ax.set_ylabel(r'T$_\mathrm{e}$ [keV]')
         ax1.set_ylabel(r'n$_\mathrm{e}$ [$10^{20}\,\mathrm{m}^{-3}$]')
         
