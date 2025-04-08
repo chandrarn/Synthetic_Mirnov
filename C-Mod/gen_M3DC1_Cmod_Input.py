@@ -59,7 +59,7 @@ def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
     cs = ax.contour(r,z,psi)
     ax.clabel(cs)
     ax.set_xlabel('R [m]')
-    ax.set_Ylabel('Z [m]')
+    ax.set_ylabel('Z [m]')
     ax.grid()
     
     if doSavePlot: fig.savefig(doSavePlot+fig.canvas.manager.get_window_title()+\
