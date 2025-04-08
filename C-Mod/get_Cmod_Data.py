@@ -462,7 +462,7 @@ class YAG():
         r_inds_Edge = np.delete(np.arange(len(self.R_Map_Edge)),dropChansEdge)
         
         ax.errorbar(self.R_Map_Edge[r_inds_Edge,tInd],self.Te_Edge[r_inds_Edge,tInd]*1e-3,fmt='*',\
-                    yerr=self.T_Err_Edge[r_inds_Edge,tInd]*1e-3,c=plt.get_cmap('tab10')(0),\
+                    yerr=self.Te_Err_Edge[r_inds_Edge,tInd]*1e-3,c=plt.get_cmap('tab10')(0),\
                         alpha=.7)
         ax1.errorbar(self.R_Map_Edge[r_inds_Edge,tInd],self.Ne_Edge[r_inds_Edge,tInd]*1e-20,\
                      yerr=self.Ne_Err_Edge[r_inds_Edge,tInd]*1e-20,\

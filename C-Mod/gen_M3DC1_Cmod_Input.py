@@ -60,7 +60,7 @@ def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
     ax.clabel(cs)
     ax.set_xlabel('R [m]')
     ax.set_ylabel('Z [m]')
-    l1=ax.plot([.7,.71],[0,0],'-k',r'$\sqrt{\psi_n}$')
+    l1=ax.plot([.7,.71],[0,0],'-k',label=r'$\sqrt{\psi_n}$')
     ax.legend(loc='upper left',fontsize=8,title='%d: %1.1fs'%(shotno,timePoint),title_fontsize=8)
     l1[0].remove()
     ax.grid()
