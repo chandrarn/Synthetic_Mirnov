@@ -622,8 +622,10 @@ class A_EQDSK_CCBRSP():
         tInd = np.argmin((self.currs_time-tPoint)**2)
         
         if saveFile: 
+            names = [ 'OH1', 'OH2U', 'OH2L', 'EF1U', 'EF1L', 'EF2U', 'EF2L',
+                 'EF3U', 'EF3L', 'EF4U', 'EF4L', 'EFCU', 'EFCL', 'TFTU', 'TFTL']
             np.savetxt(saveFile+'aEqdsk_Currs_%d_%1.2f.txt'%(self.shotno,tPoint),\
-                       self.currs_all[tInd])
+                       [names, self.currs_all[tInd]])
         return self.currs_all[tInd]
     
     
