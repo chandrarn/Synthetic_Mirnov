@@ -605,8 +605,8 @@ class A_EQDSK_CCBRSP():
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
         conn = openTree(shotno)
-        self.currs_all = conn.get('\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp').data()*1e-3
-        self.currs_time = conn.get('dim_of(\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp,1)').data()
+        self.currs_all = conn.get(r'\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp').data()*1e-3
+        self.currs_time = conn.get(r'dim_of(\cmod::top.mhd.analysis:efit.results.a_eqdsk.ccbrsp,1)').data()
     
     def saveOutput(self,tPoint,saveFile='../data_output/'):
         tInd = np.argmin((self.currs_time-tPoint)**2)

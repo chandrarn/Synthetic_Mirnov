@@ -27,7 +27,7 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,
     eqfile = eq.CModEFITTree(shotno)
     if saveDataFile:eq.filewriter.gfile(eqfile,timePoint,
                     name=saveDataFile+'g%d.%d'%(shotno,timePoint*1000))
-    if doPlot: __verify_Psi(eqfile,shotno,timePoint)
+    if doPlot: __verify_Psi(eqfile,shotno,timePoint,doSavePlot)
     
     # Get Equilbirium coil currents
     curr = A_EQDSK_CCBRSP(shotno)
@@ -71,6 +71,6 @@ if __name__ == '__main__':
     shotno = int(sys.argv[1])
     timePoint = float(sys.argv[2])
     
-    gen_M3DC1_CMod_Input(shotno, timePoint, doPlot=True)
+    gen_M3DC1_CMod_Input(shotno, timePoint, doPlot=True,doSavePlot='../output_plots/')
     
 
