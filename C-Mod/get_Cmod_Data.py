@@ -451,10 +451,11 @@ class YAG():
         tInd = np.argmin((self.time-time)**2)
         r_inds = np.delete(np.arange(len(self.R_Map)),dropChansMain)
         
-        ax.errorbar(self.R_Map[tInd,tInd],self.Te[tInd,tInd],fmt='*',yerr=self.Te_Err[:,tInd])
+        ax.errorbar(self.R_Map[r_inds,tInd],self.Te[r_inds,tInd],fmt='*',
+                    yerr=self.Te_Err[r_inds,tInd])
         ax1=ax.twinx()
-        ax1.errorbar(self.R_Map[tInd,tInd],self.Ne[tInd,tInd]*1e-20,\
-                     yerr=self.Ne_Err[:,tInd]*1e-20,\
+        ax1.errorbar(self.R_Map[r_inds,tInd],self.Ne[r_inds,tInd]*1e-20,\
+                     yerr=self.Ne_Err[r_inds,tInd]*1e-20,\
                      c=plt.get_cmap('tab10')(1),fmt='*')
             
         tInd = np.argmin((self.time_Edge-time)**2)
