@@ -432,7 +432,7 @@ class YAG():
         tInd_Edge = np.argmin((self.time_Edge-timePoint)**2)
         
         # Check if timepoint is valid
-        if self.R_map[0,tInd] < 0: 
+        if self.R_Map[0,tInd] < 0: 
             raise SyntaxError('Thomson Data Invalid at %2.2fs'%timePoint)
             
         Te = np.concatenate((self.Te[r_inds,tInd],self.Te_Edge[r_inds_Edge,tInd_Edge]))

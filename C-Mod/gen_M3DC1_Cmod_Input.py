@@ -54,13 +54,15 @@ def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
     psi = eqfile.rz2psinorm(r,z,timePoint,make_grid=True,sqrt=True)
     
     plt.close('Psi_%d_%1.1f'%(shotno,timePoint))
-    fig,ax=plt.subplots(1,1,num='Psi_%d_%1.1f'%(shotno,timePoint),figsize=(4,3),
+    fig,ax=plt.subplots(1,1,num='Psi_%d_%1.1f'%(shotno,timePoint),figsize=(3,4),
                         tight_layout=True)
     cs = ax.contour(r,z,psi)
     ax.clabel(cs)
     ax.set_xlabel('R [m]')
     ax.set_ylabel('Z [m]')
-    ax.legend([r'$\sqrt{\psi_n}$ %d: %1.1fs'%(shotno,timePoint)])
+    l1=ax.plot([.8,.8],[0,0],'-k',r'$\sqrt{\psi_n}$ %d: %1.1fs'%(shotno,timePoint))
+    ax.legend(loc='upper left',fontsize=8)
+    l1[0].remove()
     ax.grid()
     
     if doSavePlot: fig.savefig(doSavePlot+fig.canvas.manager.get_window_title()+\
