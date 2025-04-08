@@ -612,7 +612,7 @@ class A_EQDSK_CCBRSP():
         tInd = np.argmin((self.currs_time-tPoint)**2)
         
         if saveFile: 
-            np.savetxt(saveFile+'aEqdsk_Currs_%d_$1.2f.txt'%(self.shotno,tPoint),\
+            np.savetxt(saveFile+'aEqdsk_Currs_%d_%1.2f.txt'%(self.shotno,tPoint),\
                        self.currs_all[tInd])
         return self.currs_all[tInd]
     
