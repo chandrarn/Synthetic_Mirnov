@@ -40,7 +40,7 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,
     if doPlot:yag.makePlot(timePoint,dropChansTS,dropChansTS_Edge,doSavePlot)
     
     # Convert R to psi_N
-    R_ts_psi = eqfile.rz2psinorm(R_ts,0,timePoint,sqrt=True,make_grid=True)
+    R_ts_psi = eqfile.rz2psinorm(R_ts,0,timePoint,sqrt=True,make_grid=True)[0]
     
     if saveDataFile: np.savetxt(saveDataFile+'TS_%d_%1.1f'%(shotno,timePoint),
                                 [Te,Ne,R_ts_psi])
@@ -61,7 +61,8 @@ def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
     ax.set_xlabel('R [m]')
     ax.set_ylabel('Z [m]')
     l1=ax.plot([.7,.71],[0,0],'-k',label=r'$\sqrt{\psi_n}$')
-    ax.legend(loc='upper left',fontsize=8,title='%d: %1.1fs'%(shotno,timePoint),title_fontsize=8)
+    ax.legend(loc='upper left',fontsize=8,handlelength=1.5,
+              title='%d: %1.1fs'%(shotno,timePoint),title_fontsize=8)
     l1[0].remove()
     ax.grid()
     
