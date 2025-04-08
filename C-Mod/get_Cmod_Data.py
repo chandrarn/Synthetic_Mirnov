@@ -423,23 +423,50 @@ class YAG():
                 
         conn.closeAllTrees()
     
-    def makePlot(self,time=1):
-        plt.close('Thomson')
-        fig,ax=plt.subplots(1,1,num='Thomson',tight_layout=True,figsize=(4.5,2.))
+    def return_Profile(self,timePoint,dropChansMain=[3],dropChansEdge=[0,1,2,3]):
+        # Select desired R points
+        r_inds = np.delete(np.arange(len(self.R_Map)),dropChansMain)
+        r_inds_Edge = np.delete(np.arange(len(self.R_Map_Edge)),dropChansEdge)
+        
+        tInd = np.argmin((self.time-timePoint)**2)
+        tInd_Edge = np.argmin((self.time_Edge-timePoint)**2)
+        
+        # Check if timepoint is valid
+        if self.R_map[0,tInd] < 0: 
+            raise SyntaxError('Thomson Data Invalid at %2.2fs'%timePoint)
+            
+        Te = np.concatenate((self.Te[r_inds,tInd],self.Te_Edge[r_inds_Edge,tInd_Edge]))
+        Ne = np.concatenate((self.Ne[r_inds,tInd],self.Ne_Edge[r_inds_Edge,tInd_Edge]))
+        R = np.concatenate((self.R_Map[r_inds,tInd],self.R_Map_Edge[r_inds_Edge,tInd_Edge]))
+        
+        r_sort = np.argsort(R)
+        
+        return Te[r_sort], Ne[r_sort], R[r_sort]
+        
+    def makePlot(self,time=1,dropChansMain=[3],dropChansEdge=[0,1,2,3],doSave=''):
+        plt.close('Thomson_%d_%1.1f'%(self.shotno,time))
+        fig,ax=plt.subplots(1,1,num='Thomson_%d_%1.1f'%(self.shotno,time),
+                            tight_layout=True,figsize=(4.5,2.))
+        
         tInd = np.argmin((self.time-time)**2)
-        ax.errorbar(self.R_Map[:,tInd],self.Te[:,tInd],fmt='*',yerr=self.Te_Err[:,tInd])
+        r_inds = np.delete(np.arange(len(self.R_Map)),dropChansMain)
+        
+        ax.errorbar(self.R_Map[tInd,tInd],self.Te[tInd,tInd],fmt='*',yerr=self.Te_Err[:,tInd])
         ax1=ax.twinx()
-        ax1.errorbar(self.R_Map[:,tInd],self.Ne[:,tInd]*1e-20,\
+        ax1.errorbar(self.R_Map[tInd,tInd],self.Ne[tInd,tInd]*1e-20,\
                      yerr=self.Ne_Err[:,tInd]*1e-20,\
                      c=plt.get_cmap('tab10')(1),fmt='*')
+            
         tInd = np.argmin((self.time_Edge-time)**2)
+        r_inds_Edge = np.delete(np.arange(len(self.R_Map_Edge)),dropChansEdge)
         
-        ax.errorbar(self.R_Map_Edge[4:,tInd],self.Te_Edge[4:,tInd]*1e-3,fmt='*',\
-                    yerr=self.T_Err_Edge[4:,tInd]*1e-3,c=plt.get_cmap('tab10')(0),\
+        ax.errorbar(self.R_Map_Edge[r_inds_Edge,tInd],self.Te_Edge[r_inds_Edge,tInd]*1e-3,fmt='*',\
+                    yerr=self.T_Err_Edge[r_inds_Edge,tInd]*1e-3,c=plt.get_cmap('tab10')(0),\
                         alpha=.7)
-        ax1.errorbar(self.R_Map_Edge[4:,tInd],self.Ne_Edge[4:,tInd]*1e-20,\
-                     yerr=self.Ne_Err_Edge[4:,tInd]*1e-20,\
+        ax1.errorbar(self.R_Map_Edge[r_inds_Edge,tInd],self.Ne_Edge[r_inds_Edge,tInd]*1e-20,\
+                     yerr=self.Ne_Err_Edge[r_inds_Edge,tInd]*1e-20,\
                      c=plt.get_cmap('tab10')(1),fmt='^',alpha=.7)
+            
         p1=ax.plot(.8,1,'k*',label='TS Core',ms=3)
         p2=ax.plot(.8,1,'k^',label='TS Edge',ms=1)
         ax.legend(fontsize=8,title='%d: %1.1f s'%(self.shotno,time),
@@ -451,6 +478,10 @@ class YAG():
         ax.set_xlabel('R [m]')
         ax.set_ylabel(r'T$_\mathrm{e}$ [keV]')
         ax1.set_ylabel(r'n$_\mathrm{e}$ [$10^{20}\,\mathrm{m}^{-3}$]')
+        
+        if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
+                              transparent=True)
+        plt.show()
 ###############################################################################
 class POWER_SYSTEM():
     # Equilibrium coil currents, automatically handles smoothing (some signals noisy)
@@ -562,7 +593,7 @@ class POWER_SYSTEM():
         
         
 ###############################################################################
-class AEQDSK_CCBRSP():
+class A_EQDSK_CCBRSP():
     # Coil currents in kAmp-Turns, from aEqsdsk file, for simulation
     # Order is specific: OH1, OH2U, OH2L EF1U, EF1L, EF2U, EF2L, EF3U, EF3L,
     # EF4U, EF4L, EFCU, EFCL, TFTU, TFTL
