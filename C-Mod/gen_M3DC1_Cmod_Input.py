@@ -26,7 +26,7 @@ def gen_M3DC1_CMod_Input(shotno,timePoint,
     # Get gEQDSK file from C-Mod MDSplus server
     eqfile = eq.CModEFITTree(shotno)
     if saveDataFile:eq.filewriter.gfile(eqfile,timePoint,
-                    name=saveDataFile+'g%d.%d'%(timePoint*1000))
+                    name=saveDataFile+'g%d.%d'%(shotno,timePoint*1000))
     if doPlot: __verify_Psi(eqfile,shotno,timePoint)
     
     # Get Equilbirium coil currents
