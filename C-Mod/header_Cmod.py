@@ -11,6 +11,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 import pickle as pk
 import sys
+from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize

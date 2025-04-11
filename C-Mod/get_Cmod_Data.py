@@ -680,43 +680,46 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
     # data_archive can be manually specified if the default file locaiton isn't in use
     # Defult is to the author's MFE directory
     if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
-    try: 
-       
-        if debug: print('Attempting to load: ' + \
+    
+    
+    if debug: print('Attempting to load: ' + \
                         data_archive + 'rawData_%d.pk'%shotno)
+        
+    rawData = {} # Initialize empty data container
+    try: 
         rawData = pk.load(open(data_archive + 'rawData_%d.pk'%shotno,'rb'))
         
         # If we need to reload something, or need a signal not already saved
         if forceReload or not np.all(np.isin(pullData,list(rawData.keys()))): raise Exception
-        if debug:print('Loaded ' + 'rawData_%d.pk'%shotno +' from archives')
     except:
-        rawData = __genRawData(shotno,pullData,debug)
+        rawData = __genRawData(rawData,shotno,pullData,debug)
         __saveRawData(rawData,shotno,debug,data_archive)
         
+    if debug:print('Loaded ' + 'rawData_%d.pk'%shotno +' from archives')
+    
     return rawData
 ###################################################
-def __genRawData(shotno,pullData,debug):
+def __genRawData(rawData,shotno,pullData,debug):
     # Pull requested diagnostic signals
     
-    rawData = {} # Initialize empty data container
     
-    if 'bp' in pullData: rawData['bp'] = BP(shotno,debug)
+    if 'bp' in pullData and 'bp' not in rawData: rawData['bp'] = BP(shotno,debug)
     
-    if 'bp_t' in pullData: rawData['bp_t'] = BP_T(shotno, debug)
+    if 'bp_t' in pullData and 'bp_t' not in rawData: rawData['bp_t'] = BP_T(shotno, debug)
     
-    if 'ece' in pullData: rawData['ece'] = ECE(shotno,debug)
+    if 'ece' in pullData and 'ece' not in rawData: rawData['ece'] = ECE(shotno,debug)
     
-    if 'gpc' in pullData: rawData['gpc'] = GPC(shotno,debug)
+    if 'gpc' in pullData and 'gpc' not in rawData: rawData['gpc'] = GPC(shotno,debug)
     
-    if 'gpc_2' in pullData: rawData['gpc_2'] = GPC_2(shotno,debug)
+    if 'gpc_2' in pullData and 'gpc_2' not in rawData: rawData['gpc_2'] = GPC_2(shotno,debug)
     
-    if 'frcece' in pullData: rawData['frcece'] = FRCECE(shotno, debug)
+    if 'frcece' in pullData and 'frcece' not in rawData: rawData['frcece'] = FRCECE(shotno, debug)
     
-    if 'ip' in pullData: rawData['ip'] = Ip(shotno,debug)
+    if 'ip' in pullData and 'ip' not in rawData: rawData['ip'] = Ip(shotno,debug)
     
-    if 'p_rf' in pullData: rawData['p_rf'] = RF_PWR(shotno,debug)
+    if 'p_rf' in pullData and 'p_rf' not in rawData: rawData['p_rf'] = RF_PWR(shotno,debug)
     
-    if 'yag' in pullData: rawData['yag'] = YAG(shotno,debug)
+    if 'yag' in pullData and 'yag' not in rawData: rawData['yag'] = YAG(shotno,debug)
     
     return rawData
 
