@@ -93,7 +93,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         clabel=r'$\partial_t{\mathrm{B}}_\theta$ [T/s]'
         
     elif sensor_set == 'FRCECE':
-        if diag is None: diag = diag = gC.__loadData(shotno,pullData=['frcece'],
+        if diag is None: diag = gC.__loadData(shotno,pullData=['frcece'],
                                    data_archive=data_archive)['frcece']
         signals = diag.ECE*1e3 # convert from keV to eV
         # For the FRC-ECE, sensor_name is just a channel number
@@ -102,15 +102,18 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
         time = diag.time
         clabel = r'$\tilde{\mathrm{T}}_e$ [eV]'
         
-    elif sensor_set == 'GPC':
-        if diag is None: diag = diag = gC.__loadData(shotno,pullData=['gpc'],
+    elif sensor_set == 'GPC' or sensor_set == 'GPC_2':
+        if diag is None:
+            if sensor_set == 'GPC':diag = gC.__loadData(shotno,pullData=['gpc'],
                                    data_archive=data_archive)['gpc']
+            else: diag = gC.__loadData(shotno,pullData=['gpc_2'],
+                                   data_archive=data_archive)['gpc_2']
         signals = diag.Te*1e3 
         time = diag.time
         clabel = r'$\tilde{\mathrm{T}}_e$ [eV]'
         
     elif sensor_set == 'BP':
-        if diag is None: diag = diag = gC.__loadData(shotno,pullData=['bp'],
+        if diag is None: diag = gC.__loadData(shotno,pullData=['bp'],
                                    data_archive=data_archive)['bp']
         signals = diag.BC['SIGNAL'] if sensor_name == '' else\
             diag.BC['SIGNAL'][diag.BC['NAMES']==sensor_name]
