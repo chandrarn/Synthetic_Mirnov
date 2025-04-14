@@ -85,7 +85,7 @@ class BP:
         plt.close('BP_Contour')
         fig,ax=plt.subplots(2,1,tight_layout=True,num='BP_Contour',sharex=True)
         
-        out= __doFilter(self.BC['SIGNAL'], self.BC.time, HP, LP)
+        out= doFilter(self.BC['SIGNAL'], self.BC.time, HP, LP)
         
         dt = self.time[1]-self.time[0]
         tInds = np.arange(*[(t-self.time[0])/dt for t in tLim],dtype=int)
@@ -492,6 +492,8 @@ class YAG():
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
         plt.show()
+        
+        return ax,ax1
 ###############################################################################
 class POWER_SYSTEM():
     # Equilibrium coil currents, automatically handles smoothing (some signals noisy)
@@ -671,6 +673,248 @@ class A_EQDSK_CCBRSP():
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
         plt.show()
+        
+###############################################################################
+class TRANSP():
+    # Pull Transp Data required for FAR 3D
+    # Note: TRANSP tree shot numberings different than regular tree
+    
+    def __init__(self, shotno, debug=False):
+         if debug: print('Loading electon/ion density/temperature, fast ion density, pressure')
+         
+         self.shotno = shotno
+         
+         conn = openTree(shotno,'transp')
+         
+         self.output={}
+         self.output['ni_m3_rho_tor'] = conn.get(r'\NI').data() * 1e6
+         self.output['ne_m3_rho_tor'] = conn.get(r'\NE').data() * 1e6
+         
+         self.output['Ti_eV_rho_tor'] = conn.get(r'\TI').data()
+         self.output['Te_eV_rho_tor'] = conn.get(r'\TE').data()
+         
+         self.output['nMinority_m3_rho_tor'] = conn.get(r'\NMINI').data()* 1e6 
+         # Note: there may not be an explicit fast ion density accessable
+         UFPAR_M = conn.get(r'\UMINPA').data() * 1e6 # MINORITY PLL ENERGY DENSITY
+         UFPRP_M = conn.get(r'\UMINPP').data() * 1e6 # MINORITY PERP ENERGY DENSITY
+
+         U_FI_PAR = conn.get(r'\UFASTPA').data() * 1e6 # Fast ion parallel energy density
+         U_FI_PP = conn.get(r'\UFASTPP').data() * 1e6
+         
+         self.output['PMinority_Pa_rho_tor'] = 2/3 * (UFPAR_M + UFPRP_M)
+         self.output['PFastIon_Pa_rho_tor'] = 2/3 * (U_FI_PAR + U_FI_PP)
+         
+         # x"r/a" ctr, X(TIME3, X) square root of normalized toroidal flux in the "center of the zone"
+         self.X = conn.get('\X').data()[0,:]
+         self.time = conn.get(r'dim_of(\X,1)').data()
+         
+    def save_output(self,timePoint,outFile='../data_output/',debug=False):
+        # Write output profiles to JSON file 
+        
+        tInd = np.argmin((self.time-timePoint)**2)
+        outDat = self.output.copy()
+        
+        outDat['ni_m3_rho_tor'] = self.output['ni_m3_rho_tor'][tInd].tolist()
+        outDat['ne_m3_rho_tor'] = self.output['ne_m3_rho_tor'][tInd].tolist()
+        
+        outDat['Ti_eV_rho_tor'] = self.output['Ti_eV_rho_tor'][tInd].tolist()
+        outDat['Te_eV_rho_tor'] = self.output['Te_eV_rho_tor'][tInd].tolist()
+        
+        outDat['nMinority_m3_rho_tor'] = self.output['nMinority_m3_rho_tor'][tInd].tolist()
+        
+        outDat['PMinority_Pa_rho_tor'] = self.output['PMinority_Pa_rho_tor'][tInd].tolist()
+        outDat['PFastIon_Pa_rho_tor'] = self.output['PFastIon_Pa_rho_tor'][tInd].tolist()
+        
+        outDat['X'] = self.X.tolist()
+        outDat['time'] = self.time[tInd].tolist()
+        
+        with open(outFile+'TRANSP_Tree_%d_%1.1f.json'%(self.shotno,timePoint),\
+                  'w', encoding='utf-8') as f: 
+            json.dump(outDat,f, ensure_ascii=False, indent=4)
+        
+        if debug: print('Saved: '+outFile+'TRANSP_Tree_%d_%1.1f.json'%(self.shotno,timePoint))
+        
+        return outDat
+    def makePlots2D(self,doSave=''):
+        
+        plt.close('Transp_Output_%d'%self.shotno)
+        fig,ax = plt.subplots(2,4,sharex=True,sharey=True,tight_layout=True,\
+                          num='Transp_Output_%d'%self.shotno,figsize=(9,3.5))
+        
+        vmin=np.min(self.output['ne_m3_rho_tor']);vmax=np.max(self.output['ne_m3_rho_tor'])
+        norm = Normalize(vmin*1e-20,vmax*1e-20)
+        ax[0,0].contourf(self.time,self.X,self.output['ne_m3_rho_tor'].T,
+                         vmin=vmin,vmax=vmax,levels=20,cmap='plasma',zorder=-3)
+        ax[1,0].contourf(self.time,self.X,self.output['ni_m3_rho_tor'].T,
+                         vmin=vmin,vmax=vmax,levels=20,cmap='plasma',zorder=-3)
+        fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax[0,0],
+                     location='top',label=r'[$10^{20}\,\mathrm{m}^{-3}$]')
+        ax[0,0].text(.05,.76,r"n$_\mathrm{e}$",transform=ax[0,0].transAxes,
+                     bbox=dict(facecolor='white',alpha=.3,color='white'))
+        ax[1,0].text(.05,.8,r"n$_\mathrm{i}$",transform=ax[1,0].transAxes,
+                     bbox=dict(facecolor='white',alpha=.3,color='white'))
+        
+        vmin=np.min(self.output['Te_eV_rho_tor']);vmax=np.max(self.output['Te_eV_rho_tor'])
+        norm = Normalize(vmin*1e-3,vmax*1e-3)
+        ax[0,1].contourf(self.time,self.X,self.output['Te_eV_rho_tor'].T,
+                         vmin=vmin,vmax=vmax,levels=20,cmap='plasma',zorder=-3)
+        ax[1,1].contourf(self.time,self.X,self.output['Ti_eV_rho_tor'].T,
+                         vmin=vmin,vmax=vmax,levels=20,cmap='plasma',zorder=-3)
+        fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax[0,1],
+                     location='top',label=r'[keV]')
+        ax[0,1].text(.05,.76,r"T$_\mathrm{e}$",transform=ax[0,1].transAxes,
+                     bbox=dict(facecolor='white',alpha=.3,color='white'))
+        ax[1,1].text(.05,.8,r"T$_\mathrm{i}$",transform=ax[1,1].transAxes,
+                     bbox=dict(facecolor='white',alpha=.3,color='white') )
+        
+        c=ax[1,2].contourf(self.time,self.X,self.output['nMinority_m3_rho_tor'].T*1e-19,
+                         levels=20,cmap='plasma',zorder=-3)
+        fig.colorbar(c,ax=ax[0,2],
+                     location='top',label=r'n$_\mathrm{fi}$ [$10^{19}\,\mathrm{m}^{-3}$]')
+        
+        c=ax[1,3].contourf(self.time,self.X,self.output['PMinority_Pa_rho_tor'].T*1e-3,
+                         levels=20,cmap='plasma',zorder=-3)
+        fig.colorbar(c,ax=ax[0,3],
+                     location='top',label=r'P$_\mathrm{fi}$ [kJ m$^{-3}$]')
+        ax[1,3].text(.05,.8,'%d'%self.shotno,transform=ax[1,3].transAxes,
+                     bbox=dict(facecolor='white',alpha=.3,color='white') )
+        
+        for i in range(2):ax[0,2+i].set_axis_off()
+        
+        for i in range(4):
+            for j in range(2):
+                if j==1:ax[j,i].set_xlabel('Time [s]')
+                if i==0:ax[j,i].set_ylabel(r'$\sqrt{\psi_n}$')
+                ax[j,i].set_rasterization_zorder(-1)
+        
+        if doSave: fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
+                               transparent=True)
+        
+        plt.show()
+    
+    def makePlots1D(self,timePoint,ax=None,ax1=None,doSave=''):
+        
+        tInd = np.argmin((self.time-timePoint)**2)
+        
+        flagRedoAxes = False
+        if ax is None:
+            plt.close('Transp_Output_%d_%1.1f'%(self.shotno,timePoint))
+            fig,ax=plt.subplots(1,1,tight_layout=True,figsize=(4,2),
+                                num='Transp_Output_%d_%1.1f'%(self.shotno,timePoint))
+            flagRedoAxes = True
+        ax.plot(self.X,self.output['Te_eV_rho_tor'][tInd,:]*1e-3,'-',
+                c=plt.get_cmap('tab10')(0),alpha=.6)
+        if ax1 is None: ax1 = ax.twinx()
+        ax1.plot(self.X,self.output['ne_m3_rho_tor'][tInd,:]*1e-20,'-',\
+                 alpha=.6,c=plt.get_cmap('tab10')(1))
+        
+        if flagRedoAxes:
+            ax.set_xlabel(r'$\sqrt{\psi_n}$')
+            ax.set_ylabel(r'T$_\mathrm{e}$ [keV]')
+            ax1.set_ylabel(r'n$_\mathrm{e}$ [$10^{20}\mathrm{m}^{-3}$]')
+            ax.grid()
+        else:
+            l=ax1.plot([.9,.9],[.1,.1],'-k',label='EFIT',alpha=.6,lw=1)
+            ax1.legend(loc='upper right',fontsize=8,handlelength=1)
+            l[0].remove()
+        
+        if doSave:
+            plt.gcf().savefig(doSave+plt.gcf().canvas.manager.get_window_title()+'_efit.pdf',
+                        transparent=True)
+        plt.show()
+        
+###############################################################################
+
+class _get_wtor():
+    # Gets solid-body toroidal rotation freqeuncy
+    def __init__(self, shot=None, tht=0,):
+
+        # Obtains data tree
+        tree = MDSplus.Tree('spectroscopy', shot)
+    
+        # Initializes output
+        self.dwtor = {}
+    
+        # ------------------
+        # Obtains HIREXSR z line data
+        # ------------------
+        self.dwtor['HIREXSR_z'] = {}
+    
+        nlab = r'\spectroscopy::top.hirexsr.analysis'
+        if tht > 0:
+            nlab += '%i'%(tht)
+        print('test')
+        try:
+            # Obtain ion temp data
+            self.dwtor['HIREXSR_z']['val_kHz'] = tree.getNode(
+                nlab + '.helike.profiles.z:pro'
+                #r'\spectroscopy::top.hirexsr.analysis.helike.profiles.z:pro'
+                ).data()[1,:,:].T # [kHz], dim(nchan,t)
+            print('test')
+            # Obtain ion temp errorbar data
+            self.dwtor['HIREXSR_z']['err_kHz'] = tree.getNode(
+                nlab + '.helike.profiles.z:proerr'
+                #r'\spectroscopy::top.hirexsr.analysis.helike.profiles.z:proerr'
+                ).data()[1,:,:].T # [kHz], dim(nchan,t)
+    
+            # Radial domain
+            self.dwtor['HIREXSR_z']['psin'] = tree.getNode(
+                nlab + '.helike.profiles.z:rho'
+                #r'\spectroscopy::top.hirexsr.analysis.helike.profiles.z:rho'
+                ).data().T # [], dim(mchan,t)
+    
+            # Time domain
+            self.dwtor['HIREXSR_z']['t_s'] = tree.getNode(
+                nlab + '.helike.profiles.z:rho'
+                #r'\spectroscopy::top.hirexsr.analysis.helike.profiles.z:rho'
+                ).dim_of(0).data() # [s], dim(t,)
+            
+            # Error check
+            if self.dwtor['HIREXSR_z']['val_kHz'].shape[0] > self.dwtor['HIREXSR_z']['psin'].shape[0]:
+                ss = self.dwtor['HIREXSR_z']['psin'].shape[0]
+                self.dwtor['HIREXSR_z']['val_kHz'] = self.dwtor['HIREXSR_z']['val_kHz'][:ss,:]
+                self.dwtor['HIREXSR_z']['err_kHz'] = self.dwtor['HIREXSR_z']['err_kHz'][:ss,:]
+    
+        # In case this diag is not available
+        except:
+            print('HIREXSR z line for wtor not available')
+    
+        # ------------------
+        # Obtains HIREXSR Lya1 line data
+        # ------------------
+        self.dwtor['HIREXSR_Lya1'] = {}
+    
+        try:
+            # Obtain ion temp data
+            self.dwtor['HIREXSR_Lya1']['val_kHz'] = tree.getNode(
+                nlab + '.hlike.profiles.lya1:pro'
+                #r'\spectroscopy::top.hirexsr.analysis.hlike.profiles.lya1:pro'
+                ).data()[1,:,:].T # [kHz], dim(nchan,t)
+    
+            # Obtain ion temp errorbar data
+            self.dwtor['HIREXSR_Lya1']['err_kHz'] = tree.getNode(
+                nlab + '.hlike.profiles.lya1:proerr'
+                #r'\spectroscopy::top.hirexsr.analysis.hlike.profiles.lya1:proerr'
+                ).data()[1,:,:].T # [kHz], dim(nchan,t)
+    
+            # Radial domain
+            self.dwtor['HIREXSR_Lya1']['psin'] = tree.getNode(
+                nlab + '.hlike.profiles.lya1:rho'
+                #r'\spectroscopy::top.hirexsr.analysis.hlike.profiles.lya1:rho'
+                ).data().T # [], dim(mchan,t)
+    
+            # Time domain
+            self.dwtor['HIREXSR_Lya1']['t_s'] = tree.getNode(
+                nlab + '.hlike.profiles.lya1:rho'
+                #r'\spectroscopy::top.hirexsr.analysis.hlike.profiles.lya1:rho'
+                ).dim_of(0).data() # [s], dim(t,)
+    
+        # In case this diag is not available
+        except:
+            print('HIREXSR Lya1 line for wtor not available')
+    
+        # Output
+        #return dwtor
 
 ###############################################################################
 ###############################################################################
