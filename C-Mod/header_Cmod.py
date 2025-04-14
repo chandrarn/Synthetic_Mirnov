@@ -31,6 +31,7 @@ rc('text', usetex=True)
 
 from rolling_spectrogram import rolling_spectrogram
 
+# TODO: verift atht this works for other users
 data_archive_path = '/home/rianc/Documents/data_archive/' if \
     getlogin() == 'rianc' else '/mnt/home/rianc/Documents/data_archive/' 
 

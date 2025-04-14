@@ -923,7 +923,7 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
                pullData = ['bp','bp_t','gpc','ip','p_rf','yag']):
     # data_archive can be manually specified if the default file locaiton isn't in use
     # Defult is to the author's MFE directory
-    if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
+    if data_archive == '': data_archive = data_archive_path
     
     
     if debug: print('Attempting to load: ' + \
