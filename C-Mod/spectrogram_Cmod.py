@@ -210,9 +210,11 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     
     #if f_lim:ax.set_ylim(f_lim)
     
+    if doSave:
+        fig.savefig(doSave+'Spectrogram_%s.pdf'%fName,transparent=True)
+        print('Saved: '+doSave+'Spectrogram_%s.pdf'%fName)
+    
     plt.show()
-
-    if doSave: fig.savefig(doSave+'Spectrogram_%s.pdf'%fName,transparent=True)
         
 ###############################################################################
 def __gen_fName(params,sensor_set,save_Ext,filament,shotno):
