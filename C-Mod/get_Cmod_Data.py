@@ -6,7 +6,7 @@ Spyder Editor
 
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
-    gaussianLowPassFilter, __doFilter, pk, json, MDSplus
+    gaussianLowPassFilter, __doFilter, pk, json, MDSplus, data_archive_path
     
 ###############################################################################
 def openTree(shotno,treeName='CMOD'):
@@ -969,7 +969,7 @@ def __genRawData(rawData,shotno,pullData,debug):
 
 ###################################################
 def __saveRawData(rawData,shotno,debug=False,data_archive=''):
-    if data_archive == '': data_archive = '/mnt/home/rianc/Documents/data_archive/'
+    if data_archive == '': data_archive = data_archive_path
     
     with open(data_archive+'rawData_%d.pk'%shotno,'wb') as f:pk.dump(rawData,f)
     

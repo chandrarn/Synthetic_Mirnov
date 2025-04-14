@@ -11,6 +11,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 import pickle as pk
 import sys
+from os import getlogin
 import json
 from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip
@@ -29,6 +30,9 @@ rc('font',**{'size':11})
 rc('text', usetex=True)
 
 from rolling_spectrogram import rolling_spectrogram
+
+data_archive_path = '/home/rianc/Documents/data_archive/' if \
+    getlogin() == 'rianc' else '/mnt/home/rianc/Documents/data_archive/' 
 
 
 ###############################################################################
