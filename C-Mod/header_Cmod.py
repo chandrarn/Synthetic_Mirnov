@@ -11,7 +11,9 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 import pickle as pk
 import sys
+import json
 import mdsthin as mds # Needs to be separately installed through pip
+import MDSplus
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import rc,cm
