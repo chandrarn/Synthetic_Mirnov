@@ -6,13 +6,13 @@ Spyder Editor
 
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
-    gaussianLowPassFilter, __doFilter, pk
+    gaussianLowPassFilter, __doFilter, pk, json, MDSplus
     
 ###############################################################################
-def openTree(shotno):
+def openTree(shotno,treeName='CMOD'):
     # Connect to data tree
     conn = mds.Connection('alcdata')
-    conn.openTree('CMOD',shotno)
+    conn.openTree(treeName,shotno)
     return conn
 
 ###############################################################################
