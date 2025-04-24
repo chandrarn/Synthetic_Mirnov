@@ -37,7 +37,7 @@ rc('text', usetex=True)
 # from OpenFUSIONToolkit.ThinCurr import ThinCurr
 # from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 # from OpenFUSIONToolkit.util import build_XDMF, mu0
-# from OpenFUSIONToolkit.io import histfile
+from OpenFUSIONToolkit.io import histfile
 # from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh, build_torus_bnorm_grid, build_periodic_mesh, write_periodic_mesh
 
     

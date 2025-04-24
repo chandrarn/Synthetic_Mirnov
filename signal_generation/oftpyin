@@ -1,0 +1,19 @@
+&runtime_options
+ debug=0
+/
+
+&mesh_options
+ meshname='none'
+ 
+/
+
+
+
+&thincurr_hodlr_options
+ target_size=1200
+ aca_min_its=20
+ L_svd_tol=1.E-8
+ L_aca_rel_tol=0.05
+ B_svd_tol=1.E-3
+ B_aca_rel_tol=0.05
+/

@@ -6,7 +6,7 @@ Created on Tue Jan  7 18:12:11 2025
 @author: rian
 """
 
-from header import np, Mirnov, save_sensors,plt,cm
+from header_signal_generation import np, Mirnov, save_sensors,plt,cm
 
 def conv_sensor(sensor_file):
     
