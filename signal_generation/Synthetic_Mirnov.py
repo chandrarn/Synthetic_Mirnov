@@ -233,8 +233,9 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     p.add_legend()
     if debug:print('Plotted Sensors')
     if doSave:p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
+    if debug:print('Saved figure')
     p.show()
-    if debug:print('Saved Figure')
+    if debug:print('Plotted Figure')
     plot_Currents(params, coil_currs, doSave, save_Ext,file_geqdsk=file_geqdsk)
           
     plt.show()
@@ -256,5 +257,6 @@ if __name__=='__main__':
     #sensor_set='MRNV'
     #mesh_file='vacuum_mesh.h5'
     save_ext=''
+    doSave='../output_plots/'
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,save_ext=save_ext)
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,save_ext=save_ext,doSave=doSave)
