@@ -184,7 +184,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     
     
     with h5py.File('intput_data/mesh.0001.h5','r') as h5_file:
-        r_ = np.asarray(h5_file['R_surf'])../data_output/
+        r_ = np.asarray(h5_file['R_surf'])
         lc = np.asarray(h5_file['LC_surf'])
     if plot_B_surf:
         with h5py.File('intput_data/vector_dump.0001.h5') as h5_file:
