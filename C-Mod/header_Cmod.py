@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip
 try:import MDSplus
-except:pass
+except:MDSplus=False# Doesn't exist on all systems, needed for one get_Cmod_data function
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import rc,cm
