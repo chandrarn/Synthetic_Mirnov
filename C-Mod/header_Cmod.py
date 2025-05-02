@@ -15,7 +15,8 @@ from os import getlogin
 import json
 from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip
-import MDSplus
+try:import MDSplus
+except:pass
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import rc,cm
