@@ -22,7 +22,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                              params={'m':3,'n':1,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':12,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
-                                sensor_set='MRNV',cmod_shot=1051202011):
+                                sensor_set='C_MOD_BP',cmod_shot=1051202011):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -32,22 +32,21 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     
     # Generate sensors, filamanets
     gen_filaments(xml_filename,params,filament_coords)
-    #sensors = gen_sensors() 
-    #sensors = conv_sensor('sensorLoc.xyz')[0]
     sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot)
-    #for s in sensors:print(s._name)
+   
     
     # Get Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,params,sensor_set)
 
     # Get mode amplitudes, assign to fillaments [eventually, from simulation]
-    
+
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params)
-    #return coil_currs
+
+    
     # Run time dependent simulation
-    #run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
+    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
     
     slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
@@ -56,7 +55,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     return sensors, coil_currs, tw_mesh, slices,slices_spl
 #    return sensor_,currents
 #####################################3
-def get_mesh(mesh_file,filament_file,params,sensor_set):
+def get_mesh(mesh_file,filament_file,params,sensor_set,debug=False):
     tw_mesh = ThinCurr(nthreads=params['n_threads'],debug_level=2,)
     tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename='input_data/'+filament_file)
     print('checkpoint 0')

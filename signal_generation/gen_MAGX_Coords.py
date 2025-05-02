@@ -362,7 +362,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind],set_['R'][ind],\
                     set_['Z'][ind],set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
                 sens = Mirnov(pt, norm, name, dx)
-                sensor_BP.appnd(sens)
+                sensor_BP.append(sens)
         
         ############################################
         sensor_all.extend(sensor_Mirnov_T)

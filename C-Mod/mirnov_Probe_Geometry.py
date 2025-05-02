@@ -335,7 +335,7 @@ def Mirnov_Geometry(shotno,debug=True):
             continue 
         
         theta_pol[sensor_name] = theta_pol_ab[sensor_index] if 'AB' in \
-            sensor_name else theta_pol_gh[sensor_index]
+            sensor_name else theta_pol_gh[sensor_index-30]
             
     ####################################
     return phi, theta_pol, R, Z
