@@ -249,7 +249,7 @@ if __name__=='__main__':
     params={'m':3,'n':1,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
         'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':12,'I':I_AE}
     file_geqdsk='g1051202011.1000'
-    sensor_set='C_MOD_BP';cmod_shot=1051202011
+    sensor_set='MRNV';cmod_shot=1051202011
     #mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
     #sensor_set='MRNV'
