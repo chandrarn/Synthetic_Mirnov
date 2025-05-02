@@ -157,13 +157,13 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
      
     # Saves floops.hist (no, run_Td does this?)
     tw_mesh.build_XDMF()
-    hist_file = histfile('../data_output/floops.hist');
+    hist_file = histfile('floops.hist');
     for h in hist_file:print(h)
     # Rename output 
     f_out = f*1e-3 if type(f) is float else F_AE_plot(0)*1e-3
     f_save = '../data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f_out,save_Ext)
-    subprocess.run(['cp','../data_outputfloops.hist',f_save])
+    subprocess.run(['cp','../data_output/floops.hist',f_save])
     print('Saved: %s'%f_save)
                     
     return coil_currs
@@ -184,7 +184,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     
     
     with h5py.File('intput_data/mesh.0001.h5','r') as h5_file:
-        r_ = np.asarray(h5_file['R_surf'])
+        r_ = np.asarray(h5_file['R_surf'])../data_output/
         lc = np.asarray(h5_file['LC_surf'])
     if plot_B_surf:
         with h5py.File('intput_data/vector_dump.0001.h5') as h5_file:
@@ -252,7 +252,7 @@ if __name__=='__main__':
     sensor_set='C_MOD_BP';cmod_shot=1051202011
     #mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
-    sensor_set='MRNV'
+    #sensor_set='MRNV'
     #mesh_file='vacuum_mesh.h5'
     save_ext=''
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
