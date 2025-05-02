@@ -169,7 +169,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     return coil_currs
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False):
+              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False,debug=True):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -195,7 +195,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     grid = pyvista.UnstructuredGrid(cells, celltypes, r_)
 
     p = pyvista.Plotter()  
-    
+    if debug:print('Launched Plotter')
     # Plot Mesh
     if plot_B_surf: p.add_mesh(grid,color="white",opacity=.9,show_edges=True,scalars=Jfull)
     #slices=grid.slice_orthogonal()
@@ -206,7 +206,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     p.add_mesh(slices,label='Mesh Frame')
     
     tmp=[]
-    
+    if debug:print('Plotted Mesh')
     # Plot Filaments
     colors=['red','green','blue']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
@@ -224,7 +224,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
                    label='Filament' if ind==0 else None)
         #p.add_points(pts,render_points_as_spheres=True,opaity=1,point_size=20,color=colors[ind])
         tmp.append(pts)
-        
+    if debug:print('Plotted Fillaments')
     # Plot Sensors
     for ind,s in enumerate(sensors):
         p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
@@ -233,7 +233,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     p.add_legend()
     if doSave:p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
     p.show()
-    
+    if debug:print('Saved Figure')
     plot_Currents(params, coil_currs, doSave, save_Ext,file_geqdsk=file_geqdsk)
           
     plt.show()
