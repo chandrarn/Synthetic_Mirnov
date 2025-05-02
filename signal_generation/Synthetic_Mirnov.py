@@ -161,9 +161,10 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     for h in hist_file:print(h)
     # Rename output 
     f_out = f*1e-3 if type(f) is float else F_AE_plot(0)*1e-3
+    print(sensor_set,m,n,f_out,save_Ext)
     f_save = '../data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
                     (sensor_set,m,n,f_out,save_Ext)
-    subprocess.run(['cp','../data_output/floops.hist',f_save])
+    subprocess.run(['cp','floops.hist',f_save])
     print('Saved: %s'%f_save)
                     
     return coil_currs
@@ -219,6 +220,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
         #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
         slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
+        I_out = params['I'] if type(params['I']) is float else params['I'](0)
         p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/params['I']+1)/2),
                    line_width=10,render_points_as_spheres=True,
                    label='Filament' if ind==0 else None)
@@ -247,7 +249,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 if __name__=='__main__':
     mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     params={'m':3,'n':1,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
-        'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':12,'I':I_AE}
+        'f':1e3,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':12,'I':10}
     file_geqdsk='g1051202011.1000'
     sensor_set='MRNV';cmod_shot=1051202011
     #mesh_file='SPARC_Sept2023_noPR.h5'
