@@ -183,11 +183,11 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # Necessary to clear old vector file: otherwise vector # keeps counting up
     
     
-    with h5py.File('intput_data/mesh.0001.h5','r') as h5_file:
+    with h5py.File('../input_data/mesh.0001.h5','r') as h5_file:
         r_ = np.asarray(h5_file['R_surf'])
         lc = np.asarray(h5_file['LC_surf'])
     if plot_B_surf:
-        with h5py.File('intput_data/vector_dump.0001.h5') as h5_file:
+        with h5py.File('../intput_data/vector_dump.0001.h5') as h5_file:
             Jfull = np.asarray(h5_file['J_v0001'])
             scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
