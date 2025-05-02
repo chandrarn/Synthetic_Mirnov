@@ -17,12 +17,12 @@ sys.path.append('../signal_analysis/')
 from plot_sensor_output import plot_Currents
 
 # main loop
-def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
+def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5',
                          xml_filename='oft_in.xml',\
-                             params={'m':12,'n':10,'r':.25,'R':1,'n_pts':70,'m_pts':60,\
-                            'f':F_AE,'dt':1e-6,'T':1e-3,'periods':3,'n_threads':64,'I':I_AE},
-                                doSave='',save_ext='',file_geqdsk='geqdsk',
-                                sensor_set='MRNV'):
+                             params={'m':3,'n':1,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
+                            'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':12,'I':I_AE},
+                                doSave='',save_ext='',file_geqdsk='g1051202011.1000',
+                                sensor_set='MRNV',cmod_shot=1051202011):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -34,7 +34,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     gen_filaments(xml_filename,params,filament_coords)
     #sensors = gen_sensors() 
     #sensors = conv_sensor('sensorLoc.xyz')[0]
-    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot)
     #for s in sensors:print(s._name)
     
     # Get Mesh
@@ -47,7 +47,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
     coil_currs = gen_coil_currs(params)
     #return coil_currs
     # Run time dependent simulation
-    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
+    #run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
     
     slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
@@ -58,7 +58,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='thincurr_ex-torus.h5',
 #####################################3
 def get_mesh(mesh_file,filament_file,params,sensor_set):
     tw_mesh = ThinCurr(nthreads=params['n_threads'],debug_level=2,)
-    tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename=filament_file)
+    tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename='input_data/'+filament_file)
     print('checkpoint 0')
     tw_mesh.setup_io()
     
@@ -83,12 +83,13 @@ def get_mesh(mesh_file,filament_file,params,sensor_set):
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
 ####################################
-def gen_filaments(filament_file,params,filament_coords ):
+def gen_filaments(filament_file,params,filament_coords,\
+                  eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' ):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
     #eta='1E6, 1E6, 1E6, 1E6, 1E6'# Effective insulator wall
-    eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
+    
     with open('input_data/'+filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         

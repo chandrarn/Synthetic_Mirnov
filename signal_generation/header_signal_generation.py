@@ -57,4 +57,6 @@ from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot
 
 #####################3
 # Add paths
-sys.path.append('signal_analysis/')
+sys.path.append('../signal_analysis/')
+sys.path.append('../C-Mod/')
+from mirnov_Probe_Geometry import Mirnov_Geometry as Mirnov_Geometry_C_Mod

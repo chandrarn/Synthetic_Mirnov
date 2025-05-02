@@ -44,6 +44,15 @@ Set up model object, with mesh and set of coil positions. Note that the mesh
 information isn't accessable locally in the object (?) only in the hd5 file (?)
 
 '''
+# Gen Currents
+params={'m':3,'n':1,'r':.25,'R':1,'n_pts':70,'T':2e-3,\
+        'm_pts':10,'f':1e3,'dt':1e-4,'periods':3,'n_threads':64,'I':10}
+theta,phi = gF.gen_filament_coords(params)
+#filament_coords = gF.calc_filament_coords_geqdsk('input_data/geqdsk', theta, phi, params)
+filament_coords = gF.calc_filament_coords_geqdsk('g1051202011.1000', theta, phi, params)
+coil_currs = sM.gen_coil_currs(params)
+sM.gen_filaments('oft_in.xml',params,filament_coords,eta='1E-5' )
+
 tw_plate = ThinCurr(nthreads=4)
 # Mesh file contains dict name 'mesh', and sub attributes LC (mesh cells, n_cells),
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
@@ -51,17 +60,25 @@ tw_plate = ThinCurr(nthreads=4)
 # 'SPARC_Sept2023_noPR.h5'
 #tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
 #tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
+#tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
+
+# tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters-homology.h5',xml_filename='input_data/oft_in.xml')
 tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_VV-homology.h5',xml_filename='input_data/oft_in.xml')
 tw_plate.setup_io()
+
+# Coupling for plot
+Mc = tw_plate.compute_Mcoil()
+tw_plate.compute_Lmat()#(use_hodlr=True,cache_file='input_data/HOLDR_L_%s.save'%'Mesh_Test_VV')
+tw_plate.compute_Rmat()
 
 print("Building XMDF")
 tw_plate.build_XDMF()
 print('Built')
-
+print(tw_plate.Lmat.shape)
 with h5py.File('mesh.0001.h5','r') as h5_file:
     r = np.asarray(h5_file['R_surf']) # x,y,z coords of surface
     lc = np.asarray(h5_file['LC_surf']) # This is the mesh itself ["mesh triangles"]
-    
+
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
 cells = np.insert(lc, [0,], 3, axis=1) # appends the value '3' in first coll of the cells
 grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for the grid?
@@ -71,20 +88,17 @@ grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for th
 # sensors = gen_Sensors_Updated(select_sensor='BP')
 # Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('input_data/floops_BP_CFS.loc')
 
-# Gen Currents
-params={'m':3,'n':1,'r':.25,'R':1,'n_pts':500,'T':2e-3,\
-        'm_pts':70,'f':1e3,'dt':1e-4,'periods':3,'n_threads':64,'I':10}
-theta,phi = gF.gen_filament_coords(params)
-#filament_coords = gF.calc_filament_coords_geqdsk('input_data/geqdsk', theta, phi, params)
-filament_coords = gF.calc_filament_coords_geqdsk('g1051202011.1000', theta, phi, params)
-coil_currs = sM.gen_coil_currs(params)
-#gen_filaments(filament_file,params,filament_coords )
+
+# Color grid cells
+shading = np.dot(np.linalg.pinv(tw_plate.Lmat),np.dot(Mc.T,np.ones((10,)) ) )
+
 
 # Launch Plotter
 p = pyvista.Plotter()
 #p2=pyvista.Plotter()
 
 p.add_mesh(grid, color="white", opacity=.6, show_edges=True,label='Mesh')
+#p.add_mesh(grid, scalars=shading, opacity=.6, show_edges=True,label='Mesh')
 p.show_bounds()
 
 slice_coords=[np.linspace(0,3,10),[0]*10,np.linspace(-3.5,3.5,10)]

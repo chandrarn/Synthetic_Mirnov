@@ -7,6 +7,8 @@ Spyder Editor
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
     gaussianLowPassFilter, __doFilter, pk, json, MDSplus, data_archive_path
+from mirnov_Probe_Geometry import Mirnov_Geometry
+        
     
 ###############################################################################
 def openTree(shotno,treeName='CMOD'):
@@ -33,15 +35,15 @@ class BP:
         self.shotno=shotno if shotno !=0 else currentShot(conn)
         
         basePath= r'\CMOD::TOP.MHD.MAGNETICS:BP_COILS:'
-        self.BC = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
-        self.DE = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
-        self.GH = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
-        self.JK = {'NAMES':[],'PHI':[],'THETA':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.BC = {'NAMES':[],'PHI':[],'THETA_POL':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.DE = {'NAMES':[],'PHI':[],'THETA_POL':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.GH = {'NAMES':[],'PHI':[],'THETA_POL':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
+        self.JK = {'NAMES':[],'PHI':[],'THETA_POL':[],'THETA_TOR':[],'R':[],'Z':[],'SIGNAL':[]}
         
         self.nodeName = conn.get(basePath + 'NODENAME').data()
         phi = conn.get(basePath + 'PHI').data()
-        theta = conn.get(basePath + 'THETA_POL').data()
-        theta_tor = conn.get(basePath + 'THETA_TOR').data()
+        theta = conn.get(basePath + 'THETA_POL').data() # Note that this is an orientation
+        theta_tor = conn.get(basePath + 'THETA_TOR').data() # Note that this is an orientation
         R = conn.get(basePath + 'R').data()
         Z = conn.get(basePath + 'Z').data()
         
@@ -58,7 +60,7 @@ class BP:
                 
                 tmp['NAMES'].append(str(name))
                 tmp['PHI'].append(float(phi[ind]))
-                tmp['THETA'].append(float(theta[ind]))
+                tmp['THETA_POL'].append(float(theta[ind]))
                 tmp['THETA_TOR'].append(float(theta_tor[ind]))
                 tmp['R'].append(float(R[ind]))
                 tmp['Z'].append(float(Z[ind]))
@@ -74,7 +76,7 @@ class BP:
             
             tmp['NAMES'] = np.array(tmp['NAMES'])
             tmp['PHI'] = np.array(tmp['PHI'])
-            tmp['THETA'] = np.array(tmp['THETA'])
+            tmp['THETA_POL'] = np.array(tmp['THETA_POL'])
             tmp['THETA_TOR'] = np.array(tmp['THETA_TOR'])
             tmp['R'] = np.array(tmp['R'])
             tmp['Z'] = np.array(tmp['Z'])
@@ -112,10 +114,20 @@ class BP_T:
         basePath= r'\CMOD::TOP.MHD.MAGNETICS:ACTIVE_MHD:SIGNALS:'
         self.ab_data = []   
         self.ab_names = []
-        self.ab_theta = []
+        self.ab_theta_pol = []
+        self.ab_phi = []
+        self.ab_r = []
+        self.ab_z = []
+        
         self.gh_data = []
         self.gh_names = []
-        self.gh_theta = []
+        self.gh_theta_pol = []
+        self.gh_phi = []
+        self.gh_r = []
+        self.gh_z = []
+        
+        # Presaved spatial geometetry dicts
+        phi, theta_pol, R, Z = Mirnov_Geometry(self.shotno)
         
         for i in np.arange(1,7):
             
@@ -123,6 +135,11 @@ class BP_T:
                 node = 'BP%dT_ABK'%i
                 self.ab_data.append(conn.get(basePath+node).data())
                 self.ab_names.append(node)
+                
+                self.ab_theta_pol.append(theta_pol[node])
+                self.ab_phi.append(phi[node])
+                self.ab_r.append(R[node])
+                self.ab_z.append(Z[node])
                 if debug:print('Loaded %s'%node)
             except:pass
             
@@ -130,6 +147,12 @@ class BP_T:
                 node = 'BP%dT_GHK'%i
                 self.gh_data.append(conn.get(basePath+node).data())
                 self.gh_names.append(node)
+                
+                self.gh_theta_pol.append(theta_pol[node])
+                self.gh_phi.append(phi[node])
+                self.gh_r.append(R[node])
+                self.gh_z.append(Z[node])
+                
                 if debug:print('Loaded %s'%node)
             except:pass
             
