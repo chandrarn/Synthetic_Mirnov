@@ -231,6 +231,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
                      render_points_as_spheres=True,
                      label='Sensor' if ind==0 else None)
     p.add_legend()
+    if debug:print('Plotted Sensors')
     if doSave:p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
     p.show()
     if debug:print('Saved Figure')
