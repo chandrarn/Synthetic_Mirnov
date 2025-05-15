@@ -194,6 +194,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     cells = np.insert(lc, [0,], 3, axis=1)
     grid = pyvista.UnstructuredGrid(cells, celltypes, r_)
 
+    pyvista.global_theme.allow_empty_mesh = True
     p = pyvista.Plotter()  
     if debug:print('Launched Plotter')
     # Plot Mesh
