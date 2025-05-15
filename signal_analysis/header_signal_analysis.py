@@ -42,7 +42,8 @@ from OpenFUSIONToolkit.io import histfile
 
     
 from freeqdsk import geqdsk
-from eqtools import CModEFITTree
+try:from eqtools import CModEFITTree
+except:pass # Fix for issue with Engaging
 import cv2
 from scipy.interpolate import make_smoothing_spline
 from scipy.special import factorial
