@@ -7,7 +7,7 @@ Created on Thu Jan  9 14:47:17 2025
 """
 
 from header_signal_generation import Mirnov, save_sensors, flux_loop, plt,\
-    mds, np, json, Mirnov_Geometry_C_Mod
+    mds, np, json, Mirnov_Geometry_C_Mod, os
 
 from get_Cmod_Data import BP
 
@@ -270,130 +270,135 @@ def confluence_spreadsheet_coords(coord_file='input_data/MAGX_Coordinates_CFS.js
 ####################################    
 def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                         select_sensor='MRNV',cmod_shot=1051202011):
-    # Unified function for SPARC, C-Mod 
-    if'C_MOD' not in select_sensor:
-        coords = json.load(open(coord_file,'r'))
-        
-        sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
-        sensors_all=[]
-        for set_ in coords:
-            if set_ in ['BP','BN']:
-                for sensor in coords[set_]:
-                    sens = Mirnov(*__coords_xyz_BP_BN(coords[set_][sensor],\
-                          coords[set_][sensor]), sensor,7e-3 if set_ == 'BP' else 17e-3)
-                    if set_ == 'BP': sensors_BP.append(sens)
-                    if set_ == 'BN': sensors_BN.append(sens)
-            if set_ == 'SL': # Saddle loop
-                for sensor in coords[set_]:
-                    sens = flux_loop(__coords_xyz_Flux_P(coords[set_][sensor]),
-                         sensor )
-                    sensors_Flux_Partial.append(sens)
-            if set_ == 'FL':
-                for sensor in coords[set_]:
-                    sens = Mirnov([0,0,coords[set_][sensor]['Z']],[0,0,1],
-                         sensor, coords[set_][sensor]['R'])
-                    sensors_Flux_Full.append(sens)
-            if set_ == 'MRNV':
-                for sensor in coords[set_]:
-                    sens = Mirnov(*__coords_xyz_Mirnov(coords[set_][sensor]),
-                                  name=sensor,dx=3e-2)
-                    sensors_Mirnov.append(sens)
-        
-        # Save in ThinCurr readable format
-        
-        # Mirnov object itself is directly readable: can extract location
-        save_sensors(sensors_BP,'input_data/floops_BP.loc')
-        save_sensors(sensors_BN,'input_data/floops_BN.loc')
-        save_sensors(sensors_Flux_Partial,'input_data/floops_SL.loc')
-        save_sensors(sensors_Flux_Full,'input_data/floops_FL.loc')
-        save_sensors(sensors_Mirnov,'input_data/floops_MRNV.loc')
-
-        
-        sensors_all.extend(sensors_BP)
-        sensors_all.extend(sensors_BN)
-        sensors_all.extend(sensors_Flux_Partial)
-        sensors_all.extend(sensors_Flux_Full)
-        sensors_all.extend(sensors_Mirnov)
-        
-        if select_sensor == 'BP': return sensors_BP
-        if select_sensor == 'BN': return sensors_BN
-        if select_sensor == 'SL': return sensors_Flux_Partial
-        if select_sensor == 'FL': return sensors_Flux_Full
-        if select_sensor == 'MRNV': return sensors_Mirnov
-        if select_sensor == 'ALL': return sensors_all
-        
-        return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
-   
-    #########################################################################
+    # Try loading predfined sensor sets
+    try: return __load_sensor_data(select_sensor)
     
-    else:# C-Mod side
-        #shot is necessary for minor differences in TOP/BOT sensors
-        # Pulls data for limiters only
-        phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
-        BP_Data = BP(cmod_shot) # Pull data for Low freq sensors
-        dx = 4e-3 # True at minimum for BP probes, from 'Magnetic diagnostics in Alcator C‐MOD', R. Granetz 1990
+    except: # Manually calculate sensor locations
+        
+        # Unified function for SPARC, C-Mod 
+        if'C_MOD' not in select_sensor:
+            coords = json.load(open(coord_file,'r'))
+            
+            sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
+            sensors_all=[]
+            for set_ in coords:
+                if set_ in ['BP','BN']:
+                    for sensor in coords[set_]:
+                        sens = Mirnov(*__coords_xyz_BP_BN(coords[set_][sensor],\
+                              coords[set_][sensor]), sensor,7e-3 if set_ == 'BP' else 17e-3)
+                        if set_ == 'BP': sensors_BP.append(sens)
+                        if set_ == 'BN': sensors_BN.append(sens)
+                if set_ == 'SL': # Saddle loop
+                    for sensor in coords[set_]:
+                        sens = flux_loop(__coords_xyz_Flux_P(coords[set_][sensor]),
+                             sensor )
+                        sensors_Flux_Partial.append(sens)
+                if set_ == 'FL':
+                    for sensor in coords[set_]:
+                        sens = Mirnov([0,0,coords[set_][sensor]['Z']],[0,0,1],
+                             sensor, coords[set_][sensor]['R'])
+                        sensors_Flux_Full.append(sens)
+                if set_ == 'MRNV':
+                    for sensor in coords[set_]:
+                        sens = Mirnov(*__coords_xyz_Mirnov(coords[set_][sensor]),
+                                      name=sensor,dx=3e-2)
+                        sensors_Mirnov.append(sens)
+            
+            # Save in ThinCurr readable format
+            
+            # Mirnov object itself is directly readable: can extract location
+            save_sensors(sensors_BP,'input_data/floops_BP.loc')
+            save_sensors(sensors_BN,'input_data/floops_BN.loc')
+            save_sensors(sensors_Flux_Partial,'input_data/floops_SL.loc')
+            save_sensors(sensors_Flux_Full,'input_data/floops_FL.loc')
+            save_sensors(sensors_Mirnov,'input_data/floops_MRNV.loc')
+    
+            
+            sensors_all.extend(sensors_BP)
+            sensors_all.extend(sensors_BN)
+            sensors_all.extend(sensors_Flux_Partial)
+            sensors_all.extend(sensors_Flux_Full)
+            sensors_all.extend(sensors_Mirnov)
+            
+            if select_sensor == 'BP': return sensors_BP
+            if select_sensor == 'BN': return sensors_BN
+            if select_sensor == 'SL': return sensors_Flux_Partial
+            if select_sensor == 'FL': return sensors_Flux_Full
+            if select_sensor == 'MRNV': return sensors_Mirnov
+            if select_sensor == 'ALL': return sensors_all
+            
+            return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
        
-        sensor_Mirnov_T = []
-        sensor_Mirnov = []
-        sensor_BP = []
-        sensor_Lim = []
-        sensor_all = []
-        # doing fast Mirnovs CMOD_T
-        for phi_num in ['AB','GH']:
-            for sens_num in np.arange(1,7):
-                name = 'BP%dT_%sK'%(sens_num,phi_num)
-                pt, norm = __coords_xyz_Mirnov_C_Mod(phi, theta_pol, R, Z, name)
-                sens = Mirnov(pt, norm, name,dx)
-                sensor_Mirnov_T.append(sens)
-            for sens in np.arange(1,29):
-                name = 'BP%d_%sK'%(sens_num,phi_num)
-                if name not in phi:continue
-                pt, norm = __cords_xyz_C_Mod(phi[name], \
-                         R[name], Z[name], theta_pol[name], 0)
-                sens = Mirnov(pt, norm, name,dx)
-                sensor_Mirnov.append(sens)
-        # Slower BP sensors
-        cad_shift = 61.389 # Toroidal rotational shift to match CAD
-        for phi_num in ['bc','de','gh','jk']:
-            if phi_num=='bc':set_ = BP_Data.BC
-            if phi_num=='de':set_ = BP_Data.DE
-            if phi_num=='gh':set_ = BP_Data.GH
-            if phi_num=='jk':set_ = BP_Data.JK
-            for ind,name in enumerate(set_['NAMES']):
-                # Radial, Z shift to avoid cad surface
-                r_shift = 0.01 if 12 <= int(name[2:4]) <= 15 else 0
-                z_shift = 0.01*np.sign(set_['Z'][ind]) if \
-                    (10 <= int(name[2:4]) <= 11 ) or \
-                    (16 <= int(name[2:4]) <= 17 ) else 0
-                pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind]+cad_shift,\
-                    set_['R'][ind] + r_shift,\
-                    set_['Z'][ind] + z_shift,\
-                    set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
-                sens = Mirnov(pt, norm, name, dx)
-                sensor_BP.append(sens)
+        #########################################################################
         
-        ############################################
-        sensor_all.extend(sensor_Mirnov_T)
-        sensor_all.extend(sensor_Mirnov)
-        sensor_all.extend(sensor_BP)
-        
-        sensor_Lim.extend(sensor_Mirnov_T)
-        sensor_Lim.extend(sensor_Mirnov)
-        
-        # Save in ThinCurr readable format
-        # Mirnov object itself is directly readable: can extract location
-        save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
-        save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
-        save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
-        save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
-        
-        # Save (x,y,z) coordinates for BP sensor for CAD comparison
-        if select_sensor == 'C_MOD_BP': __save_C_Mod_BP_xyz(sensor_BP)
-        
-        if select_sensor == 'C_MOD_MIRNOV_T': return sensor_Mirnov_T
-        if select_sensor == 'C_MOD_LIM': return sensor_Lim
-        if select_sensor == 'C_MOD_BP': return sensor_BP
-        if select_sensor == 'C_MOD_ALL': return sensor_all
+        else:# C-Mod side
+            #shot is necessary for minor differences in TOP/BOT sensors
+            # Pulls data for limiters only
+            phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
+            BP_Data = BP(cmod_shot) # Pull data for Low freq sensors
+            dx = 4e-3 # True at minimum for BP probes, from 'Magnetic diagnostics in Alcator C‐MOD', R. Granetz 1990
+           
+            sensor_Mirnov_T = []
+            sensor_Mirnov = []
+            sensor_BP = []
+            sensor_Lim = []
+            sensor_all = []
+            # doing fast Mirnovs CMOD_T
+            for phi_num in ['AB','GH']:
+                for sens_num in np.arange(1,7):
+                    name = 'BP%dT_%sK'%(sens_num,phi_num)
+                    pt, norm = __coords_xyz_Mirnov_C_Mod(phi, theta_pol, R, Z, name)
+                    sens = Mirnov(pt, norm, name,dx)
+                    sensor_Mirnov_T.append(sens)
+                for sens in np.arange(1,29):
+                    name = 'BP%d_%sK'%(sens_num,phi_num)
+                    if name not in phi:continue
+                    pt, norm = __cords_xyz_C_Mod(phi[name], \
+                             R[name], Z[name], theta_pol[name], 0)
+                    sens = Mirnov(pt, norm, name,dx)
+                    sensor_Mirnov.append(sens)
+            # Slower BP sensors
+            cad_shift = 61.389 # Toroidal rotational shift to match CAD
+            for phi_num in ['bc','de','gh','jk']:
+                if phi_num=='bc':set_ = BP_Data.BC
+                if phi_num=='de':set_ = BP_Data.DE
+                if phi_num=='gh':set_ = BP_Data.GH
+                if phi_num=='jk':set_ = BP_Data.JK
+                for ind,name in enumerate(set_['NAMES']):
+                    # Radial, Z shift to avoid cad surface
+                    r_shift = 0.01 if 12 <= int(name[2:4]) <= 15 else 0
+                    z_shift = 0.01*np.sign(set_['Z'][ind]) if \
+                        (10 <= int(name[2:4]) <= 11 ) or \
+                        (16 <= int(name[2:4]) <= 17 ) else 0
+                    pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind]+cad_shift,\
+                        set_['R'][ind] + r_shift,\
+                        set_['Z'][ind] + z_shift,\
+                        set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
+                    sens = Mirnov(pt, norm, name, dx)
+                    sensor_BP.append(sens)
+            
+            ############################################
+            sensor_all.extend(sensor_Mirnov_T)
+            sensor_all.extend(sensor_Mirnov)
+            sensor_all.extend(sensor_BP)
+            
+            sensor_Lim.extend(sensor_Mirnov_T)
+            sensor_Lim.extend(sensor_Mirnov)
+            
+            # Save in ThinCurr readable format
+            # Mirnov object itself is directly readable: can extract location
+            save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
+            save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
+            save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
+            save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
+            
+            # Save (x,y,z) coordinates for BP sensor for CAD comparison
+            if select_sensor == 'C_MOD_BP': __save_C_Mod_BP_xyz(sensor_BP)
+            
+            if select_sensor == 'C_MOD_MIRNOV_T': return sensor_Mirnov_T
+            if select_sensor == 'C_MOD_LIM': return sensor_Lim
+            if select_sensor == 'C_MOD_BP': return sensor_BP
+            if select_sensor == 'C_MOD_ALL': return sensor_all
         
 ################################################################################
 def __save_C_Mod_BP_xyz(sensor_BP):
@@ -410,6 +415,30 @@ def __save_C_Mod_BP_xyz(sensor_BP):
         json.dump(Y,f, ensure_ascii=False, indent=4)
     with open('../C-Mod/C_Mod_BP_Geometry_Z.json','w', encoding='utf-8') as f: 
         json.dump(Z,f, ensure_ascii=False, indent=4)
+################################################################################
+def __load_sensor_data(select_sensor):
+    fName = 'input_data/floops_%s.loc'%select_sensor
+    if os.path.isfile(fName):
+        with open(fName,'r') as f:
+            dat=f.readlines()
+        
+        # Step through the set of sensors
+        sensorList = []
+        ind = 2
+        while ind < len(dat):
+            numPts, scale, name = dat[ind].split(' ')
+            numPts=int(numPts);scale=float(scale);name=name[:-2]
+            sensorPts = []
+            for i in range(numPts):
+                ind += 1
+                ptx,pty,ptz = dat[ind].split(' ')
+                ptx=float(ptx);pty=float(pty);ptz=float(ptz)
+                sensorPts.append([ptx,pty,ptz])
+            
+            sensorList.append(flux_loop(np.array(sensorPts), name, scale))
+            ind += 2
+        return sensorList
+    else: raise SyntaxError('File: %s Not Found'%fName)
 ################################################################################
 def debug_plots(set_='BP',tor=0,coord_file='input_data/MAGX_Coordinates_CFS.json'):
     coords = json.load(open(coord_file,'r')) 
