@@ -22,7 +22,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                              params={'m':3,'n':1,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
-                                sensor_set='C_MOD_BP',cmod_shot=1051202011):
+                                sensor_set='C_MOD_BP',cmod_shot=1051202011,
+                                plotOnly=True):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -46,7 +47,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 
     
     # Run time dependent simulation
-    run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
+    if not plotOnly: run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
     
     slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
@@ -140,7 +141,7 @@ def gen_coil_currs(param):
     return coil_currs
 
 ####################################
-def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False):
+def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=True):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
     nsteps = int(param['T']/dt)
@@ -169,7 +170,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=False)
     return coil_currs
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False,debug=True):
+              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=True,debug=True):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -188,6 +189,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         lc = np.asarray(h5_file['LC_surf'])
     if plot_B_surf:
         with h5py.File('vector_dump.0001.h5') as h5_file:
+            for h in h5_file:print(h)
             Jfull = np.asarray(h5_file['J_v0001'])
             scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
@@ -249,7 +251,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
   
 if __name__=='__main__':
     mesh_file='C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    params={'m':3,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':50,\
+    params={'m':1,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':50,\
         'f':1e3,'dt':1e-5,'T':1e-3,'periods':1,'n_threads':64,'I':10}
     file_geqdsk='g1051202011.1000'
     sensor_set='C_MOD_MIRNOV_T';cmod_shot=1051202011
@@ -260,4 +262,5 @@ if __name__=='__main__':
     save_ext=''
     doSave='../output_plots/'
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,save_ext=save_ext,doSave=doSave)
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
+                         save_ext=save_ext,doSave=doSave)
