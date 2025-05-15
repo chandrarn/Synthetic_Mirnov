@@ -42,6 +42,7 @@ from OpenFUSIONToolkit.io import histfile
 
     
 from freeqdsk import geqdsk
+sys.path.append('/orcd/home/002/rianc/Documents/eqtools-1.0/') # Necessary for Engaging
 from eqtools import CModEFITTree
 import cv2
 from scipy.interpolate import make_smoothing_spline
