@@ -10,7 +10,7 @@ from header_signal_analysis import json,plt,np,histfile,geqdsk,factorial, Normal
 from get_signal_data import get_signal_data, __select_sensors
 
 # Surface plot for arb sensors
-def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CFS.json',
+def plot_Current_Surface(params,coil_currs=None,sensor_file='../signal_generation/input_data/MAGX_Coordinates_CFS.json',
                          sensor_set='MRNV',doVoltage=True,phi_sensor=[340],
                          doSave='',save_Ext='',timeScale=1e3,file_geqdsk='geqdsk',
                          filament=True):
@@ -36,41 +36,48 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='MAGX_Coordinates_CF
     X,Y,Z, sensor_dict  = get_signal_data(params,filament,save_Ext,phi_sensor,sensor_file,
                         sensor_set,file_geqdsk,doVoltage)
     
-    # return sensor_dict,X,Y,Z
+    #return sensor_dict,X,Y,Z
     # build plot
     doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
            doVoltage,filament)
     return sensor_dict,X,Y,Z
 ##########################
 def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
-           doVoltage,filament,cLims=[]):
+           doVoltage,filament,cLims=[],shotno=None):
     plt.close('%s_Current_Surface_%s%s'%(sensor_set,
                          'filament' if filament else 'surface',save_Ext))
     fig,ax=plt.subplots(len(sensor_dict),1,tight_layout=True,sharex=True,
                         num='%s_Current_Surface_%s%s'%(sensor_set,
-                           'filament' if filament else 'surface',save_Ext))
+                           'filament' if filament else 'surface',save_Ext),squeeze=False)
+    if ax.ndim==2:ax=ax[:,0]
+    if cLims and np.size(cLims[0])==1: cLims = [cLims]*len(sensor_dict)
+
     for ind, s in enumerate(sensor_dict):
         if not filament:
             trimTime=20
             X[ind] = X[ind][trimTime:]
             Z[ind] = Z[ind][:,trimTime:]
-        norm = Normalize(np.min(Z[ind]),np.max(Z[ind]))
+        norm = Normalize(np.min(Z[ind]),np.max(Z[ind])) if not cLims else \
+            Normalize(*cLims[ind])
         ax[ind].contourf(X[ind]*timeScale,Y[ind],Z[ind],levels=50,
-                         norm=norm,cmap='plasma',zorder=-5,
+                         cmap='plasma',zorder=-5,
              vmin=cLims[ind][0] if cLims else None,vmax=cLims[ind][1] if cLims else None)
         ax[ind].set_rasterization_zorder(-1)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax[ind],
                      label= r'V$_\mathrm{out}$ [V]' if doVoltage else \
-                         r'B$_\mathrm{z}$ [G]')
+                         r'B$_\theta$ [arb]')
         ax[ind].set_ylabel(s[0]['y_label'])
         ax[ind].tick_params(top=True)
     ax[-1].set_xlabel(r'Time [%s]'%('ms' if timeScale==1e3 else '$\mu$s'))
     plt.show()
     if doSave: 
-        fName=doSave+'Sensor_surface_%s_%s_%d-%d_%dkHz_%s%s.pdf'%\
+        if not shotno:
+            fName=doSave+'Sensor_surface_%s_%s_%d-%d_%dkHz_%s%s.pdf'%\
             ('filament' if filament else 'surface',sensor_set,params['m'],
              params['n'],params['f']*1e-3,'V' ,save_Ext)
-        fig.savefig(fName)
+        else: fName = doSave+'Sensor_Surface_%d_%s_t%2.2f_%2.2f%s%s.pdf'%\
+            (shotno,sensor_set,X[0][0],X[0][-1],'_V'*doVoltage,save_Ext)
+        fig.savefig(fName,transparent=True)
         print('Saved: %s'%fName)
 
 #######################################################

@@ -51,9 +51,9 @@ theta,phi = gF.gen_filament_coords(params)
 #filament_coords = gF.calc_filament_coords_geqdsk('input_data/geqdsk', theta, phi, params)
 filament_coords = gF.calc_filament_coords_geqdsk('g1051202011.1000', theta, phi, params)
 coil_currs = sM.gen_coil_currs(params)
-sM.gen_filaments('oft_in.xml',params,filament_coords,eta='1E-5' )
+sM.gen_filaments('oft_in.xml',params,filament_coords,eta='1E-5, 1E-5 , 1E-5 , 1E-5, 1E-5, 1E-5, 1E-5, 1E-5' )
 
-tw_plate = ThinCurr(nthreads=4)
+tw_plate = ThinCurr(nthreads=8)
 # Mesh file contains dict name 'mesh', and sub attributes LC (mesh cells, n_cells),
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
 # .xml file defines coils 
@@ -63,7 +63,8 @@ tw_plate = ThinCurr(nthreads=4)
 #tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
 
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters-homology.h5',xml_filename='input_data/oft_in.xml')
-tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_VV-homology.h5',xml_filename='input_data/oft_in.xml')
+tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')
+# tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_VV-homology.h5',xml_filename='input_data/oft_in.xml')
 tw_plate.setup_io()
 
 # Coupling for plot
@@ -85,7 +86,7 @@ grid = pyvista.UnstructuredGrid(cells, celltypes, r) # Why is r necessary for th
 
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
-# sensors = gen_Sensors_Updated(select_sensor='BP')
+sensors = gen_Sensors_Updated(select_sensor='C_MOD_MIRNOV_T')
 # Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('input_data/floops_BP_CFS.loc')
 
 
@@ -107,7 +108,6 @@ slices = grid.slice_along_line(slice_line)
 
 #p.add_mesh(slice_line,line_width=5)
 #p2.add_mesh(slices,line_width=5)
-'''
 
 
 # Plot Sensors
@@ -115,7 +115,7 @@ for ind,s in enumerate(sensors):
     p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
                  render_points_as_spheres=True,
                  label='Sensor' if ind==0 else None)
- '''   
+   
 # Plot Filaments
 t_pt=0
 for ind,filament in enumerate(filament_coords):

@@ -13,24 +13,31 @@ Created on Thu Mar  6 17:40:49 2025
 @author: rianc
 """
 
-from header_signal_analysis import histfile, np, json, geqdsk, factorial
+from header_signal_analysis import histfile, np, json, geqdsk, factorial, sys,\
+    CModEFITTree
+
+sys.path.append('../C-Mod/')
+from get_Cmod_Data import BP, __loadData
 
 def get_signal_data(params,filament,save_Ext,phi_sensor,sensor_file,
                     sensor_set,file_geqdsk,doVoltage):
     # Load sensor parameters for voltage conversion
     sensor_params= json.load(open(sensor_file,'r'))
     # Load ThinCurr sensor output
-    hist_file = histfile('data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
+    hist_file = histfile('../data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
+             ('filament' if filament else 'surface', sensor_set,params['m'],
+              params['n'],params['f']*1e-3,save_Ext))
+    
+    
+    print('Loaded: ../data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
              ('filament' if filament else 'surface', sensor_set,params['m'],
               params['n'],params['f']*1e-3,save_Ext))
     '''
-    print('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
-                 (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext))
     return hist_file
     '''    
     # Select usable sensors from set
     sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)
-    #return sensor_dict, sensor_params
+    #return sensor_dict, sensor_params, hist_file
     # build datasets
     X,Y,Z = __gen_surface_data(sensor_dict,hist_file,doVoltage,params,
                                sensor_set, sensor_params)
@@ -56,7 +63,8 @@ def __gen_surface_data(sensor_dict,hist_file,doVoltage,params,sensor_set,
     #return Z
     
     return X,Y,Z
-def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
+def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params,
+                     shotno=None,tLim=None):
     # Return list of dictionaries for subplots
     # returns: full sensor name, yaxis, y label, 
     sensor_dict=[]
@@ -132,6 +140,135 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params):
             if 0-10 <= theta <= 10: # Toroidal ''set''
                 sensor_dict[1].append({'Sensor':'%s'%(s),'y_vals':PHI,\
                    'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta)})
+    
+    ###########################################################################
+    ###########################################################################
+    
+    elif sensor_set == 'Synth-C_MOD_BP':
+        
+        if file_geqdsk is None:zmagx=0;rmagx=params['R']
+        else:
+            with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+            zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
+            
+        bp = BP(0)
+        R = bp.BC['R']
+        Z = bp.BC['Z']
+        PHI = bp.BC['PHI']
+        theta = np.arctan2(Z- zmagx, R-rmagx)*180/np.pi
+        names = bp.BC['NAMES']
+        
+        
+        # Poloidal side
+        sensor_dict.append([])
+        for ind,s in enumerate(names):
+            sensor_dict[-1].append({'Sensor':'%s'%(s),'y_vals':theta[ind],\
+               'y_label':r'%s$_{\phi=%d}\,\hat{\theta}$ [deg]'%(sensor_set,PHI[ind]),
+               })
+        
+        # Toroidal
+        sensor_dict.append([])
+        tor_ind = 14
+        sensor_dict[-1].append({'Sensor':'%s'%(bp.BC['NAMES'][tor_ind]),'y_vals':bp.BC['PHI'][0],\
+           'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,0)})
+        sensor_dict[-1].append({'Sensor':'%s'%(bp.DE['NAMES'][tor_ind]),'y_vals':bp.DE['PHI'][0],\
+           'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,0)})
+        sensor_dict[-1].append({'Sensor':'%s'%(bp.GH['NAMES'][tor_ind]),'y_vals':bp.GH['PHI'][0],\
+           'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,0)})
+        sensor_dict[-1].append({'Sensor':'%s'%(bp.JK['NAMES'][tor_ind]),'y_vals':bp.JK['PHI'][0],\
+           'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,0)})
+    
+    ###########################################################################
+    ###########################################################################
+    elif sensor_set == 'C_Mod_BP':
+        eq = CModEFITTree(shotno)
+        time = eq.getTimeBase()
+        tInd = np.arange(*[np.argmin((time-t)**2) for t in tLim ] ) 
+        if np.size(tInd)==0:tInd = np.argmin((time-tLim[0])**2) 
+        zmagx = np.mean(eq.getMagZ()[tInd])
+        rmagx = np.mean(eq.getMagR()[tInd])
+
+        
+        sensor = BP(shotno) #Redo time for real data
+        time=sensor.time
+        tInd = np.arange(*[np.argmin((time-t)**2) for t in tLim ] ) 
+        
+        # Poloidal side
+        sensor_sets =[sensor.BC,sensor.DE,sensor.GH,sensor.JK]
+        phi = np.array([s['PHI'][0] for s in sensor_sets])
+        ind = np.argmin((phi-phi_sensor)**2)
+        sensor=sensor_sets[ind]
+        
+        R = sensor['R']
+        Z = sensor['Z']
+        PHI = sensor['PHI']
+        theta = np.arctan2(Z- zmagx, R-rmagx)*180/np.pi
+        names = sensor['NAMES']
+        
+        # Poloidal side
+        sensor_dict.append([])
+        for ind,s in enumerate(names):
+            sensor_dict[-1].append({'Sensor':'%s'%(s),'y_vals':theta[ind],\
+               'y_label':r'%s$_{\phi=%d}\,\hat{\theta}$ [deg]'%(sensor_set,PHI[ind]),
+               'Signal':sensor['SIGNAL'][ind,tInd]*(1 if 0<=theta[ind]<=180 else -1),\
+                   'Time':time[tInd]})
+        
+        # Toroidal
+        sensor_dict.append([])
+        tor_ind = 14
+        for ind_,s in enumerate(sensor_sets):
+            if ind_==ind:continue # No need to double count sensor from poloidal array
+            
+            R = s['R']
+            Z = s['Z']
+            theta = np.arctan2(Z- zmagx, R-rmagx)*180/np.pi
+            tor_ind = np.argmin(np.abs(theta))
+            
+            sensor_dict[-1].append({'Sensor':'%s'%(s['NAMES'][tor_ind]),\
+                'y_vals':s['PHI'][0],\
+               'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,0),\
+                   'Signal':s['SIGNAL'][tor_ind,tInd],'Time':time[tInd]})
+    ###########################################################################
+    elif sensor_set =='C_Mod_BP_T':
+        # Assume using the upper row always
+        try:eq = CModEFITTree(shotno)
+        except:eq = CModEFITTree(1160930034)
+        time = eq.getTimeBase()
+        tInd = np.arange(*[np.argmin((time-t)**2) for t in tLim ] ) 
+        # if tLim points are closer than dt-EFIT, it won't work
+        if np.size(tInd)==0:tInd = np.argmin((time-tLim[0])**2) 
+        zmagx = np.mean(eq.getMagZ()[tInd])
+        rmagx = np.mean(eq.getMagR()[tInd])
+        
+        
+        sensor = __loadData(shotno,pullData=['bp_t'])['bp_t']
+        theta = np.arctan2(sensor.ab_z-zmagx,sensor.ab_r-rmagx)[0]*180/np.pi
+        
+        time=sensor.time
+        tInd = np.arange(*[np.argmin((time-t)**2) for t in tLim ] )
+        dt =np.mean(np.diff(time))
+        # Only one side for now
+        sensor_dict.append([])
+        sensor_dict.append([])
+        
+        for i in np.arange(1,4):
+            sensor_dict[-2].append({'Sensor':'%s'%(sensor.ab_names[i]),\
+                'y_vals':sensor.ab_phi[i]+360,\
+               'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta),\
+                   'Signal':np.cumsum(sensor.ab_data[i-1])[tInd]*dt,'Time':time[tInd]})
+                
+            sensor_dict[-1].append({'Sensor':'%s'%(sensor.gh_names[i]),\
+                    'y_vals':sensor.gh_phi[i]+360,\
+                   'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta),\
+                       'Signal':np.cumsum(sensor.gh_data[i-1])[tInd]*dt,'Time':time[tInd]})
+                
+        '''
+        sensor_dict[-1].append({'Sensor':'%s'%('Blank'),\
+                'y_vals':np.mean([sensor.ab_phi[0],sensor.gh_phi[0]])+360,\
+               'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta),\
+                   'Signal':sensor.gh_data[i-1,tInd]*np.nan,'Time':time[tInd]})
+        '''
+    else: raise SyntaxWarning('Diagnostic Not Implimented')
     return sensor_dict
 ###############################################################################
 ####################################

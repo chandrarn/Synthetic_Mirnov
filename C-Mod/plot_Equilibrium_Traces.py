@@ -12,7 +12,7 @@ from get_Cmod_Data import __loadData
 ###############################################################################
 def plot_basic_quantities(shots, LP_Freq = 30e3, doSave=False, tLim=None,
                 save_Ext='', highlightTimes = None, 
-                makePlots = ['ip', 'p_rf', 'gpc', 'bp_t'],
+                makePlots = ['ip', 'p_rf', 'gpc', 'bp'],
                 plotChan={},data_archive='',\
                     doCPCI_Zeroing = False, yLims = {},large=False,\
                         overlayOptical=False,reload=[],\
@@ -120,6 +120,8 @@ def __selectSignal(rawData,signal,plotChan,tLim_Manual,shot_ind,manual_t_align,
     elif signal == 'bp_t':
         data = node.ab_data[plotChan[signal] if signal in plotChan else 3]
         time = node.time
+        # Ingtegrate
+        data = np.cumsum(data)*np.mean(np.diff(time))
         label =r'$\partial_t\mathrm{B}_\theta$ [G/S]'
     elif signal == 'gpc':
         data = node.Te[plotChan[signal] if signal in plotChan else 4]

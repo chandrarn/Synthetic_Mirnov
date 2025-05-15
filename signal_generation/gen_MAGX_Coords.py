@@ -330,7 +330,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
         #shot is necessary for minor differences in TOP/BOT sensors
         # Pulls data for limiters only
         phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
-        BP_Data = BP(cmod_shot)
+        BP_Data = BP(cmod_shot) # Pull data for Low freq sensors
         dx = 4e-3 # True at minimum for BP probes, from 'Magnetic diagnostics in Alcator C‐MOD', R. Granetz 1990
        
         sensor_Mirnov_T = []
@@ -353,14 +353,22 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 sens = Mirnov(pt, norm, name,dx)
                 sensor_Mirnov.append(sens)
         # Slower BP sensors
+        cad_shift = 61.389 # Toroidal rotational shift to match CAD
         for phi_num in ['bc','de','gh','jk']:
             if phi_num=='bc':set_ = BP_Data.BC
             if phi_num=='de':set_ = BP_Data.DE
             if phi_num=='gh':set_ = BP_Data.GH
             if phi_num=='jk':set_ = BP_Data.JK
             for ind,name in enumerate(set_['NAMES']):
-                pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind],set_['R'][ind],\
-                    set_['Z'][ind],set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
+                # Radial, Z shift to avoid cad surface
+                r_shift = 0.01 if 12 <= int(name[2:4]) <= 15 else 0
+                z_shift = 0.01*np.sign(set_['Z'][ind]) if \
+                    (10 <= int(name[2:4]) <= 11 ) or \
+                    (16 <= int(name[2:4]) <= 17 ) else 0
+                pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind]+cad_shift,\
+                    set_['R'][ind] + r_shift,\
+                    set_['Z'][ind] + z_shift,\
+                    set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
                 sens = Mirnov(pt, norm, name, dx)
                 sensor_BP.append(sens)
         
@@ -379,13 +387,29 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
         save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
         save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
         
+        # Save (x,y,z) coordinates for BP sensor for CAD comparison
+        if select_sensor == 'C_MOD_BP': __save_C_Mod_BP_xyz(sensor_BP)
         
         if select_sensor == 'C_MOD_MIRNOV_T': return sensor_Mirnov_T
         if select_sensor == 'C_MOD_LIM': return sensor_Lim
         if select_sensor == 'C_MOD_BP': return sensor_BP
         if select_sensor == 'C_MOD_ALL': return sensor_all
         
-        
+################################################################################
+def __save_C_Mod_BP_xyz(sensor_BP):
+    X={};Y={};Z={}
+    for s in sensor_BP:
+        coords = (s._pts[0] + s._pts[1])/2
+        X[str(s._name)] = coords[0]
+        Y[str(s._name)] = coords[1]
+        Z[str(s._name)] = coords[2]
+    
+    with open('../C-Mod/C_Mod_BP_Geometry_X.json','w', encoding='utf-8') as f: 
+        json.dump(X,f, ensure_ascii=False, indent=4)
+    with open('../C-Mod/C_Mod_BP_Geometry_Y.json','w', encoding='utf-8') as f: 
+        json.dump(Y,f, ensure_ascii=False, indent=4)
+    with open('../C-Mod/C_Mod_BP_Geometry_Z.json','w', encoding='utf-8') as f: 
+        json.dump(Z,f, ensure_ascii=False, indent=4)
 ################################################################################
 def debug_plots(set_='BP',tor=0,coord_file='input_data/MAGX_Coordinates_CFS.json'):
     coords = json.load(open(coord_file,'r')) 

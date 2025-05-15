@@ -32,8 +32,8 @@ rc('font',**{'size':11})
 rc('text', usetex=True)
 
 
-# sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
-# sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/')
+sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
+sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/')
 # from OpenFUSIONToolkit.ThinCurr import ThinCurr
 # from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 # from OpenFUSIONToolkit.util import build_XDMF, mu0
@@ -42,10 +42,12 @@ from OpenFUSIONToolkit.io import histfile
 
     
 from freeqdsk import geqdsk
+from eqtools import CModEFITTree
 import cv2
 from scipy.interpolate import make_smoothing_spline
 from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
+from scipy.io import loadmat
 import json
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
@@ -58,3 +60,5 @@ from rolling_spectrogram import rolling_spectrogram
 # Add paths
 #ssys.path.append('signal_analysis/')
 sys.path.append('../C-Mod/')
+
+

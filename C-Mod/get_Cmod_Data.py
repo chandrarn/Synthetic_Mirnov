@@ -51,6 +51,7 @@ class BP:
                 try:
                     signal = conn.get(basePath+'SIGNALS:%s'%name)
                     assert type(signal.data()) is np.ndarray # signal node may exist but be empty
+                    
                 except: continue
                 # Reference pass link node
                 if name[-2::] == 'BC': tmp = self.BC
@@ -67,6 +68,9 @@ class BP:
                 
                 tmp['SIGNAL'].append(signal.data())
                 
+        # Get time vector
+        self.time = conn.get('dim_of('+basePath+'SIGNALS:%s)'%name).data()#[:-1]
+        # dt = np.mean(np.diff(self.time))
         # Convert to numpy arrays
         for i in range(4):
             if i == 0: tmp = self.BC
@@ -80,14 +84,14 @@ class BP:
             tmp['THETA_TOR'] = np.array(tmp['THETA_TOR'])
             tmp['R'] = np.array(tmp['R'])
             tmp['Z'] = np.array(tmp['Z'])
-            tmp['SIGNAL'] = np.array(tmp['SIGNAL'])
-        self.time = conn.get('dim_of('+basePath+'SIGNALS:%s)'%name).data()
+            tmp['SIGNAL'] = np.array(tmp['SIGNAL'])#np.diff(np.array(tmp['SIGNAL']),axis=1)/dt
+        
         
     def makePlot(self,HP=10,LP=20e3,tLim=[1,1.1]):
         plt.close('BP_Contour')
         fig,ax=plt.subplots(2,1,tight_layout=True,num='BP_Contour',sharex=True)
         
-        out= doFilter(self.BC['SIGNAL'], self.BC.time, HP, LP)
+        out= doFilter(self.BC['SIGNAL'], self.time, HP, LP)
         
         dt = self.time[1]-self.time[0]
         tInds = np.arange(*[(t-self.time[0])/dt for t in tLim],dtype=int)
@@ -940,9 +944,68 @@ class _get_wtor():
         #return dwtor
 
 ###############################################################################
+class XTOMO():
+    # X-ray tomography
+    # Processing code not active for all shots
+    
+    def __init__(self,shotno,debug=False):
+        if debug: print('Loading SXR Tomography')
+        self.shotno=shotno
+        conn = openTree(self.shotno,'XTOMO')
+        
+        self.xem = conn.get('\XTOMO::TOP.RESULTS.CORE:EMISS').data()
+        self.rho = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,0)').data()
+        self.t = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,1)').data()
+        
+        self.xemr = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,2)').data()
+        '''
+        self.xemc1 = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,3)').data()
+        self.xemc2 = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,4)').data()
+        self.xems1 = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,5)').data()
+        self.etree = conn.get('dim_of(\XTOMO::TOP.RESULTS.CORE:EMISS,6)').data()
+        '''
+        
+        '''
+    	xem=mdsvalue('_sig=\XTOMO::TOP.RESULTS.CORE:EMISS',/quiet,status=cstatus)
+    	rho=mdsvalue('dim_of(_sig,0)',/quiet)
+    	t=mdsvalue('dim_of(_sig,1)',/quiet)
+    	xemr=mdsvalue('dim_of(_sig,2)',/quiet,status=m1status)
+    	xemc1=mdsvalue('dim_of(_sig,3)',/quiet,status=m1status)
+    	xemc2=mdsvalue('dim_of(_sig,4)',/quiet,status=m2status)
+    	xems1=mdsvalue('dim_of(_sig,5)',/quiet,status=m1status)
+    	etree=mdsvalue('dim_of(_sig,6)',/quiet,status=tree_status)
+    	IF NOT tree_status THEN etree='ANALYSIS'
+    	xr=mdsvalue('\XTOMO::TOP.RESULTS.CORE:RMAJ',/quiet)
+    	xbr=mdsvalue('_sig=\XTOMO::TOP.RESULTS.CORE:BRIGHT',/quiet,status=status)
+    	ch=mdsvalue('dim_of(_sig,0)',/quiet)
+    	xbrchk=mdsvalue('_sig=\XTOMO::TOP.RESULTS.CORE:BRCHK',/quiet)
+    	xbrchka=mdsvalue('dim_of(_sig,2)',/quiet)
+    	mdsclose,'xtomo',shot
+        '''
+        
+    def makePlot(self,tPoint=[1],doSave=False,):
+        str_t = '%2.2f'%tPoint[0] if len(tPoint) == 1 else\
+            '%2.2f-%2.2f'%(tPoint[0],tPoint[-1]) 
+        plt.close('Xtomo_%d_t%s'%(self.shotno,str_t))
+        fig,ax=plt.subplots(1,1,num='Xtomo_%d_t%s'%(self.shotno,str_t),
+                            tight_layout=True,figsize=(3.404,3.5))
+        
+        tInd = [np.argmin(np.abs(self.t-t)) for t in tPoint]
+        ax.plot(self.rho,self.xem[tInd,:].T*1e-3)
+        ax.legend(['t=%4.4f s'%t for t in tPoint],fontsize=8,handlelength=1,
+                  title='%d'%self.shotno,title_fontsize=8)
+        ax.grid()
+        ax.set_xlabel(r'R$_\mathrm{m}$ [m]')
+        ax.set_ylabel(r'Emissivity ($\sim Zn_e^2\sqrt{T_e}$) [kW/m$^3$]')
+        
+        
+        plt.show()
+        if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',\
+                              transparent=True)
+###############################################################################
 ###############################################################################
 # Local data storage functionality
-def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
+def __loadData(shotno,data_archive='',debug=True,forceReload=[],\
                pullData = ['bp','bp_t','gpc','ip','p_rf','yag']):
     # data_archive can be manually specified if the default file locaiton isn't in use
     # Defult is to the author's MFE directory
@@ -957,36 +1020,47 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=False,\
         rawData = pk.load(open(data_archive + 'rawData_%d.pk'%shotno,'rb'))
         
         # If we need to reload something, or need a signal not already saved
-        if forceReload or not np.all(np.isin(pullData,list(rawData.keys()))): raise Exception
+        if forceReload or not np.all(np.isin(pullData,list(rawData.keys()))): 
+            if debug:print('Loading from server')
+            raise Exception
     except:
-        rawData = __genRawData(rawData,shotno,pullData,debug)
+        rawData = __genRawData(rawData,shotno,pullData,debug,forceReload)
         __saveRawData(rawData,shotno,debug,data_archive)
         
     if debug:print('Loaded ' + 'rawData_%d.pk'%shotno +' from archives')
     
     return rawData
 ###################################################
-def __genRawData(rawData,shotno,pullData,debug):
+def __genRawData(rawData,shotno,pullData,debug,forceReload):
     # Pull requested diagnostic signals
     
     
-    if 'bp' in pullData and 'bp' not in rawData: rawData['bp'] = BP(shotno,debug)
+    if 'bp' in pullData and ('bp' not in rawData or 'bp' in forceReload):
+        rawData['bp'] = BP(shotno,debug)
     
-    if 'bp_t' in pullData and 'bp_t' not in rawData: rawData['bp_t'] = BP_T(shotno, debug)
+    if 'bp_t' in pullData and ('bp_t' not in rawData or 'bp_t' in forceReload):
+        rawData['bp_t'] = BP_T(shotno, debug)
     
-    if 'ece' in pullData and 'ece' not in rawData: rawData['ece'] = ECE(shotno,debug)
+    if 'ece' in pullData and ('ece' not in rawData or 'ece' in forceReload):
+        rawData['ece'] = ECE(shotno,debug)
     
-    if 'gpc' in pullData and 'gpc' not in rawData: rawData['gpc'] = GPC(shotno,debug)
+    if 'gpc' in pullData and ('gpc' not in rawData or 'gpc'  in forceReload):
+        rawData['gpc'] = GPC(shotno,debug)
     
-    if 'gpc_2' in pullData and 'gpc_2' not in rawData: rawData['gpc_2'] = GPC_2(shotno,debug)
+    if 'gpc_2' in pullData and ('gpc_2' not in rawData or 'gpc' in forceReload):
+        rawData['gpc_2'] = GPC_2(shotno,debug)
     
-    if 'frcece' in pullData and 'frcece' not in rawData: rawData['frcece'] = FRCECE(shotno, debug)
+    if 'frcece' in pullData and ('frcece' not in rawData or 'frcece'  in forceReload):
+        rawData['frcece'] = FRCECE(shotno, debug)
     
-    if 'ip' in pullData and 'ip' not in rawData: rawData['ip'] = Ip(shotno,debug)
+    if 'ip' in pullData and ('ip' not in rawData or 'ip'  in forceReload):
+        rawData['ip'] = Ip(shotno,debug)
     
-    if 'p_rf' in pullData and 'p_rf' not in rawData: rawData['p_rf'] = RF_PWR(shotno,debug)
+    if 'p_rf' in pullData and ('p_rf' not in rawData or 'p_rf' in forceReload):
+        rawData['p_rf'] = RF_PWR(shotno,debug)
     
-    if 'yag' in pullData and 'yag' not in rawData: rawData['yag'] = YAG(shotno,debug)
+    if 'yag' in pullData and ('yag' not in rawData or 'yag'  in forceReload):
+        rawData['yag'] = YAG(shotno,debug)
     
     return rawData
 

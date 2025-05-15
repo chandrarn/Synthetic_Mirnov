@@ -7,7 +7,7 @@ Created on Thu May  1 16:10:25 2025
     low m/n BP probes in get_Cmod_Data
 @author: rianc
 """
-from header_Cmod import mds, np
+from header_Cmod import mds, np, json
 
 def Mirnov_Geometry(shotno,debug=True):
     if int(str(shotno)[1:3]) > 10:
@@ -336,6 +336,23 @@ def Mirnov_Geometry(shotno,debug=True):
         
         theta_pol[sensor_name] = theta_pol_ab[sensor_index] if 'AB' in \
             sensor_name else theta_pol_gh[sensor_index-30]
-            
+    
+    ###############
+    # Correction for phi: rotate to match CAD: Overall shift of ~60deg, rel shift of 7
+    for node_name in phi:
+            if 'A' in node_name: phase_offset= (149.389-88)
+            else: phase_offset= (149.389-88-7.2)
+            phi[node_name] += phase_offset
+    ###############
+    # Correction for _T sensors to be under tile face
+    for node_name in R:
+        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.01 
+    ####################################
+    with open('C_Mod_Mirnov_Geometry_R.json','w', encoding='utf-8') as f: 
+        json.dump(R,f, ensure_ascii=False, indent=4)
+    with open('C_Mod_Mirnov_Geometry_Z.json','w', encoding='utf-8') as f: 
+        json.dump(Z,f, ensure_ascii=False, indent=4)
+    with open('C_Mod_Mirnov_Geometry_Phi.json','w', encoding='utf-8') as f: 
+        json.dump(phi,f, ensure_ascii=False, indent=4)
     ####################################
     return phi, theta_pol, R, Z
