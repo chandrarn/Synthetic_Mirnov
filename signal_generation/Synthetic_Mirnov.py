@@ -29,8 +29,9 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     
     # Get coordinates for fillaments
     theta,phi=gen_filament_coords(params)
+    #return theta,phi
     filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
-    
+
     # Generate sensors, filamanets
     gen_filaments(xml_filename,params,filament_coords)
     sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot)
@@ -49,6 +50,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     # Run time dependent simulation
     if not plotOnly: run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
     
+    return makePlots(tw_mesh,params,coil_currs,sensors,doSave,
+                                save_ext,Mc, L_inv,filament_coords,file_geqdsk)
     
     slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
                                 save_ext,Mc, L_inv,filament_coords,file_geqdsk)
@@ -151,7 +154,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=True):
     # run time depenent simulation, save floops.hist file
     tw_mesh.run_td(dt,nsteps,
                     coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=500,plot_freq=500)
-    if doPlot:tw_mesh.plot_td(int(periods/f/dt),compute_B=False,sensor_obj=sensor_obj,plot_freq=500)
+    if doPlot:tw_mesh.plot_td(nsteps,compute_B=False,sensor_obj=sensor_obj,plot_freq=500)
     
     # Save B-norm surface for later plotting # This may be unnecessar
     if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='input_data/HODLR_B.save') 
@@ -170,7 +173,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=True):
     return coil_currs
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=True,debug=True):
+              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False,debug=True):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -189,7 +192,8 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         lc = np.asarray(h5_file['LC_surf'])
     if plot_B_surf:
         with h5py.File('vector_dump.0001.h5') as h5_file:
-            for h in h5_file:print(h)
+            print('test')
+            for h in h5_file.keys():print(h)
             Jfull = np.asarray(h5_file['J_v0001'])
             scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
@@ -251,7 +255,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
   
 if __name__=='__main__':
     mesh_file='C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    params={'m':1,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':50,\
+    params={'m':2,'n':1,'r':.25,'R':1,'n_pts':50,'m_pts':70,\
         'f':1e3,'dt':1e-5,'T':1e-3,'periods':1,'n_threads':64,'I':10}
     file_geqdsk='g1051202011.1000'
     sensor_set='C_MOD_MIRNOV_T';cmod_shot=1051202011

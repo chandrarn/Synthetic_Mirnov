@@ -23,7 +23,7 @@ try:
 except:pass
 
 
-from header_signal_generation import np, plt, cm, colors, xr, cv2, factorial, \
+from header_signal_generation import np, plt, cm, Normalize, xr, cv2, factorial, \
     make_smoothing_spline, gethostname
 
 def convert_to_Bnorm(C1file_name,n,npts):
@@ -170,10 +170,10 @@ def __b_norm_debug_plots(ax,b_norm,B,R,Z,R_sig,Z_sig,all_tang,all_norm,contour,
          plt.close('B_Norm_Extraction%s'%save_ext)
          fig,ax=plt.subplots(1,3,tight_layout=True,figsize=(8,3.),
                              num='B_Norm_Extraction%s'%save_ext)
-     norm = colors.Normalize(vmin=min(b_norm),vmax=max(b_norm))
+     norm = Normalize(vmin=min(b_norm),vmax=max(b_norm))
      #ax.contour(R,Z,psi_.T,[1],hold='on',origin='lower')
      vmin=np.min(B);vmax=np.max(B)
-     norm_2=colors.Normalize(vmin=vmin,vmax=vmax)
+     norm_2=Normalize(vmin=vmin,vmax=vmax)
      extent=[R[0],R[-1],Z[0],Z[-1]]
      plotNorm=True
      
@@ -288,7 +288,7 @@ def __plot_time_series_im(t_points=5,B_index=0):
         ax[np.unravel_index(i-1,(2,2))].imshow(B[B_index].T,origin='lower',extent=extent)
         ax[np.unravel_index(i-1,(2,2))].contour(psi_.T,[1],hold='on',
                                                 origin='lower',extent=extent,alpha=.7)
-        norm = colors.Normalize(vmin=np.min(B[B_index]),vmax=np.max(B[B_index]))
+        norm = Normalize(vmin=np.min(B[B_index]),vmax=np.max(B[B_index]))
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('viridis')),
                      label='$\mathrm{B_%s}$ [?]'%label[B_index],ax=ax[np.unravel_index(i-1,(2,2))])
     for i in range(2):

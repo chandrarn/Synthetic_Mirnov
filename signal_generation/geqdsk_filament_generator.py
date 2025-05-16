@@ -55,7 +55,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
             for s in contour:
                 s=np.squeeze(s) # remove extra dimensions
                 a_avg.append(np.mean( (R_eq[s[1]]-eqdsk.rmagx)**2+(Z_eq[s[0]]-eqdsk.zmagx)**2))
-            # Select contour closested on average to the magnetic center
+            # Select contour closest on average to the magnetic center
             contour = np.squeeze( contour[np.argmin(a_avg)] )
     
         # Calculate r(theta) to stay on the surface as we wind around
