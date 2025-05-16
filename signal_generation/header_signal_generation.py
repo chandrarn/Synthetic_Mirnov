@@ -48,6 +48,7 @@ from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
 from fractions import Fraction
 import json
+import xarray as xr
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 
