@@ -439,7 +439,16 @@ class Mirnov :
 
     def getT(self) :
         '''
-        Return the timebase - this is constructed to be in the time range specified for this Mirnov coil object at instantiation, with the smallest available sampling time available from the timebases (up to three for the C-Mod Mirnov coil system, given the fact that the D-tAcq digitizers cannot reliably produce identical databases for identical control settings, per the information of our synchronization system).  All signals returned by getSig() are on this timebase, either by a logical mask (i.e. match indices given a single timebase across all coils) or by interpolation (when there are is more than one timebase across the Mirnov coils).
+        Return the timebase - this is constructed to be in the time range 
+        specified for this Mirnov coil object at instantiation, with the 
+        smallest available sampling time available from the timebases (up to  
+        three for the C-Mod Mirnov coil system, given the fact that the D-tAcq
+        digitizers cannot reliably produce identical databases for identical
+        control settings, per the information of our synchronization system). 
+        All signals returned by getSig() are on this timebase, either by a
+        logical mask (i.e. match indices given a single timebase across all 
+        coils) or by interpolation (when there are is more than one timebase
+        across the Mirnov coils).
         
         T. Golfinopoulos, 24 March 2018
         '''
