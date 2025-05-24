@@ -93,7 +93,8 @@ def correct_Bode(signal,time,sensor_name):
    
 def __cal_Correction(sensor_name,freq):
     CAL_PATH = '/mnt/home/sears/Matlab/Calibration/cal_v2/'
-    mat = loadmat(CAL_PATH+'451_responses/'+sensor_name +'_cal.mat')
+    try:mat = loadmat(CAL_PATH+'451_responses/'+sensor_name +'_cal.mat')
+    except: mat = loadmat(CAL_PATH+'451_responses/'+'BP1T_GHK' +'_cal.mat')
     f = mat['f'][0]; H_spline = mat['H_spline'][0]
     try:
         mat = loadmat(CAL_PATH+'fine_tuning/'+sensor_name +'_cal+.mat')

@@ -10,7 +10,8 @@ import struct
 import sys
 import importlib.util
 import os
-import h5py
+try:import h5py
+except: pass
 import subprocess
 import numpy as np
 import matplotlib.pyplot as plt

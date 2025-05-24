@@ -36,7 +36,8 @@ def get_signal_data(params,filament,save_Ext,phi_sensor,sensor_file,
     return hist_file
     '''    
     # Select usable sensors from set
-    sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params)
+    sensor_dict = __select_sensors(sensor_set,sensor_params,phi_sensor,
+                                   file_geqdsk,params)
     #return sensor_dict, sensor_params, hist_file
     # build datasets
     X,Y,Z = __gen_surface_data(sensor_dict,hist_file,doVoltage,params,
@@ -47,19 +48,24 @@ def __gen_surface_data(sensor_dict,hist_file,doVoltage,params,sensor_set,
                        sensor_params):
     # Build 2D data
     dt=params['dt'];f=params['f']
-    X = [hist_file['time'][:-1]]*len(sensor_dict)
+    X = [hist_file['time'][:]]*len(sensor_dict)
     Y=[]
     Z=[]
     for s in sensor_dict:
         Y.append( [s[i]['y_vals'] for i in range(len(s))] )
         inds=np.argsort(Y[-1])
         Y[-1] = np.array(Y[-1])[inds]
-        Z.append([])
-        Z[-1].append(np.array([\
+        #Z.append([])
+        Z_tmp= np.array([\
        (field_to_current(hist_file[s_['Sensor']],\
               dt,f,sensor_params,sensor_set,s_['Sensor']) if doVoltage else \
-                hist_file[s_['Sensor']][:-1]*1e4)  for s_ in s]).squeeze())
-        Z[-1]=np.array(Z[-1]).squeeze()[inds]
+                hist_file[s_['Sensor']][:]*1e4)  for s_ in s]).squeeze()
+        # length check 
+        if Z_tmp.shape[1]>X[0].shape[0]: Z_tmp = Z_tmp[:,:-1]
+        elif Z_tmp.shape[1]<X[0].shape[0]: 
+            for i in range(len(X)): X[i] = X[i][:-1]
+        #print('\n\n\n ', Z_tmp[inds].squeeze().shape,'\n\n')
+        Z.append(Z_tmp[inds].squeeze()) # Unclear if this should be in a list or not
     #return Z
     
     return X,Y,Z
@@ -145,7 +151,7 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params,
     ###########################################################################
     
     elif sensor_set == 'Synth-C_MOD_BP':
-        
+        tLim
         if file_geqdsk is None:zmagx=0;rmagx=params['R']
         else:
             with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
@@ -178,6 +184,17 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params,
         sensor_dict[-1].append({'Sensor':'%s'%(bp.JK['NAMES'][tor_ind]),'y_vals':bp.JK['PHI'][0],\
            'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,0)})
     
+    ###########################################################################
+    ###########################################################################
+    
+    elif sensor_set == 'C_MOD_MIRNOV_T':#'Synth-C_MOD_BP_T':
+        sensor_dict.append([]);sensor_dict.append([])
+        for i in np.arange(1,4):
+            for ind,set_ in enumerate(['AB','GH']):
+                name = 'BP%dT_%sK'%(i,set_)
+                sensor_dict[ind].append({'Sensor':name ,'y_vals': sensor_params[name],\
+                       'y_label':r'Synth C-Mod Mirnov $\hat{\phi}$ [deg]'})
+        
     ###########################################################################
     ###########################################################################
     elif sensor_set == 'C_Mod_BP':
@@ -251,7 +268,7 @@ def __select_sensors(sensor_set,sensor_params,phi_sensor,file_geqdsk,params,
         sensor_dict.append([])
         sensor_dict.append([])
         
-        for i in np.arange(1,4):
+        for i in np.arange(0,3):
             sensor_dict[-2].append({'Sensor':'%s'%(sensor.ab_names[i]),\
                 'y_vals':sensor.ab_phi[i]+360,\
                'y_label':r'%s$_{\theta=%d}\,\hat{\phi}$ [deg]'%(sensor_set,theta),\

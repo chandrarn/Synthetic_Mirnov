@@ -393,9 +393,10 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
             
             # Save (x,y,z) coordinates for BP sensor for CAD comparison
-            if select_sensor == 'C_MOD_BP': __save_C_Mod_BP_xyz(sensor_BP)
-            
-            if select_sensor == 'C_MOD_MIRNOV_T': return sensor_Mirnov_T
+            if select_sensor == 'Synth-C_MOD_BP':
+                __save_C_Mod_BP_xyz(sensor_BP)
+                return sensor_BP
+            if select_sensor == 'Synth-C_MOD_BP_T': return sensor_Mirnov_T
             if select_sensor == 'C_MOD_LIM': return sensor_Lim
             if select_sensor == 'C_MOD_BP': return sensor_BP
             if select_sensor == 'C_MOD_ALL': return sensor_all

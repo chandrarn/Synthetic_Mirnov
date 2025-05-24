@@ -9,16 +9,17 @@ Created on Fri May  2 16:37:52 2025
 from header_Cmod import sys, np,__doFilter,plt, correct_Bode, lombscargle,Normalize,cm
 sys.path.append('../signal_analysis/')
 from plot_sensor_output import doPlot
+from estimate_n import calc_phase_diff, doPlot_n
 from get_signal_data import __select_sensors, __gen_surface_data
 from get_Cmod_Data import BP, BP_T
 from eqtools import CModEFITTree
 
 
-def plot_Current_Surface(shotno=1051202011,sensor_set='BP', doVoltage=False,
-                         phi_sensor=0,doSave='',save_Ext='',timeScale=1,
-                         file_geqdsk='g1051202011.1000',tLim=[0,2],
-                         HP_Freq=1e3, LP_Freq=None,cLims=None,
-                         doBode=True):
+def plot_Current_Surface(shotno=1160930034,sensor_set='BP_T', doVoltage=False,
+                         phi_sensor=0,doSave='/home/rianc/Documents/Synthetic_Mirnov/output_plots/',save_Ext='',timeScale=1,
+                         file_geqdsk='g1051202011.1000',tLim=[0.8175,0.821],
+                         HP_Freq=2e3, LP_Freq=10e3,cLims=None,
+                         doBode=True,calc_n=True,n=[-1],chan='BP1T_ABK'):
     
     # Generate data
     # Select usable sensors from set
@@ -27,7 +28,12 @@ def plot_Current_Surface(shotno=1051202011,sensor_set='BP', doVoltage=False,
     
     #return sensor_dict
     hist_file =  build_data_dict(sensor_dict)
+    
+    do1Dplot(hist_file['time'], hist_file, HP_Freq, LP_Freq, sensor_set, shotno, chan, doSave,
+             save_Ext,timeScale)
+    
     doFilter_hist(hist_file,HP_Freq,LP_Freq)
+    
     
     #return hist_file
     if doBode:doCorrectBode(hist_file)
@@ -36,17 +42,25 @@ def plot_Current_Surface(shotno=1051202011,sensor_set='BP', doVoltage=False,
     # build datasets
     X,Y,Z = __gen_surface_data(sensor_dict,hist_file,doVoltage,{'dt':1,'f':1},
                                'C_Mod_'+sensor_set, None)
-    '''
-    do1Dplot(X,Z,HP_Freq,LP_Freq,sensor_set,sensor_dict,shotno,0,doSave,save_Ext,
-             timeScale)
     
+   
+    '''
     doFilter(X,Z,HP_Freq, LP_Freq)
    '''
+   
+    #return X,Y,Z,sensor_dict,hist_file
 
     doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,False,
            doVoltage,False,cLims,shotno=shotno)
     
-    doSpect(X,Y,Z,doSave,save_Ext)
+    if calc_n:
+        doSpect(X,Y,Z,doSave,save_Ext)
+        
+        Y=Y[::-1]; Z=Z[::-1]
+        
+        phases, angle, res, phase_out  = calc_phase_diff(Y,Z,n)
+
+        doPlot_n(angle,phases,n,res,X,Z,doSave,'_Real')
     
     return X,Y,Z,sensor_dict,hist_file
 ###############################################################################
@@ -68,25 +82,26 @@ def build_data_dict(sensor_dict):
 def doFilter(X,Z,HP_Freq, LP_Freq):
     for i in range(len(X)):
         Z[i]=__doFilter(Z[i], X[i], HP_Freq, LP_Freq)
-def doFilter_hist(hist_file,HP_Freq, LP_Freq):
+def doFilter_hist(hist_file,HP_Freq, LP_Freq,tReduce=5000):
     
     for sens_name in hist_file:
         if sens_name == 'time': continue
-        hist_file[sens_name]=__doFilter(hist_file[sens_name], hist_file['time'], HP_Freq, LP_Freq)[0]
-    
+        hist_file[sens_name]=__doFilter(hist_file[sens_name], hist_file['time'],\
+                                        HP_Freq, LP_Freq)[0][tReduce:-tReduce]
+    hist_file['time'] = hist_file['time'][tReduce:-tReduce]
 ###############################################################################
-def do1Dplot(X,Z,HP_Freq,LP_Freq,sensor_set,sensor_dict,shotno,chan=0,doSave='',
-             save_Ext='',  timeScale=1,):
-    plt.close('1D_%s_%d'%(sensor_set,chan))
-    fig,ax=plt.subplots(1,1,num='1D_%s_%d'%(sensor_set,chan),tight_layout=True,
+def do1Dplot(time, signal, HP_Freq, LP_Freq, sensor_set, shotno, chan, doSave='',
+         save_Ext='',timeScale=1):
+    plt.close('1D_%s_%s'%(sensor_set,chan))
+    fig,ax=plt.subplots(1,1,num='1D_%s_%s'%(sensor_set,chan),tight_layout=True,
                         figsize=(4,2))
-    ax.plot(X[0]*timeScale,Z[0][0],label='Raw Signal')
+    ax.plot(time*timeScale,signal[chan],label='Raw Signal')
     
     #filt = doFilter(X[0][0],Z[0][0],None, HP_Freq)
-    filt_h = __doFilter(Z[0][0], X[0], None, HP_Freq)
-    filt_l = __doFilter(Z[0][0], X[0], None, LP_Freq)
-    ax.plot(X[0]*timeScale,filt_h[0],  label='%d kHz High-pass'%(HP_Freq*1e-3))
-    ax.plot(X[0]*timeScale,filt_l[0], label='%d kHz Lowpass'%(LP_Freq*1e-3))
+    filt_h = __doFilter(signal[chan], time, None, HP_Freq)
+    filt_l = __doFilter(signal[chan], time, None, LP_Freq)
+    ax.plot(time*timeScale,filt_h[0],  label='%d kHz High-pass'%(HP_Freq*1e-3))
+    ax.plot(time*timeScale,filt_l[0], label='%d kHz Lowpass'%(LP_Freq*1e-3))
     ax.grid()
     ax.legend(fontsize=8)
     if timeScale==1: tUnit = 's'
@@ -96,8 +111,8 @@ def do1Dplot(X,Z,HP_Freq,LP_Freq,sensor_set,sensor_dict,shotno,chan=0,doSave='',
     ax.set_ylabel(r'B$_\theta$ [arb]')
     plt.show()
     if doSave:
-        fig.savefig(doSave+'Sensor_C_Mod_%s_%d_%d_t_%2.2f_%2.2f%s.pdf'%\
-            (sensor_set,chan,shotno,X[0][0],X[0][-1],save_Ext),transparent=True)
+        fig.savefig(doSave+'Sensor_C_Mod_%s_%s_%d_t_%2.2f_%2.2f%s.pdf'%\
+            (sensor_set,chan,shotno,time[0],time[-1],save_Ext),transparent=True)
 ###############################################################################
 def doSpect(X,Y,Z,doSave,save_Ext):
     

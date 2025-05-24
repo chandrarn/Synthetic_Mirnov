@@ -22,7 +22,7 @@ def gen_filament_coords(params):
         np.linspace(0,m_local*2*np.pi,n_pts,endpoint=True)
  
 ########################
-def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
+def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=True,fil=0):
     # For a set of theta, phi mode coordinates, for an m/n mode, return the x,y,z
     # coordinates of the filaments, assigning the radial coordainte based on
     # either a GEQDSK file or a fixed minor radial parameter
@@ -41,7 +41,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
         R_eq=np.linspace(eqdsk.rleft,eqdsk.rleft+eqdsk.rdim,len(psi_eqdsk))
         Z_eq=np.linspace(eqdsk.zmid-eqdsk.zdim/2,eqdsk.zmid+eqdsk.zdim/2,len(psi_eqdsk))
         psi_lin = np.linspace(eqdsk.simagx,eqdsk.sibdry,eqdsk.nx)
-        p = np.polyfit(psi_lin, eqdsk.qpsi,12)
+        p = np.polyfit(psi_lin, eqdsk.qpsi,10)
         fn_q = lambda psi: np.polyval(p,psi)
         q_rz = fn_q(psi_eqdsk) # q(r,z)
         
@@ -63,6 +63,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0):
         theta_r=np.arctan2(Z_eq[contour[:,0]]-eqdsk.zmagx,R_eq[contour[:,1]]-eqdsk.rmagx) % (2*np.pi)
         
         r_theta_=make_smoothing_spline(theta_r[np.argsort(theta_r)],r_norm[np.argsort(theta_r)],lam=.00001)
+        r_theta_ = lambda theta: np.polyval(np.polyfit(theta_r,r_norm,11),theta)
         r_theta = lambda theta: r_theta_(theta%(2*np.pi) ) # Radial coordinate vs theta
         
         zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx

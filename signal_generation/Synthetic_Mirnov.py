@@ -19,10 +19,10 @@ from plot_sensor_output import plot_Currents
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5',
                          xml_filename='oft_in.xml',\
-                             params={'m':3,'n':1,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
+                             params={'m':8,'n':7,'r':.25,'R':1,'n_pts':30,'m_pts':10,\
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
-                                sensor_set='C_MOD_BP',cmod_shot=1051202011,
+                                sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=True):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
@@ -87,7 +87,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,debug=False):
 
 ####################################
 def gen_filaments(filament_file,params,filament_coords,\
-                  eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' ):
+                  eta = '1.8E-5, 3.6E-5, 2.4E-5'):#, 6.54545436E-5, 2.4E-5' ):
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     n_pts=params['n_pts'];m_pts=params['m_pts']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
@@ -205,6 +205,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     if debug:print('Launched Plotter')
     # Plot Mesh
     if plot_B_surf: p.add_mesh(grid,color="white",opacity=.9,show_edges=True,scalars=Jfull)
+    else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
     #slices=grid.slice_orthogonal()
     slice_coords=[np.linspace(0,1.6,10),[0]*10,np.linspace(-1.5,1.5,10)]
     slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
@@ -226,7 +227,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
         #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
         slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
-        p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/np.max(coil_currs[t_pt,ind+1])+1)/2),
+        p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/np.max(coil_currs[t_pt,:])+1)/2),
                    line_width=10,render_points_as_spheres=True,
                    label='Filament' if ind==0 else None)
         #p.add_points(pts,render_points_as_spheres=True,opaity=1,point_size=20,color=colors[ind])
@@ -254,11 +255,11 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 #####################################
   
 if __name__=='__main__':
-    mesh_file='C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    params={'m':2,'n':1,'r':.25,'R':1,'n_pts':50,'m_pts':70,\
+    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    params={'m':8,'n':7,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
         'f':1e3,'dt':1e-5,'T':1e-3,'periods':1,'n_threads':64,'I':10}
     file_geqdsk='g1051202011.1000'
-    sensor_set='C_MOD_MIRNOV_T';cmod_shot=1051202011
+    sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     #mesh_file='SPARC_Sept2023_noPR.h5'
     # mesh_file='thincurr_ex-torus.h5'
     #sensor_set='MRNV'
