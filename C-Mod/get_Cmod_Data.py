@@ -107,6 +107,21 @@ class BP:
 
 
 ###############################################################################
+class BP_K:
+    # Overclass for all high frequency Mirnovs
+    # Data is unstructured\
+    
+    # Pattern: 1-6 for BPXXT_XXK, 1-28 BPXX_XXK, 1-6 BPX_K, AB, BC, EF, GH, KA BP_XX_TOP/BOT 
+    
+    def __init__(self, shotno, debug=False):
+        if debug: print('Loading ALL high frequency Mirnov Probes')
+        conn = openTree(shotno)
+        self.shotno=shotno if shotno !=0 else currentShot(conn)
+        
+        basePath= r'\CMOD::TOP.MHD.MAGNETICS:ACTIVE_MHD:SIGNALS:'
+        
+
+###############################################################################
 class BP_T:
     # High frequency Mirnov array
     
@@ -129,6 +144,8 @@ class BP_T:
         self.gh_phi = []
         self.gh_r = []
         self.gh_z = []
+        
+        
         
         # Presaved spatial geometetry dicts
         phi, theta_pol, R, Z = Mirnov_Geometry(self.shotno)
