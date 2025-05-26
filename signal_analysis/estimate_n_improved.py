@@ -27,7 +27,7 @@ from get_Cmod_data import __loadData
 
 
 # Assume that we have some way of grouping in frequency/time
-def run_n(shotno=1051202011, tLim=[1,1.01], fLim, HP_Freq, LP_Freq):
+def run_n(shotno=1051202011, tLim=[1,1.01], fLim=None, HP_Freq=1e3, LP_Freq=None):
     
     bp_k = __loadData(shotno,pullData='bp_k')['bp_k']
     
