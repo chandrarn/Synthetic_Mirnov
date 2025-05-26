@@ -1059,6 +1059,9 @@ def __genRawData(rawData,shotno,pullData,debug,forceReload):
     if 'bp_t' in pullData and ('bp_t' not in rawData or 'bp_t' in forceReload):
         rawData['bp_t'] = BP_T(shotno, debug)
     
+    if 'bp_k' in pullData and ('bp_t' not in rawData or 'bp_t' in forceReload):
+        rawData['bp_k'] = BP_K(shotno, debug)
+    
     if 'ece' in pullData and ('ece' not in rawData or 'ece' in forceReload):
         rawData['ece'] = ECE(shotno,debug)
     
@@ -1079,6 +1082,7 @@ def __genRawData(rawData,shotno,pullData,debug,forceReload):
     
     if 'yag' in pullData and ('yag' not in rawData or 'yag'  in forceReload):
         rawData['yag'] = YAG(shotno,debug)
+        
     
     return rawData
 
