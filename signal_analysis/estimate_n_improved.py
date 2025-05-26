@@ -24,7 +24,7 @@ from C_mod_header import __doFilter
 
 # Assume that we have some way of grouping in frequency/time
 
-def run_n(shotno, tLim, fLim, HP_Freq, LP_Freq):
+def run_n(shotno=1051202011, tLim=[1,1.01], fLim, HP_Freq, LP_Freq):
     
     sensors = Mirnov(shotno,t1=tLim[0],t2=tLim[1])
     
