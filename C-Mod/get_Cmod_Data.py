@@ -6,7 +6,7 @@ Spyder Editor
 
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
-    gaussianLowPassFilter, __doFilter, pk, json, MDSplus, data_archive_path
+    gaussianLowPassFilter, __doFilter, pk, json, MDSplus, data_archive_path, Mirnov
 from mirnov_Probe_Geometry import Mirnov_Geometry
         
     
@@ -113,15 +113,35 @@ class BP_K:
     
     # Pattern: 1-6 for BPXXT_XXK, 1-28 BPXX_XXK, 1-6 BPX_K, AB, BC, EF, GH, KA BP_XX_TOP/BOT 
     
-    def __init__(self, shotno, debug=False):
+    # Make use of Ted's Mirnov object [ does not include BP0x_K]
+    # Need to pre-reduce data
+    def __init__(self, shotno, debug=False, tLim=[.5,1.5],blockLength=1e-3,skipInteger=40):
         if debug: print('Loading ALL high frequency Mirnov Probes')
-        conn = openTree(shotno)
-        self.shotno=shotno if shotno !=0 else currentShot(conn)
         
-        basePath= r'\CMOD::TOP.MHD.MAGNETICS:ACTIVE_MHD:SIGNALS:'
+        sensors=Mirnov(shotno,t1=tLim[0],t2=tLim[1])
+        data = []
+        time = sensors.getT()
+        # Calculate reduction indicies
+        inds = np.array([],dtype=int)
+        blockStart = np.arange(0,(tLim[1]-tLim[0])*5e6,
+                                   blockLength*5e6*skipInteger,dtype=int)
+        for ind_start in blockStart:
+            inds=np.append(inds,np.arange(ind_start,ind_start+blockLength*5e6,dtype=int))
         
+        for name in sensors.coil_names:
+            if debug: print('Loading sensor %s'%name)
+            data.append(sensors.getSig(name)[inds])
         
-
+        self.time=time[inds]
+        self.data = np.array(data)
+        self.R = sensors.getR(sensors.coil_names)
+        self.Phi = sensors.getPhi(sensors.coil_names)
+        self.Z = sensors.getZ(sensors.coil_names)
+        self.blockLength=blockLength
+        self.skipInteger = skipInteger
+        self.blockStart = blockStart
+        self.names = sensors.coil_names
+        self.tLim = tLim
 ###############################################################################
 class BP_T:
     # High frequency Mirnov array
