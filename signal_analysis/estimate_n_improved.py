@@ -15,21 +15,23 @@ Created on Fri May 23 22:57:33 2025
 @author: rian
 """
 
-from mirnov_ted import Mirnov
+
 import numpy as np
 from scipy.signal import hilbert
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-from eqtools import CModEFITTree
+try:from header_signal_analysis import CModEFITTree
+except:pass
 from sys import path; path.append('../C-Mod/')
-from C_mod_header import __doFilter
-from get_Cmod_data import __loadData
+from header_Cmod import __doFilter
+from get_Cmod_Data import __loadData
 
 
 # Assume that we have some way of grouping in frequency/time
-def run_n(shotno=1051202011, tLim=[1,1.01], fLim=None, HP_Freq=1e3, LP_Freq=None):
+def run_n(shotno=1160930034, tLim=[1,1.01], fLim=None, HP_Freq=1e3, LP_Freq=None,n=[-1,-7]):
     
-    bp_k = __loadData(shotno,pullData='bp_k')['bp_k']
+    bp_k = __loadData(shotno,pullData='bp_k',debug=True,
+                      data_archive='/home/rian/Documents/data_archive/')['bp_k']
     
     phi = bp_k.Phi
     
@@ -77,17 +79,22 @@ def run_n(shotno=1051202011, tLim=[1,1.01], fLim=None, HP_Freq=1e3, LP_Freq=None
     
 def get_theta(R,Z,shotno,tLim):
         # Assume using the upper row always
-        try:eq = CModEFITTree(shotno)
-        except:eq = CModEFITTree(1160930034)
-        time = eq.getTimeBase()
-        tInd = np.arange(*[np.argmin((time-t)**2) for t in tLim ] ) 
-        # if tLim points are closer than dt-EFIT, it won't work
-        if np.size(tInd)==0:tInd = np.argmin((time-tLim[0])**2) 
-        zmagx = np.mean(eq.getMagZ()[tInd])
-        rmagx = np.mean(eq.getMagR()[tInd])
-        
+        try:
+            try:eq = CModEFITTree(shotno)
+            except:eq = CModEFITTree(1160930034)
+            time = eq.getTimeBase()
+            tInd = np.arange(*[np.argmin((time-t)**2) for t in tLim ] ) 
+            # if tLim points are closer than dt-EFIT, it won't work
+            if np.size(tInd)==0:tInd = np.argmin((time-tLim[0])**2) 
+            zmagx = np.mean(eq.getMagZ()[tInd])
+            rmagx = np.mean(eq.getMagR()[tInd])
+        except: zmagx=0;rmagx=0.79
         
         #sensor = __loadData(shotno,pullData=['bp_t'])['bp_t']
         theta = np.arctan2(Z-zmagx,R-rmagx)[0]*180/np.pi
         
         return theta
+    
+    
+########################################################
+if __name__ == '__main__': run_n()

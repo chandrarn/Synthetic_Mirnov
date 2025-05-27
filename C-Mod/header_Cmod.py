@@ -12,7 +12,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.io import loadmat 
 from scipy.signal import lombscargle
 
-from mirnov_ted import Mirnov
+
 import pickle as pk
 import sys
 from os import getlogin
@@ -21,6 +21,8 @@ from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip
 try:import MDSplus
 except:MDSplus=False# Doesn't exist on all systems, needed for one get_Cmod_data function
+try:from mirnov_ted import Mirnov
+except:Mirnov=False # same issue
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
