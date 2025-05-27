@@ -28,15 +28,15 @@ from get_Cmod_Data import __loadData
 
 
 # Assume that we have some way of grouping in frequency/time
-def run_n(shotno=1160930034, tLim=[1,1.01], fLim=None, HP_Freq=1e3, LP_Freq=None,n=[-1,-7]):
+def run_n(shotno=1160930034, tLim=[1.02,1.02+1e-3], fLim=None, HP_Freq=1e3, LP_Freq=None,n=[-1,-7]):
     
     bp_k = __loadData(shotno,pullData='bp_k',debug=True,
-                      data_archive='/home/rian/Documents/data_archive/')['bp_k']
+                      data_archive='')['bp_k']
     
-    phi = bp_k.Phi
+    phi = np.array(bp_k.Phi)
     
     R = bp_k.Phi
-    Z = bp_k.Phi
+    Z = np.array(bp_k.Z)
     
     theta = get_theta(R,Z,shotno,tLim)
     
@@ -45,35 +45,42 @@ def run_n(shotno=1160930034, tLim=[1,1.01], fLim=None, HP_Freq=1e3, LP_Freq=None
     
     # get Time range
     inds = np.arange(*[np.argmin(np.abs(bp_k.time-t)) for t in tLim])
+    
+    #return R,Z,data, inds,bp_k
     # Do Filtering 
-    __doFilter(data[:,inds], bp_k[inds],HP_Freq, LP_Freq)
+    data=__doFilter(data[:,inds], bp_k.time[inds],HP_Freq, LP_Freq)
     
     
     # FFT processing: more than just Hilbert
     # Use dominant frequency within bandpassfilteresed region for now
     phase = np.unwrap(np.angle(hilbert(data,axis=1)))
     
+    #return data,phase
     
-    angles = bp_k.Phi
+    angles = phi
     angles_group = np.array([])
     phase_group=np.array([])
     # normalize off phase by rings in poloidal plane?
-    z_levels = [8,10,14,30] #+/-, in cm
+    z_levels = [10]#[8,10,14] #+/-, in cm
     # SWitch this to theta
     for z in z_levels:
-        z_inds = np.argwhere(z-.5<=bp_k.Z*1e2<=z+0.5)
+        print(z)
+        z_inds = np.argwhere((Z*1e2<=z+0.5)  &  (Z*1e2>=z-0.5)).squeeze()
+        print(z_inds)
         angles_group = np.append(angles_group, angles[z_inds]-angles[z_inds][0])
-        phase_group = np.append(phase_group[z_inds]-phase[z_inds][0])
+        tmp = [np.mean(phase[z_] - phase[z_inds[0]])%360 for z_ in z_inds]
+        phase_group = np.append(phase_group,tmp)
+        #phase_group = np.append(phase_group,phase[z_inds,:]-phase[z_inds,:][0])
     # zero base to one sensor
     
     # run fit for n
-    fn = lambda n: np.mean(np.abs(phase_group-(n[0]*(angles_group[1:]-angles_group[1]))%360 )**2)
-    res = minimize(fn,[n[-1]],bounds=[[-20,0]])
-    n_opt = res.x
+#    fn = lambda n: np.mean(np.abs(phase_group-(n[0]*(angles_group[1:]-angles_group[1]))%360 )**2)
+#    res = minimize(fn,[n[-1]],bounds=[[-20,0]])
+#    n_opt = res.x
     
     # Run for m?
     
-    
+    return angles_group, phase_group, angles, phase
     
     
     

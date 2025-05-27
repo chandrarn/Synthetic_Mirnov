@@ -133,7 +133,7 @@ class BP_K:
             data.append(sensors.getSig(name)[inds])
         
         self.time=time[inds]
-        self.data = np.array(data)
+        self.data = np.array(data).astype(np.float32)
         self.R = sensors.getR(sensors.coil_names)
         self.Phi = sensors.getPhi(sensors.coil_names)
         self.Z = sensors.getZ(sensors.coil_names)
