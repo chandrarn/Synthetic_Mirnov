@@ -83,6 +83,7 @@ class Mirnov :
         for n in magNodes :
             if not n.isOn() :
                 continue
+            elif 'OLD' in n.getNodeName():continue# discount these nodes
             elif self.coil_selection=='tile' and re.match('.*t.*',n.getNodeName().lower()) is None:
                 continue
             elif self.coil_selection=='low-n' and re.match('.*top|.*bot',n.getNodeName().lower()) is None:
@@ -108,22 +109,46 @@ class Mirnov :
         #Start with linked list.  Then, also generate dictionaries.
 
         #Cast to list so that concatenation of lists will work.
-        phi=list(self.tree.getNode('rf_lim_coils.phi_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils.phi_gh').getData().evaluate().getData().evaluate())
-        nodeNames=self.tree.getNode('rf_lim_coils.nodename').getData().evaluate()[0:(len(phi))];
-        nodeNames=list(nodeNames)+list(self.tree.getNode('low_n_coils.nodename').getData().evaluate().getData().evaluate())
-        
+        phi = list(self.tree.getNode('rf_lim_coils.phi_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils.phi_gh').getData().evaluate().getData().evaluate())
+        nodeNames=list(self.tree.getNode('rf_lim_coils.nodename').getData().evaluate()[0:(len(phi))]);
+        try: # Catch for: low-n sensors move around 2008
+            nodeNames += list(self.tree.getNode('low_n_coils.nodename').getData().evaluate().getData().evaluate())
+        except:pass
         #Deblank (trim whitespace) the strings and enforce lower case
         nodeNames=[n.strip().lower() for n in nodeNames]
         
-        phi=phi+list(self.tree.getNode('low_n_coils.phi').getData().evaluate().getData().evaluate())
-        z=list(self.tree.getNode('rf_lim_coils:z_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils:z_gh').getData().evaluate().getData().evaluate())+list(self.tree.getNode('low_n_coils.z').getData().evaluate().getData().evaluate())
-        R=list(self.tree.getNode('rf_lim_coils:r_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils:r_gh').getData().evaluate().getData().evaluate())+list(self.tree.getNode('low_n_coils.r').getData().evaluate().getData().evaluate())
-        theta=list(self.tree.getNode('rf_lim_coils:theta_pol_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils:theta_pol_gh').getData().evaluate().getData().evaluate())+list(self.tree.getNode('low_n_coils.theta_pol').getData().evaluate().getData().evaluate())
+        
+        
+        z = list(self.tree.getNode('rf_lim_coils:z_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils:z_gh').getData().evaluate().getData().evaluate())
+        
+        R = list(self.tree.getNode('rf_lim_coils:r_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils:r_gh').getData().evaluate().getData().evaluate())
+        
+        theta=list(self.tree.getNode('rf_lim_coils:theta_pol_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils:theta_pol_gh').getData().evaluate().getData().evaluate())
+        
+        try: 
+            z += list(self.tree.getNode('low_n_coils.z').getData().evaluate().getData().evaluate())
+            R += list(self.tree.getNode('low_n_coils.r').getData().evaluate().getData().evaluate())
+            phi += list(self.tree.getNode('low_n_coils.phi').getData().evaluate().getData().evaluate())
+            theta += list(self.tree.getNode('low_n_coils.theta_pol').getData().evaluate().getData().evaluate())
+        except: 
+            # _k coils were replaced by the _top, _bot coils around 2008
+            z_k= self.tree.getNode('RF_LIM_COILS.Z_K').getData().evaluate().getData().evaluate()
+            r_k=self.tree.getNode('RF_LIM_COILS.R_K').getData().evaluate().getData().evaluate()
+            phi_k=self.tree.getNode('RF_LIM_COILS.PHI_K').getData().evaluate().getData().evaluate()
+            theta_k=[0,0,0,0,0,0]#self.tree.getNode('RF_LIM_COILS.THETA_POL_K').getData().evaluate().getData().evaluate()
+            
+            for ind,name in enumerate([['bp0%d_k'%i] for i in numpy.arange(1,7)]):
+                z += [z_k[ind]]
+                R += [r_k[ind]]
+                phi += [phi_k[ind]]
+                theta += [theta_k[ind]]  
+                nodeNames += name
         
         name2phi=dict(zip(nodeNames,phi))
         name2z=dict(zip(nodeNames,z))
         name2R=dict(zip(nodeNames,R))
         name2theta=dict(zip(nodeNames,theta))
+        
         
         #Store R,z,phi,theta for subset of coils specified,
         #and in order of self.nodes and self.coil_names

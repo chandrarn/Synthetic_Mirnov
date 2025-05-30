@@ -121,7 +121,7 @@ def __selectSignal(rawData,signal,plotChan,tLim_Manual,shot_ind,manual_t_align,
         data = node.ab_data[plotChan[signal] if signal in plotChan else 3]
         time = node.time
         # Ingtegrate
-        data = np.cumsum(data)*np.mean(np.diff(time))
+        data = data#np.cumsum(data)*np.mean(np.diff(time))
         label =r'$\partial_t\mathrm{B}_\theta$ [G/S]'
     elif signal == 'gpc':
         data = node.Te[plotChan[signal] if signal in plotChan else 4]
@@ -183,6 +183,7 @@ def __doCleanup(ax,fig,leg_loc,makePlots,shots,suppressY,doSave,figTitle,
     if doSave:
         fig.savefig(doSave + figTitle + '.pdf', transparent=True)
         print('Saving: '+doSave + figTitle + '.pdf')
+    plt.show()
     #return ax
 
 ###############################################################################
