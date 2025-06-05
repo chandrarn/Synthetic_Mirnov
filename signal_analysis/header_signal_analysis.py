@@ -62,5 +62,28 @@ from rolling_spectrogram import rolling_spectrogram
 # Add paths
 #ssys.path.append('signal_analysis/')
 sys.path.append('../C-Mod/')
+##############################################
+def doFFT(time,signal,doPlot=False):
+    # Do and return fft
+    # assumes signal is already zero-mean subtracted
+    if type(signal) == list: signal = np.array(signal)
+    if signal.ndim == 1: signal = np.expand_dims(signal,0)
+    
+    fs = (time[1]-time[0]) # sampling frequency
+    fft_freq = np.fft.fftfreq(len(signal[0]),fs)[:len(time)//2]
+    
+    fft_out = []
+    for sig in signal: 
+        fft_out.append( np.fft.fft(sig)[:len(sig)//2]/(fs * len(sig)) )
+    fft_out = np.array(fft_out)
+    
+    if doPlot:
+        plt.close('FFT')
+        fig,ax = plt.subplots(1,1,num='FFT',tight_layout=True,figsize=(4,3))
+        ax.plot(fft_freq*1e-3,np.abs(fft_out).T,alpha=.8)
+        ax.set_xlabel(r'Frequency [kHz]')
+        ax.set_ylabel(r'PSD')
+        ax.grid()
+        plt.show()
 
-
+    return fft_freq, fft_out
