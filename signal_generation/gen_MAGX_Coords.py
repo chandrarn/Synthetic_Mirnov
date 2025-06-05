@@ -335,7 +335,8 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             #shot is necessary for minor differences in TOP/BOT sensors
             # Pulls data for limiters only
             phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
-            BP_Data = BP(cmod_shot) # Pull data for Low freq sensors
+            try:BP_Data = BP(cmod_shot);skipBP=False # Pull data for Low freq sensors
+            except:skipBP=True
             dx = 4e-3 # True at minimum for BP probes, from 'Magnetic diagnostics in Alcator C‐MOD', R. Granetz 1990
            
             sensor_Mirnov_T = []
@@ -358,39 +359,40 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                     sens = Mirnov(pt, norm, name,dx)
                     sensor_Mirnov.append(sens)
             # Slower BP sensors
-            cad_shift = 61.389 # Toroidal rotational shift to match CAD
-            for phi_num in ['bc','de','gh','jk']:
-                if phi_num=='bc':set_ = BP_Data.BC
-                if phi_num=='de':set_ = BP_Data.DE
-                if phi_num=='gh':set_ = BP_Data.GH
-                if phi_num=='jk':set_ = BP_Data.JK
-                for ind,name in enumerate(set_['NAMES']):
-                    # Radial, Z shift to avoid cad surface
-                    r_shift = 0.01 if 12 <= int(name[2:4]) <= 15 else 0
-                    z_shift = 0.01*np.sign(set_['Z'][ind]) if \
-                        (10 <= int(name[2:4]) <= 11 ) or \
-                        (16 <= int(name[2:4]) <= 17 ) else 0
-                    pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind]+cad_shift,\
-                        set_['R'][ind] + r_shift,\
-                        set_['Z'][ind] + z_shift,\
-                        set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
-                    sens = Mirnov(pt, norm, name, dx)
-                    sensor_BP.append(sens)
+            if not skipBP:
+                cad_shift = 61.389 # Toroidal rotational shift to match CAD
+                for phi_num in ['bc','de','gh','jk']:
+                    if phi_num=='bc':set_ = BP_Data.BC
+                    if phi_num=='de':set_ = BP_Data.DE
+                    if phi_num=='gh':set_ = BP_Data.GH
+                    if phi_num=='jk':set_ = BP_Data.JK
+                    for ind,name in enumerate(set_['NAMES']):
+                        # Radial, Z shift to avoid cad surface
+                        r_shift = 0.01 if 12 <= int(name[2:4]) <= 15 else 0
+                        z_shift = 0.01*np.sign(set_['Z'][ind]) if \
+                            (10 <= int(name[2:4]) <= 11 ) or \
+                            (16 <= int(name[2:4]) <= 17 ) else 0
+                        pt,norm = __cords_xyz_C_Mod(set_['PHI'][ind]+cad_shift,\
+                            set_['R'][ind] + r_shift,\
+                            set_['Z'][ind] + z_shift,\
+                            set_['THETA_POL'][ind],set_['THETA_TOR'][ind])
+                        sens = Mirnov(pt, norm, name, dx)
+                        sensor_BP.append(sens)
             
-            ############################################
-            sensor_all.extend(sensor_Mirnov_T)
-            sensor_all.extend(sensor_Mirnov)
-            sensor_all.extend(sensor_BP)
-            
-            sensor_Lim.extend(sensor_Mirnov_T)
-            sensor_Lim.extend(sensor_Mirnov)
-            
-            # Save in ThinCurr readable format
-            # Mirnov object itself is directly readable: can extract location
-            save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
-            save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
-            save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
-            save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
+                ############################################
+                sensor_all.extend(sensor_Mirnov_T)
+                sensor_all.extend(sensor_Mirnov)
+                sensor_all.extend(sensor_BP)
+                
+                sensor_Lim.extend(sensor_Mirnov_T)
+                sensor_Lim.extend(sensor_Mirnov)
+                
+                # Save in ThinCurr readable format
+                # Mirnov object itself is directly readable: can extract location
+                save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
+                save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
+                save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
+                save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
             
             # Save (x,y,z) coordinates for BP sensor for CAD comparison
             if select_sensor == 'Synth-C_MOD_BP':
