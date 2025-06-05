@@ -57,7 +57,7 @@ def main():
     theta, phi = gen_fil_old(params)
     # theta = theta % (2*np.pi)
     # phi= phi % (2*np.pi)
-    coords_old = calc_filament_coords_geqdsk(None,theta,phi,params)
+    coords_old = calc_filament_coords_geqdsk(None,theta,phi,params,debug=False)
     #return coords
     # Make plot
     plt.close('test')
