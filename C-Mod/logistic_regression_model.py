@@ -2,14 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jun  4 20:19:25 2025
-    Initial Logistic regresion attempt
-    read in standardized filename or directory, generate target n# set
-    calculate standardized phase differences as ``data''
-        - need more than one n# ``data'' case per n#:
-            - otherwise training set will include unseen category (n)
-    
-    autoinclude comparison to real shot
-    - how to deal with m#
+    Initial Logistic example
 @author: rian
 """
 
@@ -38,6 +31,7 @@ sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
+#####################################################
 # convert to tensors
 X_train = torch.from_numpy(X_train.astype(np.float32))
 X_test = torch.from_numpy(X_test.astype(np.float32))
@@ -48,7 +42,7 @@ y_test = torch.from_numpy(y_test.astype(np.float32))
 y_train = y_train.view(y_train.shape[0], 1)
 y_test = y_test.view(y_test.shape[0], 1)
 
-
+################################################
 # Define regression model
 # Create model
 # f = wx + b, sigmoid at the end
@@ -64,6 +58,7 @@ class LogisticRegression(nn.Module):
     
 model = LogisticRegression(n_features)
 
+###############################################
 # Loss and optimizer 
 # Loss and optimizer
 learning_rate = 0.01
@@ -91,7 +86,9 @@ for epoch in range(num_epochs):
     
     if (epoch+1) % 10 == 0:
         print(f'epoch: {epoch+1}, loss = {loss.item():.4f}')
-        
+   
+
+############################################
         
 with torch.no_grad():
     y_predicted = model(X_test)  # no need to call model.forward()
