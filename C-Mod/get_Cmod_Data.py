@@ -115,19 +115,33 @@ class BP_K:
     
     # Make use of Ted's Mirnov object [ does not include BP0x_K]
     # Need to pre-reduce data
-    def __init__(self, shotno, debug=False, tLim=[.5,1.5],blockLength=1e-3,skipInteger=40):
+    def __init__(self, shotno, debug=False, params={}):
+        
         if debug: print('Loading ALL high frequency Mirnov Probes')
+        
+        if 'tLim' not in params: tLim=[.5,1.5]
+        else: tLim = params['tLim']
+        if 'blockLength' not in params: blockLength=2e-3
+        else: blockLength = params['blockLength']
+        if 'skipInteger' not in params: skipInteger=20
+        else: skipInteger = params['skipInteger']
         
         sensors=Mirnov(shotno,t1=tLim[0],t2=tLim[1])
         data = []
         time = sensors.getT()
-        # Calculate reduction indicies
-        inds = np.array([],dtype=int)
-        blockStart = np.arange(0,(tLim[1]-tLim[0])*5e6,
-                                   blockLength*5e6*skipInteger,dtype=int)
-        for ind_start in blockStart:
-            inds=np.append(inds,np.arange(ind_start,ind_start+blockLength*5e6,dtype=int))
-        
+        f_samp = 1/(time[1]-time[0])
+        # Calculate reduction indicies if desired
+        if skipInteger == 0:
+            inds=np.arange(len(time))
+            blockStart=[0]
+        else:
+
+            inds = np.array([],dtype=int)
+            blockStart = np.arange(0,(tLim[1]-tLim[0])*f_samp,
+                                       blockLength*f_samp*skipInteger,dtype=int)
+            for ind_start in blockStart:
+                inds=np.append(inds,np.arange(ind_start,ind_start+blockLength*f_samp,dtype=int))
+
         for name in sensors.coil_names:
             if debug: print('Loading sensor %s'%name)
             data.append(sensors.getSig(name)[inds])
@@ -142,6 +156,7 @@ class BP_K:
         self.blockStart = blockStart
         self.names = sensors.coil_names
         self.tLim = tLim
+        self.f_samp = f_samp
 ###############################################################################
 class BP_T:
     # High frequency Mirnov array
@@ -1044,7 +1059,7 @@ class XTOMO():
 ###############################################################################
 # Local data storage functionality
 def __loadData(shotno,data_archive='',debug=True,forceReload=[],\
-               pullData = ['bp','bp_t','gpc','ip','p_rf','yag']):
+               pullData = ['bp','bp_t','gpc','ip','p_rf','yag'],params={}):
     # data_archive can be manually specified if the default file locaiton isn't in use
     # Defult is to the author's MFE directory
     if data_archive == '': data_archive = data_archive_path
@@ -1062,14 +1077,14 @@ def __loadData(shotno,data_archive='',debug=True,forceReload=[],\
             if debug:print('Loading from server')
             raise Exception
     except:
-        rawData = __genRawData(rawData,shotno,pullData,debug,forceReload)
+        rawData = __genRawData(rawData,shotno,pullData,debug,forceReload,params)
         __saveRawData(rawData,shotno,debug,data_archive)
         
     if debug:print('Loaded ' + 'rawData_%d.pk'%shotno +' from archives')
     
     return rawData
 ###################################################
-def __genRawData(rawData,shotno,pullData,debug,forceReload):
+def __genRawData(rawData,shotno,pullData,debug,forceReload,params):
     # Pull requested diagnostic signals
     
     
@@ -1079,8 +1094,8 @@ def __genRawData(rawData,shotno,pullData,debug,forceReload):
     if 'bp_t' in pullData and ('bp_t' not in rawData or 'bp_t' in forceReload):
         rawData['bp_t'] = BP_T(shotno, debug)
     
-    if 'bp_k' in pullData and ('bp_t' not in rawData or 'bp_t' in forceReload):
-        rawData['bp_k'] = BP_K(shotno, debug)
+    if 'bp_k' in pullData and ('bp_k' not in rawData or 'bp_k' in forceReload):
+        rawData['bp_k'] = BP_K(shotno, debug, params)
     
     if 'ece' in pullData and ('ece' not in rawData or 'ece' in forceReload):
         rawData['ece'] = ECE(shotno,debug)

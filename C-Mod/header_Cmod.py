@@ -87,6 +87,9 @@ def correct_Bode(signal,time,sensor_name):
     rfft = np.fft.rfft(signal)
     fftFreq = np.fft.rfftfreq(len(signal), time[1]-time[0])
     
+    # check if signal is outside of calibration range
+    if fftFreq[np.argmax(np.abs(rfft))] < 200e3: return signal,None,None,None,None
+    
     #f,H_spline,fine_cal,fine_caln = __cal_Correction(sensor_name,fftFreq)
     #return  f,H_spline,fine_cal,fine_caln
     f, H = __cal_Correction(sensor_name,fftFreq)
@@ -94,9 +97,9 @@ def correct_Bode(signal,time,sensor_name):
     sig_new = np.fft.irfft( rfft / H ) 
     
     return sig_new,  H, f, fftFreq,rfft
-   
+  
 def __cal_Correction(sensor_name,freq):
-    CAL_PATH = '/mnt/home/sears/Matlab/Calibration/cal_v2/'
+    CAL_PATH = '/home/sears/Matlab/Calibration/cal_v2/'
     try:mat = loadmat(CAL_PATH+'451_responses/'+sensor_name +'_cal.mat')
     except: mat = loadmat(CAL_PATH+'451_responses/'+'BP1T_GHK' +'_cal.mat')
     f = mat['f'][0]; H_spline = mat['H_spline'][0]
@@ -106,6 +109,7 @@ def __cal_Correction(sensor_name,freq):
         mat = loadmat(CAL_PATH+'fine_tuning/'+sensor_name +'_caln.mat')
         fine_caln = mat['fine_caln'][0,0]
     except: fine_cal = fine_caln = 1
-    #return f,H_spline,fine_cal,fine_caln
+    #return f,H_spline,fine_cal,fine_caln 
+    
     
     return  f, np.interp(freq,f,H_spline) * fine_cal * fine_caln
