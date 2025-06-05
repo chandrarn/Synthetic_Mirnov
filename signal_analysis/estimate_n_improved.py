@@ -96,9 +96,11 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq):
         
     #return R,Z,data, inds,bp_k
     
+    return bp_k
     # trim data
     data = data[:,inds]
     
+    print(bp_k.Phi)
     phi = np.array(bp_k.Phi)
     
     R = np.array(bp_k.R)

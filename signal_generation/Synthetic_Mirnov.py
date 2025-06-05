@@ -23,7 +23,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
-                                plotOnly=True):
+                                plotOnly=False,archiveExt='',doPlot=True):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -48,8 +48,9 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 
     
     # Run time dependent simulation
-    if not plotOnly: run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,save_ext)
-    
+    if not plotOnly: run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
+                            save_ext,archiveExt)
+    if not doPlot: return
     return makePlots(tw_mesh,params,coil_currs,sensors,doSave,
                                 save_ext,Mc, L_inv,filament_coords,file_geqdsk)
     
@@ -144,7 +145,7 @@ def gen_coil_currs(param):
     return coil_currs
 
 ####################################
-def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=True):
+def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,archiveExt='',doPlot=True):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
     nsteps = int(param['T']/dt)
@@ -165,8 +166,8 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,doPlot=True):
     for h in hist_file:print(h)
     # Rename output 
     f_out = f*1e-3 if type(f) is float else F_AE_plot(0)[0]*1e-3
-    f_save = '../data_output/floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (sensor_set,m,n,f_out,save_Ext)
+    f_save = '../data_output/%sfloops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (archiveExt,sensor_set,m,n,f_out,save_Ext)
     subprocess.run(['cp','floops.hist',f_save])
     print('Saved: %s'%f_save)
                     
