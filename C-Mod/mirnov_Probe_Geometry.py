@@ -321,12 +321,15 @@ def Mirnov_Geometry(shotno,debug=True):
                     -129.5,-50.6,-55.6,-61.5,-67.3,-72.7,-77.9,-102.1,-107.1,-112.9,-118.6,\
                         -124.3,-129.5,-71.1,-71.1,-71.1,-108.9,-108.9,-108.9]
     #
-    conn = mds.Connection('alcdata')
-    conn.openTree('cmod',shotno)
-    theta_pol_ab = conn.get('\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_AB').data()
-    theta_pol_gh = conn.get('\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_GH').data()
-    nodenames = conn.get('\MAGNETICS::TOP.RF_LIM_COILS:NODENAME').data()
-    
+    try:
+        conn = mds.Connection('alcdata')
+        conn.openTree('cmod',shotno)
+        theta_pol_ab = conn.get('\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_AB').data()
+        theta_pol_gh = conn.get('\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_GH').data()
+        nodenames = conn.get('\MAGNETICS::TOP.RF_LIM_COILS:NODENAME').data()
+    except:
+        theta_pol_ab, theta_pol_gh, nodenames = hardcodedVals(shotno)
+        
     for sensor_name in theta_pol:
         
         try: sensor_index = int(np.argwhere(nodenames==sensor_name)[0,0])
@@ -356,3 +359,32 @@ def Mirnov_Geometry(shotno,debug=True):
         json.dump(phi,f, ensure_ascii=False, indent=4)
     ####################################
     return phi, theta_pol, R, Z
+
+
+######################################################
+def hardcodedVals(shotno):
+    theta_pol_ab = [ -50.6,  -55.6,  -61.5,  -67.3,  -72.7,  -77.9, -102.1, -107.1,
+       -112.9, -118.6, -124.3, -129.5,  -50.6,  -55.6,  -61.5,  -67.3,
+        -72.7,  -77.9, -102.1, -107.1, -112.9, -118.6, -124.3, -129.5,
+        -71.1,  -71.1,  -71.1, -108.9, -108.9, -108.9]
+    theta_pol_gh = [ -50.5,  -55.7,  -61.5,  -67.2,  -72.9,  -77.6,  -84.4,  -90. ,
+        -96.1, -102.4, -107.3, -112.7, -118.5, -124.4, -129.4,  -50.5,
+        -55.7,  -61.5,  -67.2,  -72.9,  -77.6,  -84.4,  -96.1, -102.4,
+       -107.3, -112.7, -118.5, -124.4, -129.4,  -72.3,  -72.3,  -72.3,
+       -107.7, -107.7, -107.7]
+    nodenames = ['BP01_ABK', 'BP02_ABK', 'BP03_ABK', 'BP04_ABK', 'BP05_ABK',
+       'BP06_ABK', 'BP07_ABK', 'BP08_ABK', 'BP09_ABK', 'BP10_ABK',
+       'BP11_ABK', 'BP12_ABK', 'BP13_ABK', 'BP14_ABK', 'BP15_ABK',
+       'BP16_ABK', 'BP17_ABK', 'BP18_ABK', 'BP19_ABK', 'BP20_ABK',
+       'BP21_ABK', 'BP22_ABK', 'BP23_ABK', 'BP24_ABK', 'BP1T_ABK',
+       'BP2T_ABK', 'BP3T_ABK', 'BP4T_ABK', 'BP5T_ABK', 'BP6T_ABK',
+       'BP01_GHK', 'BP02_GHK', 'BP03_GHK', 'BP04_GHK', 'BP05_GHK',
+       'BP06_GHK', 'BP07_GHK', 'BP08_GHK', 'BP09_GHK', 'BP10_GHK',
+       'BP11_GHK', 'BP12_GHK', 'BP13_GHK', 'BP14_GHK', 'BP15_GHK',
+       'BP16_GHK', 'BP17_GHK', 'BP18_GHK', 'BP19_GHK', 'BP20_GHK',
+       'BP21_GHK', 'BP22_GHK', 'BP23_GHK', 'BP24_GHK', 'BP25_GHK',
+       'BP26_GHK', 'BP27_GHK', 'BP28_GHK', 'BP29_GHK', 'BP1T_GHK',
+       'BP2T_GHK', 'BP3T_GHK', 'BP4T_GHK', 'BP5T_GHK', 'BP6T_GHK',
+       'BP01_K', 'BP02_K', 'BP03_K', 'BP04_K', 'BP05_K', 'BP06_K']
+    
+    return theta_pol_ab, theta_pol_gh, nodenames
