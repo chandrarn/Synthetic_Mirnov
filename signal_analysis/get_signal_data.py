@@ -23,6 +23,7 @@ def get_signal_data(params,filament,save_Ext,phi_sensor,sensor_file,
                     sensor_set,file_geqdsk,doVoltage):
     # Load sensor parameters for voltage conversion
     sensor_params= json.load(open(sensor_file,'r'))
+    
     # Load ThinCurr sensor output
     hist_file = histfile('../data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
              ('filament' if filament else 'surface', sensor_set,params['m'],

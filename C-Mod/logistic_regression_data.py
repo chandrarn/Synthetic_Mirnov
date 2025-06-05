@@ -21,9 +21,14 @@ from sklearn import datasets
 from sklearn.preprocessing import StandardScaler  # for feature scaling
 from sklearn.model_selection import train_test_split  # for train/test split
 
+from scipy.signal import hilbert
 import glob
+import json
+from sys import path; path.append('../signal_generation/')
+from header_signal_generation import histfile
 
-def run_regression(data_directory='../data_archive/',):
+
+def run_regression(data_directory='../data_output/training_data/',):
     
     # Prep data
     # Prepare data
@@ -49,8 +54,8 @@ def run_regression(data_directory='../data_archive/',):
     y_test = torch.from_numpy(y_test.astype(np.float32))
     
     # reshape y tensors
-    y_train = y_train.view(y_train.shape[0], 1)
-    y_test = y_test.view(y_test.shape[0], 1)
+    y_train = y_train.view(y_train.shape[0], 2)
+    y_test = y_test.view(y_test.shape[0], 2)
     
 
         
@@ -71,6 +76,7 @@ def run_regression(data_directory='../data_archive/',):
     for epoch in range(num_epochs):
         # forward pass and loss
         y_predicted = model(X_train)
+        print(y_predicted)
         loss = criterion(y_predicted, y_train)
         
         # backward pass
@@ -95,19 +101,40 @@ def run_regression(data_directory='../data_archive/',):
         print(f'accuracy = {acc:.4f}')
 
 ######################################################
-def load_processed_phase_Data(data_directory,params):
+def load_processed_phase_Data(data_directory):
 
+#    # Load in sensor locations [UNNECESSARY FOR ML SIDE]
     
-    # Loop over files in folder matching save name pattern
-    for fName in __gen_F_names(data_directory,params):
+    # Load in m/n information
+    
+    with open(data_directory+'Simulation_Params.json','r') as f:
+        simulation_params = json.load(f)
+        # Assume stores m,n,f,etc
         
+    # Loop over files in folder matching save name pattern
+    
+    target = []
+    features =[]
+    for fName in __gen_F_names(data_directory):
+        phases = []
+        fName = fName[len(data_directory):]
+        hist_file = histfile(data_directory+fName)
+        for sig in hist_file:
+            if sig == 'time':continue
+            phases.append(np.unwrap(np.angle(hilbert(hist_file[sig]))))
+        phases = np.array(phases)
+        phases = np.mean(phases - phases[0],axis=1)[1:]
+        features.append(phases)
+        target.append([simulation_params[fName]['m'], simulation_params[fName]['n']])
+        
+        # Eventually:  will want avility to pull in any set of sensors
         
     # phase calculation
     
     # export data = [shots x sensors], target = [shots x binary n]
 
-
-def  __gen_F_names(data_dir,params):
+    return np.array(features), np.array(target)
+def  __gen_F_names(data_dir):
     # # need to decide if we're keeping filament & surface together
     # m=params['m'];sensor_set=params['sensor_set']
     # n=params['n'];
@@ -128,3 +155,6 @@ class LogisticRegression(nn.Module):
     def forward(self, x):
         y_predicted = torch.sigmoid(self.linear(x))
         return y_predicted
+    
+###################################################
+if __name__ == '__main__':run_regression()
