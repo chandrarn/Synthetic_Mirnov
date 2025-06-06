@@ -5,15 +5,17 @@ Created on Thu Jun  5 18:38:14 2025
 
 @author: rianc
 """
-from Synthetic_Mirnov import gen_synthetic_Mirnov,np, json
+from Synthetic_Mirnov import gen_synthetic_Mirnov,np, json,os
 
 
 def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
     fName = 'floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
         (sensor_set,m,n,f,save_ext)
+    if os.path.exists('../data_output/%sSimulation_Params.json'%archiveExt):
+        with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f:
+            params = json.load(f)
+    else:params={}
     
-    with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f:
-        params = json.read(f)
     params[fName]={'m':m,'n':n,'f':f}
     with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f:
         json.dump(params,f)
