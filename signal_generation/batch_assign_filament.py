@@ -16,7 +16,7 @@ def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
             params = json.load(f)
     else:params={}
     
-    params[fName]={'m':[m],'n':[n],'f':[f]}
+    params[fName]={'m':m,'n':n,'f':f}
     with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f:
         json.dump(params,f)
 if __name__ == '__main__':
