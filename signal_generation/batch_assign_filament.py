@@ -5,8 +5,18 @@ Created on Thu Jun  5 18:38:14 2025
 
 @author: rianc
 """
-from Synthetic_Mirnov import gen_synthetic_Mirnov,np
+from Synthetic_Mirnov import gen_synthetic_Mirnov,np, json
 
+
+def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
+    fName = 'floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
+        (sensor_set,m,n,f,save_ext)
+    
+    with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f:
+        params = json.read(f)
+    params[fName]={'m':m,'n':n,'f':f}
+    with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f:
+        json.dump(params,f)
 if __name__ == '__main__':
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
 
@@ -19,14 +29,18 @@ if __name__ == '__main__':
     save_ext=''
     doSave='../output_plots/'*False
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
+    archiveExt='training_data/'
     
     mode_list = []
-    f = 1e3
+    f = 10e3
     for n in np.arange(1,13):
         for m in np.arange(n,13):
             mode_list.append([m,n])
             params={'m':m,'n':n,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
-                'f':10e3,'dt':1e-6,'T':3e-4,'periods':3,'n_threads':64,'I':10}
+                'f':f,'dt':1e-6,'T':3e-4,'periods':3,'n_threads':64,'I':10}
+
+            record_storage(m,n,f,save_ext,sensor_set,archiveExt)
             gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
-                     save_ext=save_ext,doSave=doSave,archiveExt='training_data/',
+                     save_ext=save_ext,doSave=doSave,archiveExt=archiveExt,
                      doPlot=False)
+            

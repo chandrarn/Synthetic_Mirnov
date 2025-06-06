@@ -17,7 +17,7 @@ from fractions import Fraction
 
 
 def main():
-    params={'m':3,'n':1,'r':.25,'R':1,'n_pts':300,'m_pts':10,\
+    params={'m':4,'n':1,'r':.25,'R':1,'n_pts':300,'m_pts':10,\
     'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     
     

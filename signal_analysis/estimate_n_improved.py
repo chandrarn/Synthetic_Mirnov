@@ -73,7 +73,7 @@ def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None,
 ################################################################################
 def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq):
     bp_k = __loadData(shotno,pullData='bp_k',debug=True,
-                      data_archive='',forceReload=['bp_k'*False])['bp_k']
+                      data_archive='',forceReload=['bp_k'*True])['bp_k']
     
 
     # Get data
@@ -96,7 +96,7 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq):
         
     #return R,Z,data, inds,bp_k
     
-    return bp_k
+    #return bp_k
     # trim data
     data = data[:,inds]
     
