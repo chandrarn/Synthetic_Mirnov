@@ -39,8 +39,8 @@ if __name__ == '__main__':
     
     mode_list = []
     f = 10e3
-    for n in np.arange(1,13):
-        for m in np.arange(n,13):
+    for n in np.arange(1,13,dtype=int):
+        for m in np.arange(n,13,dtype=int):
             mode_list.append([m,n])
             params={'m':m,'n':n,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
                 'f':f,'dt':1e-6,'T':3e-4,'periods':3,'n_threads':64,'I':10}
