@@ -12,13 +12,13 @@ def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
     fName = 'floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
         (sensor_set,m,n,f,save_ext)
     if os.path.exists('../data_output/%sSimulation_Params.json'%archiveExt):
-        with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f:
-            params = json.load(f)
+        with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f_:
+            params = json.load(f_)
     else:params={}
     
     params[fName]={'m':int(m),'n':int(n),'f':f}
-    with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f:
-        json.dump(params,f)
+    with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f_:
+        json.dump(params,f_)
 if __name__ == '__main__':
     archiveExt='training_data/'
     print( check_output('rm ../data_output/%sSimulation_Params.json'%archiveExt,\
