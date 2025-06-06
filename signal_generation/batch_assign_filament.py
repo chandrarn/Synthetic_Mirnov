@@ -16,7 +16,7 @@ def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
             params = json.load(f)
     else:params={}
     
-    params[fName]={'m':m,'n':n,'f':f}
+    params[fName]={'m':int(m),'n':int(n),'f':f}
     with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f:
         json.dump(params,f)
 if __name__ == '__main__':
@@ -39,9 +39,10 @@ if __name__ == '__main__':
     
     mode_list = []
     f = 10e3
-    for n in np.arange(1,13,dtype=int):
-        for m in np.arange(n,13,dtype=int):
+    for n in np.arange(1,13):
+        for m in np.arange(n,13):
             mode_list.append([m,n])
+            
             params={'m':m,'n':n,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
                 'f':f,'dt':1e-6,'T':3e-4,'periods':3,'n_threads':64,'I':10}
 
