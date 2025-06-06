@@ -6,7 +6,7 @@ Created on Thu Jun  5 18:38:14 2025
 @author: rianc
 """
 from Synthetic_Mirnov import gen_synthetic_Mirnov,np, json,os
-
+from subprocess import check_output, STDOUT
 
 def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
     fName = 'floops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
@@ -20,6 +20,10 @@ def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
     with open('../data_output/%sSimulation_Params.json'%archiveExt,'w') as f:
         json.dump(params,f)
 if __name__ == '__main__':
+    archiveExt='training_data/'
+    print( check_output('rm ../data_output/%sSimulation_Params.json'%archiveExt,\
+            shell=True, stderr=STDOUT).decode('utf-8') )
+        
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
 
     file_geqdsk='g1051202011.1000'
@@ -31,7 +35,7 @@ if __name__ == '__main__':
     save_ext=''
     doSave='../output_plots/'*False
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
-    archiveExt='training_data/'
+
     
     mode_list = []
     f = 10e3
