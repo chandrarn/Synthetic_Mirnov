@@ -27,7 +27,7 @@ if __name__ == '__main__':
     if os.path.exists('../data_output/%sSimulation_Params.json'%archiveExt):
         with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f_:
             params = json.load(f_)
-        for f_ in params:mode_list.append([f_['m'],f_['n']])
+        for f_ in params:mode_list.append([params[f_]['m'],params[f_]['n']])
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
 
     file_geqdsk='g1051202011.1000'
