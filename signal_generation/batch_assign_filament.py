@@ -54,5 +54,6 @@ if __name__ == '__main__':
             record_storage(m,n,f,save_ext,sensor_set,archiveExt)
             gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
                      save_ext=save_ext,doSave=doSave,archiveExt=archiveExt,
-                     doPlot=False)
+                     doPlot=False,plotOnly=False)
+            print('\n\n\n\n\n\n\n\n\nFinished m/n=%d/%d\n\n\n\n\n\n\n'%(m,n))
             

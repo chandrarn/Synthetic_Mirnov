@@ -23,7 +23,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
-                                plotOnly=True ,archiveExt='',doPlot=True):
+                                plotOnly=False ,archiveExt='',doPlot=False):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
