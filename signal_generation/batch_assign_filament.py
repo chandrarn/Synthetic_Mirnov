@@ -21,9 +21,13 @@ def record_storage(m,n,f,save_ext,sensor_set,archiveExt):
         json.dump(params,f_)
 if __name__ == '__main__':
     archiveExt='training_data/'
-    print( check_output('rm ../data_output/%sSimulation_Params.json'%archiveExt,\
-            shell=True, stderr=STDOUT).decode('utf-8') )
-        
+    mode_list = []
+    # print( check_output('rm ../data_output/%sSimulation_Params.json'%archiveExt,\
+    #         shell=True, stderr=STDOUT).decode('utf-8') )
+    if os.path.exists('../data_output/%sSimulation_Params.json'%archiveExt):
+        with open('../data_output/%sSimulation_Params.json'%archiveExt,'r') as f_:
+            params = json.load(f_)
+        for f_ in params:mode_list.append([f_['m'],f_['n']])
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
 
     file_geqdsk='g1051202011.1000'
@@ -37,12 +41,13 @@ if __name__ == '__main__':
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
 
     
-    mode_list = []
+    
     f = 10e3
     for n in np.arange(1,13):
         for m in np.arange(n,13):
-            mode_list.append([m,n])
-            
+            if [m,n] in mode_list: continue 
+            else:mode_list.append([m,n])
+            if m/n>3: continue
             params={'m':m,'n':n,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
                 'f':f,'dt':1e-6,'T':3e-4,'periods':3,'n_threads':64,'I':10}
 
