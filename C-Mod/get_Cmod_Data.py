@@ -157,6 +157,17 @@ class BP_K:
         self.names = sensors.coil_names
         self.tLim = tLim
         self.f_samp = f_samp
+        self.shotno=shotno
+    
+    ##############
+    def save_json(self,data_archive='../../data_archive/'):
+        out = {'time':self.time,'data':self.data,'R':self.R,'Phi':self.Phi,\
+               'Z':self.Z,'blockLength':self.blockLength,
+               'skipInteger':self.skipInteger,'blockStart':self.blockStart,
+               'names':self.names,'tLim':self.tLim,'f_samp':self.f_samp,
+               'shotno':self.shotno}
+        with open(data_archive+'rawData_%d.json'%self.shotno,'w') as f:
+            json.dump(out,f)
 ###############################################################################
 class BP_T:
     # High frequency Mirnov array
