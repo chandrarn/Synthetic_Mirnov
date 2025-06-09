@@ -46,6 +46,7 @@ class Mirnov :
         self.s=s
         
         self.tree=Tree('magnetics',s)
+        #return 
         tt=None
         
         if(t1 is None) :

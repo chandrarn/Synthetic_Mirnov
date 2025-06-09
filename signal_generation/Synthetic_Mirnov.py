@@ -23,10 +23,17 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
-                                plotOnly=False,archiveExt='',doPlot=True):
+                                plotOnly=False ,archiveExt='',doPlot=False):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
+    # Get mode amplitudes, assign to fillaments [eventually, from simulation]
+
+    # Generate coil currents (for artificial mode)
+    coil_currs = gen_coil_currs(params)
+    plt.figure();plt.plot(coil_currs[:,0],coil_currs[:,1]);plt.grid();plt.show()
+    print(params)
+    raise SyntaxError
     # Get coordinates for fillaments
     theta,phi=gen_filament_coords(params)
     #return theta,phi
@@ -41,10 +48,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,params,sensor_set)
 
-    # Get mode amplitudes, assign to fillaments [eventually, from simulation]
 
-    # Generate coil currents (for artificial mode)
-    coil_currs = gen_coil_currs(params)
 
     
     # Run time dependent simulation
