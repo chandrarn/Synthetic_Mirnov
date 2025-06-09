@@ -45,7 +45,7 @@ try:
         getlogin() == 'rianc' else '/mnt/home/rianc/Documents/data_archive/' 
     if getlogin() == 'rian': data_archive_path = '/home/rian/Documents/data_archive/'
 except: data_archive_path = ''
-print(data_archive_path)
+
 ###############################################################################
 # Helper functions
 # Helper function for filtering     
