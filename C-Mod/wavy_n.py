@@ -10,13 +10,13 @@ Created on Sun Jun  8 16:27:44 2025
 @author: rian
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
-import imageio.v3 as iio
-import cv2
+from header_Cmod import plt, np, cv2, iio, sys
+from get_Cmod_Data import __loadData
+sys.path.append('../signal_analysis/')
+from estimate_n_improved import run_n
 
 def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
-              tLim_orig=[.75,1.1],fLim_orig=[0,625]):
+              tLim_orig=[.75,1.1],fLim_orig=[0,625],shotno=1051202011):
     
     # Load in png
     wavy, contour, hierarchy, c_out = gen_contours(wavy_file)
@@ -25,17 +25,17 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
     filter_limits = gen_filter_ranges(c_out,tLim_orig,fLim_orig,wavy.shape[:2])
     
     # Loop through contours
-    for 
-        # load in signal data, filter accordingly
-        
+    bp_k = __loadData(shotno,pullData=['bp_k'])['bp_k']
+    for ind,lims in enumerate(filter_limits):
         
         # run n-script
-        n_opt = run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None, 
-              HP_Freq=400e3, LP_Freq=600e3,n=[2], doSave='',save_Ext='',
+        n_opt = run_n(shotno=shotno, tLim=[lims['Time']], fLim=None, 
+              HP_Freq=lims['Freq'][0]*1e3, LP_Freq=lims['Freq'][1]*1e3,
+              n=[lims['Freq'][0]**(1/3)], doSave='',save_Ext='',
               directLoad=True,tLim_plot=[],z_levels = [8,10,14], doBode=True,
-              bp_k=None,data=None,f_samp=None,R=None,Z=None,phi=None,
-              inds=None, time=None, doPlot=True)[-1]
-    
+              bp_k=bp_k, doPlot=True)[-1]
+        filter_limits[ind]['n_opt'] = n_opt
+        
     # color contours (fill in? step through contour horizontally, fill vertically?)
     
     return wavy, contour, hierarchy, c_out

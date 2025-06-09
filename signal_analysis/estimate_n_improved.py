@@ -18,14 +18,10 @@ Created on Fri May 23 22:57:33 2025
 """
 
 
-import numpy as np
-from scipy.signal import hilbert
-from scipy.optimize import minimize
-import matplotlib.pyplot as plt
 try:from header_signal_analysis import CModEFITTree, doFFT
 except:pass
 from sys import path; path.append('../C-Mod/')
-from header_Cmod import __doFilter, correct_Bode
+from header_Cmod import __doFilter, correct_Bode, np, hilbert, minimize, plt
 from get_Cmod_Data import __loadData
 
 
@@ -106,7 +102,6 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
     # trim data
     data = data[:,inds]
     
-    print(bp_k.Phi)
     phi = np.array(bp_k.Phi)
     
     R = np.array(bp_k.R)
