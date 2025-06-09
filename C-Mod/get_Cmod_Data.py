@@ -123,7 +123,7 @@ class BP_K:
         else: tLim = params['tLim']
         if 'blockLength' not in params: blockLength=2e-3
         else: blockLength = params['blockLength']
-        if 'skipInteger' not in params: skipInteger=20
+        if 'skipInteger' not in params: skipInteger=0
         else: skipInteger = params['skipInteger']
         
         sensors=Mirnov(shotno,t1=tLim[0],t2=tLim[1])

@@ -51,7 +51,7 @@ if __name__ == '__main__':
             params={'m':m,'n':n,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
                 'f':f,'dt':1e-6,'T':3e-4,'periods':3,'n_threads':64,'I':10}
 
-            record_storage(m,n,f,save_ext,sensor_set,archiveExt)
+            record_storage(m,n,f*1e-3,save_ext,sensor_set,archiveExt)
             gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
                      save_ext=save_ext,doSave=doSave,archiveExt=archiveExt,
                      doPlot=False,plotOnly=False)

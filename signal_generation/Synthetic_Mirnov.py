@@ -27,6 +27,13 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
+    # Get mode amplitudes, assign to fillaments [eventually, from simulation]
+
+    # Generate coil currents (for artificial mode)
+    coil_currs = gen_coil_currs(params)
+    plt.figure();plt.plot(coil_currs[:,0],coil_currs[:,1]);plt.grid();plt.show()
+    print(params)
+    raise SyntaxError
     # Get coordinates for fillaments
     theta,phi=gen_filament_coords(params)
     #return theta,phi
@@ -41,10 +48,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,params,sensor_set)
 
-    # Get mode amplitudes, assign to fillaments [eventually, from simulation]
 
-    # Generate coil currents (for artificial mode)
-    coil_currs = gen_coil_currs(params)
 
     
     # Run time dependent simulation
@@ -257,7 +261,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
   
 if __name__=='__main__':
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    params={'m':4,'n':1,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
+    params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
         'f':1e3,'dt':1e-5,'T':1e-3,'periods':1,'n_threads':64,'I':10}
     file_geqdsk='g1051202011.1000'
     sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011

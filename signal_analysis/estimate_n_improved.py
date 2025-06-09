@@ -32,14 +32,16 @@ from get_Cmod_Data import __loadData
 # Assume that we have some way of grouping in frequency/time
 def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None, 
           HP_Freq=400e3, LP_Freq=600e3,n=[2], doSave='',save_Ext='',
-          directLoad=True,tLim_plot=[],z_levels = [8,10,14], doBode=True ):
+          directLoad=True,tLim_plot=[],z_levels = [8,10,14], doBode=True,
+          bp_k=None,doPlot=True):
     
     # Load in data
-    bp_k,data,f_samp,R,Z,phi,inds,time = load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq)
+    bp_k,data,f_samp,R,Z,phi,inds,time = \
+            load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k)
     R_map=R;Z_map=Z;phi_map =phi# Save for later plotting
     # FFT processing: more than just Hilbert
     # Use dominant frequency within bandpassfilteresed region for now
-    #return data
+    #return data,time,HP_Freq,LP_Freq,R,Z,phi,bp_k
     data,R,Z,phi,mag,mag_Freq,names,fft_freq,fft_out = \
         doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,bp_k.names)
     
@@ -56,24 +58,25 @@ def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None,
     # Calculate relative toroidal phase angle vs poloidal group of sensors
     angles_group, phase_group, z_inds_out = get_rel_phase(Z,data,phi,phase,z_levels)
     
-    # Print filter output
-    __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out,)
-    
-    # Print map of used sensors
-    __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,save_Ext)
-    #return
+    if doPlot:
+        # Print filter output
+        __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out,)
+        
+        # Print map of used sensors
+        __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,save_Ext)
+
     
     ## run fit for n
     n_opt, res = optimize_n(angles_group,phase_group,n)
     
-    doPlot_n(angles_group,phase_group,n,n_opt,data[z_inds_out[0,0]],time,
+    if doPlot: doPlot_n(angles_group,phase_group,n,n_opt,data[z_inds_out[0,0]],time,
              doSave,save_Ext,tLim_plot)
     
-    return angles_group, phase_group, phi, phase, bp_k, data,inds,time, z_inds_out,
+    return angles_group, phase_group, phi, phase, bp_k, data,inds,time, z_inds_out,n_opt
 ################################################################################
-def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq):
-    bp_k = __loadData(shotno,pullData='bp_k',debug=True,
-                      data_archive='',forceReload=['bp_k'*True])['bp_k']
+def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
+    if bp_k is None: bp_k = __loadData(shotno,pullData='bp_k',debug=True,
+                      data_archive='',forceReload=['bp_k'*False])['bp_k']
     
 
     # Get data
@@ -84,6 +87,7 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq):
     # select time block, or just use entire signal if its stored in short form
     if directLoad:
         inds = np.arange(len(bp_k.time))
+        inds = np.arange(*[np.argmin(np.abs(bp_k.time-t)) for t in tLim])
     else:
         # get Time range
         time_block = bp_k.blockStart/f_samp+bp_k.tLim[0]
@@ -129,6 +133,7 @@ def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=10)
     inds = np.append(mag_inds,freq_inds)
     inds = np.unique(inds)
     
+#    return data,inds
     data = np.delete(data,inds,axis=0)
     Z = np.delete(Z,inds,axis=0)
     R = np.delete(R,inds,axis=0)

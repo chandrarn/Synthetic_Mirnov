@@ -33,18 +33,18 @@ from estimate_n_improved import load_in_data, doFilterSignal
 def run_regression(data_directory='../data_output/training_data/',):
     
     # Load in real data for comparison
-    X_test,names = C_mod_Comparison()
+    #X_test,names = C_mod_Comparison()
     
     # Prep data
     # Prepare data
-    X_train,y_train = load_processed_phase_Data(data_directory,names)
+    X_train,y_train = load_processed_phase_Data(data_directory,names=None)
     
     
-    n_samples, n_features = X.shape
+    n_samples, n_features = X_train.shape
     print(f'number of samples: {n_samples}, number of features: {n_features}')
     
     # split data
-    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1234)
+    X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2, random_state=1234)
     
     # scale data
     sc = StandardScaler()
@@ -115,6 +115,9 @@ def load_processed_phase_Data(data_directory,names):
     
     with open(data_directory+'Simulation_Params.json','r') as f:
         simulation_params = json.load(f)
+    tmp = {}
+    for value in simulation_params:tmp[value[:-8]+'.hist'] = simulation_params[value]
+    simulation_params=tmp
         # Assume stores m,n,f,etc
     # build target matrix
 
@@ -126,9 +129,12 @@ def load_processed_phase_Data(data_directory,names):
         phases = []
         fName = fName[len(data_directory):]
         hist_file = histfile(data_directory+fName)
+        if fName not in simulation_params:continue
+        #if 'MIRNOV' in fName: continue
         for sig in hist_file:
             if sig == 'time':continue
-            if sig not in names: continue
+            #if sig not in names: continue
+            
             phases.append(np.unwrap(np.angle(hilbert(hist_file[sig]))))
         phases = np.array(phases)
         phases = np.mean(phases - phases[0],axis=1)[1:]
@@ -136,7 +142,7 @@ def load_processed_phase_Data(data_directory,names):
         target.append([simulation_params[fName]['m'], simulation_params[fName]['n']])
         
         # Eventually:  will want avility to pull in any set of sensors
-        
+    return phases,features,target
     # Binary classifier target matrix
     target = np.array(target)
     min_m = target[:,0].min();max_m = target[:,0].max()
@@ -174,7 +180,7 @@ class LogisticRegression(nn.Module):
         y_predicted = torch.sigmoid(self.linear(x))
         return y_predicted
 ###################################################
-def C_mod_Comparison(shotno=1051202011,tLim=[.921,.923],HP_Freq=1e3,LP_Freq=10e3,
+def C_mod_Comparison(shotno=1160912020011,tLim=[.921,.923],HP_Freq=1e3,LP_Freq=10e3,
                      directLoad=True):
     
     bp_k,data,f_samp,R,Z,phi,inds,time = load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq)
