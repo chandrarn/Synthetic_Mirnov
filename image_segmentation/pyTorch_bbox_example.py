@@ -9,6 +9,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
+from multiprocessing import cpu_count
 
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 128
@@ -31,6 +32,9 @@ SQUIGGLE_INTENSITY_RANGE = (50, 200)
 # Background intensity parameters
 BACKGROUND_NOISE_SCALE = 0.05
 BACKGROUND_BLUR_SIGMA = 15
+
+# Availible processors
+CPUS = cpu_count()
 
 # --- NEW: Maximum number of objects the model will predict ---
 MAX_OBJECTS_PER_IMAGE = 5 # Model will always output 5*4=20 coordinates.
@@ -327,13 +331,13 @@ train_dataloader = DataLoader(
     train_dataset,
     batch_size=BATCH_SIZE,
     shuffle=True,
-    num_workers=0
+    num_workers=CPUS
 )
 val_dataloader = DataLoader(
     val_dataset,
     batch_size=BATCH_SIZE,
     shuffle=False,
-    num_workers=0
+    num_workers=CPUS
 )
 
 # Define model parameters
@@ -351,6 +355,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 print(f"\nModel moved to: {device}")
 
+print('Operating on %d cores'%CPUS)
 # Define Loss Function for Regression (e.g., MSELoss)
 criterion = nn.MSELoss() # Mean Squared Error Loss
 
