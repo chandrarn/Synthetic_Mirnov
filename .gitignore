@@ -9,3 +9,5 @@
 *.nc
 *.png
 *.npz
+*.pt
+*.pth
