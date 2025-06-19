@@ -20,19 +20,19 @@ sys.path.append('../C-Mod/')
 from get_Cmod_Data import BP, __loadData
 
 def get_signal_data(params,filament,save_Ext,phi_sensor,sensor_file,
-                    sensor_set,file_geqdsk,doVoltage):
+                    sensor_set,file_geqdsk,doVoltage,mesh_file):
     # Load sensor parameters for voltage conversion
     sensor_params= json.load(open(sensor_file,'r'))
     
     # Load ThinCurr sensor output
-    hist_file = histfile('../data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
+    hist_file = histfile('../data_output/floops_%s_%s_m-n_%d-%d_f_%d_%s%s.hist'%\
              ('filament' if filament else 'surface', sensor_set,params['m'],
-              params['n'],params['f']*1e-3,save_Ext))
+              params['n'],params['f']*1e-3,mesh_file,save_Ext))
     
     
-    print('Loaded: ../data_output/floops_%s_%s_m-n_%d-%d_f_%d%s.hist'%\
+    print('Loaded: ../data_output/floops_%s_%s_m-n_%d-%d_f_%d_%s%s.hist'%\
              ('filament' if filament else 'surface', sensor_set,params['m'],
-              params['n'],params['f']*1e-3,save_Ext))
+              params['n'],params['f']*1e-3,mesh_file,save_Ext))
     '''
     return hist_file
     '''    
@@ -60,7 +60,7 @@ def __gen_surface_data(sensor_dict,hist_file,doVoltage,params,sensor_set,
         Z_tmp= np.array([\
        (field_to_current(hist_file[s_['Sensor']],\
               dt,f,sensor_params,sensor_set,s_['Sensor']) if doVoltage else \
-                hist_file[s_['Sensor']][:]*1e4)  for s_ in s]).squeeze()
+                hist_file[s_['Sensor']][:])  for s_ in s]).squeeze()
         # length check 
         if Z_tmp.shape[1]>X[0].shape[0]: Z_tmp = Z_tmp[:,:-1]
         elif Z_tmp.shape[1]<X[0].shape[0]: 

@@ -5,15 +5,17 @@ Created on Mon Jan 27 15:43:15 2025
  Suite of codes for plotting currents from ThinCurr sensor output
 @author: rian
 """
-from header_signal_analysis import json,plt,np,histfile,geqdsk,factorial, Normalize,cm, cv2
+from header_signal_analysis import json,plt,np,histfile,geqdsk,factorial, Normalize,cm, cv2,sys
+sys.path.append('../signal_generation/')
+from header_signal_generation import F_AE_plot
 
 from get_signal_data import get_signal_data, __select_sensors
 
 # Surface plot for arb sensors
 def plot_Current_Surface(params,coil_currs=None,sensor_file='../signal_generation/input_data/MAGX_Coordinates_CFS.json',
-                         sensor_set='MRNV',doVoltage=True,phi_sensor=[340],
-                         doSave='',save_Ext='',timeScale=1e3,file_geqdsk='geqdsk',
-                         filament=True):
+                         sensor_set='MRNV',doVoltage=True,phi_sensor=[160],
+                         doSave='',save_Ext='',timeScale=1e6,file_geqdsk='geqdsk',
+                         filament=True,scale_unit={},plotExt='',mesh_file='',saveDataFile=False):
     
     # # Load sensor parameters for voltage conversion
     # sensor_params= json.load(open(sensor_file,'r'))
@@ -34,25 +36,31 @@ def plot_Current_Surface(params,coil_currs=None,sensor_file='../signal_generatio
     #                            sensor_set, sensor_params)
     
     X,Y,Z, sensor_dict  = get_signal_data(params,filament,save_Ext,phi_sensor,sensor_file,
-                        sensor_set,file_geqdsk,doVoltage)
+                        sensor_set,file_geqdsk,doVoltage,mesh_file)
     
     #return sensor_dict,X,Y,Z
     # build plot
     doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
-           doVoltage,filament)
+           doVoltage,filament,scale_unit,plotExt=plotExt)
+    
+    if saveDataFile:save_output(X,Y,Z,sensor_dict,saveDataFile,filament,sensor_set,\
+                    params,mesh_file,plotExt)
     return sensor_dict,X,Y,Z
 ##########################
 def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
-           doVoltage,filament,cLims=[],shotno=None):
+           doVoltage,filament,scale_unit,cLims=[],shotno=None,plotExt=''):
     plt.close('%s_Current_Surface_%s%s'%(sensor_set,
-                         'filament' if filament else 'surface',save_Ext))
+                         'filament' if filament else 'surface',plotExt))
     fig,ax=plt.subplots(len(sensor_dict),1,tight_layout=True,sharex=True,
                         num='%s_Current_Surface_%s%s'%(sensor_set,
-                           'filament' if filament else 'surface',save_Ext),squeeze=False)
+                           'filament' if filament else 'surface',plotExt),squeeze=False)
     if ax.ndim==2:ax=ax[:,0]
     if cLims and np.size(cLims[0])==1: cLims = [cLims]*len(sensor_dict)
-
+    scale = scale_unit['scale'] if scale_unit else 1
+    unit = scale_unit['unit'] if scale_unit else 'arb'
+    
     for ind, s in enumerate(sensor_dict):
+        Z[ind] *= scale
         if not filament:
             trimTime=20
             X[ind] = X[ind][trimTime:]
@@ -65,7 +73,7 @@ def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
         ax[ind].set_rasterization_zorder(-1)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax[ind],
                      label= r'V$_\mathrm{out}$ [V]' if doVoltage else \
-                         r'B$_\theta$ [arb]')
+                         r'B$_\theta$ [%s]'%unit)
         ax[ind].set_ylabel(s[0]['y_label'])
         ax[ind].tick_params(top=True)
     ax[-1].set_xlabel(r'Time [%s]'%('ms' if timeScale==1e3 else '$\mu$s'))
@@ -74,9 +82,9 @@ def doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,params,
         if not shotno:
             fName=doSave+'Sensor_surface_%s_%s_%d-%d_%dkHz_%s%s.pdf'%\
             ('filament' if filament else 'surface',sensor_set,params['m'],
-             params['n'],params['f']*1e-3,'V' ,save_Ext)
+             params['n'],params['f']*1e-3,'V' ,plotExt)
         else: fName = doSave+'Sensor_Surface_%d_%s_t%2.2f_%2.2f%s%s.pdf'%\
-            (shotno,sensor_set,X[0][0],X[0][-1],'_V'*doVoltage,save_Ext)
+            (shotno,sensor_set,X[0][0],X[0][-1],'_V'*doVoltage,plotExt)
         fig.savefig(fName,transparent=True)
         print('Saved: %s'%fName)
 
@@ -149,18 +157,22 @@ def __LCFS_Compute(file_geqdsk='geqdsk',trim=[1,1.5]):
 ######################################################
 ################# Currents 1D Plot
 def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
-                  sensor_file='MAGX_Coordinates_CFS.json',doVoltage=True,
+                  sensor_file='input_data/MAGX_Coordinates_CFS.json',doVoltage=True,
                   manualCurrents=True,current_phi=350,file_geqdsk='geqdsk',
-                  timeScale=1e6,sensor_set='MIRNOV'):
+                  timeScale=1e6,sensor_set='MIRNOV',archiveExt=''):
    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
    n_pts=params['n_pts'];m_pts=params['m_pts'];periods=params['periods']
    f=params['f'];dt=params['dt'];I=params['I']
    
    # Load sensor parameters for voltage conversion
+
+
    sensor_params= json.load(open(sensor_file,'r'))
    
-   hist_file = histfile('data_output/floops_%s_m-n_%d-%d_f_%d%s.hist'%\
-                (sensor_set,params['m'],params['n'],params['f']*1e-3,save_Ext) )
+   f_out = f*1e-3 if type(f) is float else F_AE_plot(0)[0]*1e-3
+   hist_file = histfile('../data_output/%sfloops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
+                   (archiveExt,sensor_set,m,n,f_out,save_Ext) )
+       
    plt.close('Currents%s'%save_Ext)
    fig,ax=plt.subplots(2,1,tight_layout=True,figsize=(4,4),
                num='Currents%s'%save_Ext,sharex=True)
@@ -170,7 +182,7 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
    ax[0].plot(times*timeScale,currents,label=current_label)
    # import decimal 
    sensors=['MIRNOV_TOR_SET_340_V5','MIRNOV_TOR_SET_340_V9','MIRNOV_TOR_SET_340_H6']
-   sensors=['BP-LOMN-008M']
+   #sensors=['BP-LOMN-008M']
    # decimal.Decimal(-.25).as_integer_ratio()
 
    for ind,s in enumerate(sensors):
@@ -212,3 +224,16 @@ def gen_label(sensor_set,sensor_name,sensor_params,file_geqdsk,params):
     if sensor_set == 'MIRNOV': 
         return r'%s %s: $\theta=%1.1f^\circ,\,\phi=%1.1f^\circ$'%\
             (sensor_set,sensor_name[19:],theta,PHI)
+###########################################
+def save_output(X,Y,Z,sensor_dict,output_file,filament,sensor_set,\
+                params,mesh_file,plotExt):
+    
+    fName='_Data_%s_%s_%d-%d_%dkHz_%s_%s%s.pdf'%\
+    ('filament' if filament else 'surface',sensor_set,params['m'],
+     params['n'],params['f']*1e-3,'V' ,mesh_file,plotExt)
+    
+    # save sensor dict
+    with open(output_file+'Info_'+fName+'.json','w') as f: json.dump(sensor_dict,f)
+    np.savez(output_file+'Data_'+fName+'.npz', X=np.array(X,dtype=object),\
+             Y=np.array(Y,dtype=object),Z=np.array(Z,dtype=object))
+    

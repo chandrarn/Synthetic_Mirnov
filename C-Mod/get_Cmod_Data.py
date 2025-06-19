@@ -109,7 +109,7 @@ class BP:
 ###############################################################################
 class BP_K:
     # Overclass for all high frequency Mirnovs
-    # Data is unstructured\
+    # Data is unstructured
     
     # Pattern: 1-6 for BPXXT_XXK, 1-28 BPXX_XXK, 1-6 BPX_K, AB, BC, EF, GH, KA BP_XX_TOP/BOT 
     
@@ -167,7 +167,7 @@ class BP_K:
                'names':self.names,'tLim':self.tLim,'f_samp':self.f_samp,
                'shotno':self.shotno}
         with open(data_archive+'rawData_%d.json'%self.shotno,'w') as f:
-            json.dump(out,f)
+            json.dump({'bp_k':out},f)
 ###############################################################################
 class BP_T:
     # High frequency Mirnov array

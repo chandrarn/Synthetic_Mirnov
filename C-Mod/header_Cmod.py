@@ -26,6 +26,7 @@ try:import MDSplus
 except:MDSplus=False# Doesn't exist on all systems, needed for one get_Cmod_data function
 try:from mirnov_ted import Mirnov
 except:Mirnov=False # same issue
+from socket import getfqdn
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
@@ -81,7 +82,17 @@ def __doFilter(data,time,HP_Freq, LP_Freq):
 
 ###############################################################################
 ###############################################################################
-
+def remove_freq_band(signal,time,freq_rm=500e3, freq_sigma=100):
+    #print('Runnning Frequency Removal')
+    rfft = np.fft.rfft(signal,axis=1)
+    fftFreq = np.fft.rfftfreq(signal.shape[1], time[1]-time[0])
+    
+    rm_inds = np.arange(*[np.argmin(np.abs(fftFreq-f)) \
+                          for f in [freq_rm-freq_sigma, freq_rm+freq_sigma]])
+    rfft[:,rm_inds] = 0
+    
+    return np.fft.irfft(rfft,axis=1)
+###############################################################################
 def correct_Bode(signal,time,sensor_name):
     '''
     Bode correction
@@ -91,7 +102,7 @@ def correct_Bode(signal,time,sensor_name):
     rfft = np.fft.rfft(signal)
     fftFreq = np.fft.rfftfreq(len(signal), time[1]-time[0])
     
-    # check if signal is outside of calibration range
+    # check if signal is outside of calibration range [otherwise returns garbage]
     if fftFreq[np.argmax(np.abs(rfft))] < 200e3: return signal,None,None,None,None
     
     #f,H_spline,fine_cal,fine_caln = __cal_Correction(sensor_name,fftFreq)
@@ -100,10 +111,14 @@ def correct_Bode(signal,time,sensor_name):
 
     sig_new = np.fft.irfft( rfft / H ) 
     
+    if len(sig_new) < len(signal): # sometimes
+        sig_new = np.hstack((sig_new,[sig_new[-1]]*(len(signal)-len(sig_new)) ))
+    
     return sig_new,  H, f, fftFreq,rfft
   
 def __cal_Correction(sensor_name,freq):
-    CAL_PATH = '/home/sears/Matlab/Calibration/cal_v2/'
+    CAL_PATH = ('/mnt' if getfqdn() == 'mfews-rianc' else '') + \
+        '/home/sears/Matlab/Calibration/cal_v2/'
     try:mat = loadmat(CAL_PATH+'451_responses/'+sensor_name +'_cal.mat')
     except: mat = loadmat(CAL_PATH+'451_responses/'+'BP1T_GHK' +'_cal.mat')
     f = mat['f'][0]; H_spline = mat['H_spline'][0]

@@ -23,7 +23,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                             'f':F_AE,'dt':1e-4,'T':1e-3,'periods':1,'n_threads':64,'I':I_AE},
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
-                                plotOnly=False ,archiveExt='',doPlot=False):
+                                plotOnly=False ,archiveExt='',doPlot=False,
+                                eta = '1.8E-5, 3.6E-5, 2.4E-5'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
@@ -31,16 +32,17 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params)
-    plt.figure();plt.plot(coil_currs[:,0],coil_currs[:,1]);plt.grid();plt.show()
-    print(params)
-    raise SyntaxError
+
+    
     # Get coordinates for fillaments
     theta,phi=gen_filament_coords(params)
+    
     #return theta,phi
     filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
+    
 
     # Generate sensors, filamanets
-    gen_filaments(xml_filename,params,filament_coords)
+    gen_filaments(xml_filename,params,filament_coords, eta)
     sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot)
    
     
@@ -52,14 +54,18 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 
     
     # Run time dependent simulation
-    if not plotOnly: run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
-                            save_ext,archiveExt)
+    if not plotOnly:coil_currs, plot_data =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
+                            save_ext,mesh_file,archiveExt)
     if not doPlot: return
-    return makePlots(tw_mesh,params,coil_currs,sensors,doSave,
-                                save_ext,Mc, L_inv,filament_coords,file_geqdsk)
+    # return tw_mesh,params,coil_currs,sensors,doSave,\
+    #                             save_ext,Mc, L_inv,filament_coords,file_geqdsk, plot_data
+    scale= makePlots(tw_mesh,params,coil_currs,sensors,doSave,
+                                save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
     
-    slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
-                                save_ext,Mc, L_inv,filament_coords,file_geqdsk)
+    return tw_mesh,params,coil_currs,sensors,doSave,\
+                                save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set, scale
+    # slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
+    #                             save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
 
     return sensors, coil_currs, tw_mesh, slices,slices_spl
 #    return sensor_,currents
@@ -79,7 +85,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,debug=False):
     Mc = tw_mesh.compute_Mcoil()
     print('checkpoint 3')
     # Build inductance matrix
-    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='input_data/HOLDR_L_%s.save'%sensor_set)
+    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='input_data/HOLDR_L_%s_%s.save'%(mesh_file,sensor_set))
     print('checkpoint 4')
     # Buld resistivity matrix
     tw_mesh.compute_Rmat()
@@ -149,7 +155,8 @@ def gen_coil_currs(param):
     return coil_currs
 
 ####################################
-def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,archiveExt='',doPlot=True):
+def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
+           archiveExt='',doPlot=True,):
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
     nsteps = int(param['T']/dt)
@@ -158,27 +165,27 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,archiveExt=''
 
     # run time depenent simulation, save floops.hist file
     tw_mesh.run_td(dt,nsteps,
-                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=500,plot_freq=500)
-    if doPlot:tw_mesh.plot_td(nsteps,compute_B=False,sensor_obj=sensor_obj,plot_freq=500)
+                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=1000,plot_freq=2)
+    if doPlot:tw_mesh.plot_td(nsteps,compute_B=True,sensor_obj=sensor_obj,plot_freq=2)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='input_data/HODLR_B.save') 
+    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='input_data/HODLR_B_%s_%s.save'%(mesh_file,sensor_set)) 
      
     # Saves floops.hist (no, run_Td does this?)
-    tw_mesh.build_XDMF()
+    plot_data = tw_mesh.build_XDMF()
     hist_file = histfile('floops.hist');
     for h in hist_file:print(h)
     # Rename output 
     f_out = f*1e-3 if type(f) is float else F_AE_plot(0)[0]*1e-3
-    f_save = '../data_output/%sfloops_filament_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (archiveExt,sensor_set,m,n,f_out,save_Ext)
+    f_save = '../data_output/%sfloops_filament_%s_m-n_%d-%d_f_%d_%s%s.hist'%\
+                    (archiveExt,sensor_set,m,n,f_out,mesh_file,save_Ext)
     subprocess.run(['cp','floops.hist',f_save])
     print('Saved: %s'%f_save)
                     
-    return coil_currs
+    return coil_currs, plot_data
 ########################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, t_pt=0,plot_B_surf=False,debug=True):
+              filament_coords,file_geqdsk, sensor_set,t_pt=0,plot_B_surf=True,debug=True):
     
     # MEsh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
@@ -199,8 +206,10 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         with h5py.File('vector_dump.0001.h5') as h5_file:
             print('test')
             for h in h5_file.keys():print(h)
-            Jfull = np.asarray(h5_file['J_v0001'])
-            scale = 0.2/(np.linalg.norm(Jfull,axis=1)).max()
+            Jfull = np.asarray(h5_file['J0007'])
+            #return Jfull
+            scale = (np.linalg.norm(Jfull,axis=1))
+            print(scale.max())
     celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
     cells = np.insert(lc, [0,], 3, axis=1)
     grid = pyvista.UnstructuredGrid(cells, celltypes, r_)
@@ -209,14 +218,17 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     p = pyvista.Plotter()  
     if debug:print('Launched Plotter')
     # Plot Mesh
-    if plot_B_surf: p.add_mesh(grid,color="white",opacity=.9,show_edges=True,scalars=Jfull)
+    if plot_B_surf: 
+        p.add_mesh(grid,color="white",opacity=1,show_edges=True, \
+                   scalars=Jfull,clim=[0,200],smooth_shading=True,\
+                       scalar_bar_args={'title':'Eddy Current [A]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
     #slices=grid.slice_orthogonal()
-    slice_coords=[np.linspace(0,1.6,10),[0]*10,np.linspace(-1.5,1.5,10)]
-    slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
-    slices = grid.slice_along_line(slice_line)
+    #slice_coords=[np.linspace(0,1.6,10),[0]*10,np.linspace(-1.5,1.5,10)]
+    #slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
+    #slices = grid.slice_along_line(slice_line)
     #slices.plot()
-    p.add_mesh(slices,label='Mesh Frame')
+    #p.add_mesh(slices,label='Mesh Frame')
     
     tmp=[]
     if debug:print('Plotted Mesh')
@@ -231,7 +243,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         spl=pyvista.Spline(pts,len(pts))
         #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
         #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
-        slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
+        #slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
         p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,ind+1]/np.max(coil_currs[t_pt,:])+1)/2),
                    line_width=10,render_points_as_spheres=True,
                    label='Filament' if ind==0 else None)
@@ -249,10 +261,12 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     if debug:print('Saved figure')
     p.show()
     if debug:print('Plotted Figure')
-    plot_Currents(params, coil_currs, doSave, save_Ext,file_geqdsk=file_geqdsk)
+    # plot_Currents(params, coil_currs, doSave, save_Ext,file_geqdsk=file_geqdsk,
+    #               sensor_set=sensor_set)
           
     plt.show()
-    return slices, slices_spl
+    #return slices, #slices_spl
+    return scale
 ########################
 
         
@@ -260,17 +274,29 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 #####################################
   
 if __name__=='__main__':
+   
+    params={'m':3,'n':1,'r':.3,'R':2,'n_pts':100,'m_pts':70,\
+        'f':1e1,'dt':1e-2,'T':3e-1,'periods':3,'n_threads':64,'I':30}
+    #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
+    
+    # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    params={'m':3,'n':2,'r':.25,'R':1,'n_pts':100,'m_pts':70,\
-        'f':1e3,'dt':1e-5,'T':1e-3,'periods':1,'n_threads':64,'I':10}
     file_geqdsk='g1051202011.1000'
+    eta = '1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
+    
+    # SPARC Side
+    #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
     #mesh_file='SPARC_Sept2023_noPR.h5'
-    # mesh_file='thincurr_ex-torus.h5'
+    #mesh_file = 'SPARC_mirnov_plugwest_v2-homology.h5'
     #sensor_set='MRNV'
+    #eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' 
+    
+    # Misc
+    # mesh_file='thincurr_ex-torus.h5'
     #mesh_file='vacuum_mesh.h5'
+    
     save_ext=''
     doSave='../output_plots/'
-    #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
-                         save_ext=save_ext,doSave=doSave)
+         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk)

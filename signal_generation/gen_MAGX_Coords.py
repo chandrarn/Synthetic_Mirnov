@@ -199,8 +199,8 @@ def __coords_xyz_Flux_P(node):
         
 def __coords_xyz_Mirnov(node): 
     # All mirnov sensors pointed vertically
-    return ( [node['R']*np.cos(node['PHI']*np.pi/180),
-                                 node['R']*np.sin(node['PHI']*np.pi/180),
+    return ( [node['R']*np.cos(node['PHI']*np.pi/180 + (-6*np.pi/180) ),
+                                 node['R']*np.sin(node['PHI']*np.pi/180 + (-6*np.pi/180) ),
                                  node['Z']] , [0,0,1] )
 
 ###############################################################################
@@ -271,7 +271,9 @@ def confluence_spreadsheet_coords(coord_file='input_data/MAGX_Coordinates_CFS.js
 def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                         select_sensor='MRNV',cmod_shot=1051202011):
     # Try loading predfined sensor sets
-    try: return __load_sensor_data(select_sensor)
+    try:
+        #raise SyntaxError
+        return __load_sensor_data(select_sensor)
     
     except: # Manually calculate sensor locations
         

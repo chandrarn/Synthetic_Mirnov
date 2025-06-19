@@ -2,14 +2,18 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jan 22 21:26:44 2025
-
+     Given some m/n and a gEqdsk file, or a cylindrical R,a, calculate the geomgetric
+     coordnates for some number of mode filaments
 @author: rian
 """
 
-from header_signal_generation import np, plt, geqdsk, cv2, make_smoothing_spline,\
-    Fraction
+# Import libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from freeqdsk import geqdsk
+import cv2
+from fractions import Fraction
 
-    
 ########################
 def gen_filament_coords(params):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
@@ -22,16 +26,28 @@ def gen_filament_coords(params):
         np.linspace(0,m_local*2*np.pi,n_pts,endpoint=True)
  
 ########################
-def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=True,fil=0):
+def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
+                                R_lim=[1.5,2.3],Z_lim=[-.4,.4]):
     # For a set of theta, phi mode coordinates, for an m/n mode, return the x,y,z
     # coordinates of the filaments, assigning the radial coordainte based on
     # either a GEQDSK file or a fixed minor radial parameter
     
     m=params['m'];n=params['n'];R=params['R'];a=params['r']
     
-    if file_geqdsk is None:
-        r_theta = lambda theta: a # running circular approximation
+    if file_geqdsk is None: # Assigning circiular flux surface, fixed radius at a
+        r_theta = lambda theta: np.array([a]*len(theta)) # running circular approximation
         zmagx=0;rmagx=R
+        theta_r = np.linspace(0,2*np.pi,100)
+        R_eq,Z_eq = np.linspace(*R_lim,100), np.linspace(*Z_lim,100)
+        
+        contour = np.array([np.argmin(np.abs(R_eq-a*np.cos(t)-rmagx) ) \
+                            for t in theta_r])
+        contour = np.vstack((contour,[np.argmin(np.abs(Z_eq-a*np.sin(t)-zmagx).squeeze() ) \
+                                      for t in theta_r]) )
+        contour=contour[::-1].T # flip for consistency with gEqdsk contour detection
+        
+        r_norm = [a]*100 # mode exists at a constant radius
+        
     else: # Using geqdsk equilibrium to locate flux surfaces
         # Load eqdsk
         with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
@@ -45,28 +61,31 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=True,fil=0):
         fn_q = lambda psi: np.polyval(p,psi)
         q_rz = fn_q(psi_eqdsk) # q(r,z)
         
-        # Contour detectioon
+        # Contour detection for the desired rational surface radius
         contour,hierarchy=cv2.findContours(np.array(q_rz<m/n,dtype=np.uint8),
                                            cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
-        # Algorithm will find non-closed contours (e.g. around the magnets)
+        
+        # Algorithm will also find non-closed contours (e.g. around the magnets)
         try: contour = np.squeeze(contour) # Check if only the main contour was found
         except:
             a_avg=[]#track average minor radial distance to contour
             for s in contour:
                 s=np.squeeze(s) # remove extra dimensions
                 a_avg.append(np.mean( (R_eq[s[1]]-eqdsk.rmagx)**2+(Z_eq[s[0]]-eqdsk.zmagx)**2))
-            # Select contour closest on average to the magnetic center
+            # Select contour closest on average to the magnetic center [the main contour]
             contour = np.squeeze( contour[np.argmin(a_avg)] )
     
         # Calculate r(theta) to stay on the surface as we wind around
         r_norm=np.sqrt((R_eq[contour[:,1]]-eqdsk.rmagx)**2+(Z_eq[contour[:,0]]-eqdsk.zmagx)**2)
         theta_r=np.arctan2(Z_eq[contour[:,0]]-eqdsk.zmagx,R_eq[contour[:,1]]-eqdsk.rmagx) % (2*np.pi)
         
-        r_theta_=make_smoothing_spline(theta_r[np.argsort(theta_r)],r_norm[np.argsort(theta_r)],lam=.00001)
+        # Interpolate to find r(q=m/n, theta)
         r_theta_ = lambda theta: np.polyval(np.polyfit(theta_r,r_norm,11),theta)
         r_theta = lambda theta: r_theta_(theta%(2*np.pi) ) # Radial coordinate vs theta
         
+        # Magnetic center cordinates
         zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
+        
     # Assume theta is starting value, wind in phi
     coords=[]
     for theta_ in theta:
@@ -86,8 +105,8 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=True,fil=0):
                   num='filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
         ax[0].plot(R_eq[contour[:,1]],Z_eq[contour[:,0]],'*')
         theta_fit=np.linspace(0,2*np.pi,50)#-np.pi
-        ax[0].plot(r_theta(theta_fit)*np.cos(theta_fit)+eqdsk.rmagx,
-                   r_theta(theta_fit)*np.sin(theta_fit)+eqdsk.zmagx,alpha=.6)
+        ax[0].plot(r_theta(theta_fit)*np.cos(theta_fit)+rmagx,
+                   r_theta(theta_fit)*np.sin(theta_fit)+zmagx,alpha=.6)
     
         ax[1].plot(theta_r/(2*np.pi),r_norm,'*',label=r'$\psi_{%d/%d}$'%(m,n))
         ax[1].plot(theta_fit/(2*np.pi),r_theta(theta_fit),alpha=.6,label='Spl. Fit')
@@ -112,8 +131,8 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=True,fil=0):
     return coords
 ##########################
 if __name__ == '__main__': 
-    params={'m':18,'n':16,'r':.25,'R':1,'n_pts':100,'m_pts':20,\
+    params={'m':10,'n':10,'r':.35,'R':1.9,'n_pts':100,'m_pts':20,\
     'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     theta ,phi = gen_filament_coords(params)
-    coords = calc_filament_coords_geqdsk('geqdsk',theta,phi,params,debug=True)
-    
+    coords = calc_filament_coords_geqdsk('geqdsk_freegsu_run0_mod_00.geq',theta,phi,params,debug='_gEqdsk')
+    coords = calc_filament_coords_geqdsk(None,theta,phi,params,debug='_Fixed_Radius')

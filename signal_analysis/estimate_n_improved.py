@@ -21,14 +21,14 @@ Created on Fri May 23 22:57:33 2025
 try:from header_signal_analysis import CModEFITTree, doFFT
 except:pass
 from sys import path; path.append('../C-Mod/')
-from header_Cmod import __doFilter, correct_Bode, np, hilbert, minimize, plt
+from header_Cmod import __doFilter, correct_Bode, np, hilbert, minimize, plt, remove_freq_band
 from get_Cmod_Data import __loadData
 
-
+from scipy.stats import mode
 # Assume that we have some way of grouping in frequency/time
 def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None, 
           HP_Freq=400e3, LP_Freq=600e3,n=[2], doSave='',save_Ext='',
-          directLoad=True,tLim_plot=[],z_levels = [8,10,14], doBode=True,
+          directLoad=True,tLim_plot=[],z_levels = [8,10,14], doBode=False,
           bp_k=None,doPlot=True):
     
     # Load in data
@@ -39,6 +39,7 @@ def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None,
     # FFT processing: more than just Hilbert
     # Use dominant frequency within bandpassfilteresed region for now
     #return data,time,HP_Freq,LP_Freq,R,Z,phi,bp_k
+    
     data,R,Z,phi,mag,mag_Freq,names,fft_freq,fft_out = \
         doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,bp_k.names)
     
@@ -54,7 +55,7 @@ def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None,
     
     # Calculate relative toroidal phase angle vs poloidal group of sensors
     angles_group, phase_group, z_inds_out = get_rel_phase(Z,data,phi,phase,z_levels)
-
+    
     if doPlot:
         # Print filter output
         __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out,)
@@ -65,7 +66,7 @@ def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None,
 
     
     ## run fit for n
-    n_opt, res = optimize_n(angles_group,phase_group,n)
+    n_opt, res = optimize_n(angles_group.copy(),phase_group,n,doPlot=False)
     
     if doPlot: doPlot_n(angles_group,phase_group,n,n_opt,data[z_inds_out[0,0]],time,
              doSave,save_Ext,tLim_plot)
@@ -85,6 +86,10 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
     # select time block, or just use entire signal if its stored in short form
     if directLoad:
         inds = np.arange(len(bp_k.time))
+        if tLim[1]-tLim[0]>4e-3:tLim[0]+=1e-3;tLim[1]-=1e-3
+        else:
+            len_ = tLim[1]-tLim[0]
+            tLim[0]+=len_*.05;tLim[1]-=len_*.05
         inds = np.arange(*[np.argmin(np.abs(bp_k.time-t)) for t in tLim])
     else:
         # get Time range
@@ -94,8 +99,8 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
         ind_1 = np.argmin(np.abs(bp_k.time-time_block[ind_1])) # starting index in terms of time vector
         ind_2 = int(ind_1+(tLim[1]-tLim[0])*f_samp)
         inds = np.arange(ind_1,ind_2,dtype=int)
-        print(ind_1,ind_2)
-        
+     
+    
     #return R,Z,data, inds,bp_k
     
     #return bp_k
@@ -110,16 +115,26 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
     #theta = get_theta(R,Z,shotno,tLim)
     
     return bp_k,data,f_samp,R,Z,phi,inds, bp_k.time[inds]
-
-def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=10):
+###############################################################################
+def filterAveMag(data,lim=[]):pass
     
-    print(data.shape)
+def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=0,
+                   hist_ind=4,hist_lim=80):
+    
     # Do frequency Filtering 
     data=__doFilter(data.copy(), time,HP_Freq, LP_Freq)
     
+    # Remove spurious frequencies
+    data = remove_freq_band(data, time, freq_rm=500e3, freq_sigma=50)
+    
     # check if signal is finite
-    mag = np.mean(np.abs(hilbert(data,axis=1)),axis=0)
+    mag = np.mean(np.abs(hilbert(data,axis=1)),axis=1)
+ 
     mag_inds = np.argwhere(mag<magLim).squeeze()
+    
+    # data distribution check
+    hist = np.array([np.histogram(np.abs(hilbert(d)))[0] for d in data])
+    hist_inds = np.argwhere(hist[:,0]/hist[:,hist_ind]>hist_lim)
     
     # Check if signal has reasonable frequeny peak
     fft_freq, fft_out = doFFT(time,data)
@@ -127,15 +142,22 @@ def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=10)
            np.mean(np.abs(fft_out),axis=1)
     freq_inds = np.argwhere(mag_Freq<freqLim).squeeze() 
     
+#    print(mag_inds,freq_inds)
+#    inds = np.([])
+#    inds = np.append(inds,mag_inds)
     inds = np.append(mag_inds,freq_inds)
-    inds = np.unique(inds)
+    inds = np.append(inds,hist_inds)
     
-#    return data,inds
-    data = np.delete(data,inds,axis=0)
-    Z = np.delete(Z,inds,axis=0)
-    R = np.delete(R,inds,axis=0)
-    phi = np.delete(phi,inds,axis=0)
-    names = np.delete(names,inds,axis=0)
+    #if HP_Freq<100e3:inds = np.append(inds,[4]) # known bad channel for this shot
+    
+    inds = np.unique(inds).astype(int)
+    print(inds,mag_inds,freq_inds,hist_inds)
+    if np.size(inds)>0:
+        data = np.delete(data,inds,axis=0)
+        Z = np.delete(Z,inds,axis=0)
+        R = np.delete(R,inds,axis=0)
+        phi = np.delete(phi,inds,axis=0)
+        names = np.delete(names,inds,axis=0)
     
     return data, R, Z, phi,mag,mag_Freq,names,fft_freq,fft_out
 ###############################################################################
@@ -169,6 +191,12 @@ def __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft
     plt.show()
 #################################################################################
 def optimize_n(angles_group,phase_group,n,doPlot=True):
+    if len(angles_group) == 0: return np.nan,[]
+    print(angles_group)
+
+    for i in range(len(angles_group)):
+        angles_group[i] -=angles_group[i][0]
+        angles_group[i][angles_group[i]<0]+=360
     angles = np.concatenate(angles_group).ravel()
     phase = np.concatenate(phase_group).ravel()
     fn = lambda n: np.mean(np.abs(phase-(n[0]*(angles[:]-angles[0]))%360 )**2)
@@ -206,14 +234,13 @@ def get_rel_phase(Z,data,angles,phase, z_levels):
     z_inds_out=[]
     for z in z_levels:
         for s in [-1,1]:
-            print(s*z)
             z_inds_ = np.argwhere((Z*1e2<=s*z+0.5)  &  (Z*1e2>=s*z-0.5)).squeeze()
 
-            print(z_inds_)
+
             if np.size(z_inds_)<=1:continue
             else:z_inds=z_inds_
             z_inds_out.append([z_inds,s*z])
-            tmp=angles[z_inds]-angles[z_inds][0]
+            tmp=angles[z_inds]#-angles[z_inds][0]
             tmp[tmp<0]+=360
             angles_group.append(tmp)
             tmp = [np.mean(phase[z_] - phase[z_inds[0]])%360 for z_ in z_inds]
@@ -290,7 +317,7 @@ def __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,sa
     ax.grid()
     
     if doSave:
-        fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',transparent=True)
+        fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.png',transparent=True)
     plt.show() 
 ########################################################
 if __name__ == '__main__': run_n()
