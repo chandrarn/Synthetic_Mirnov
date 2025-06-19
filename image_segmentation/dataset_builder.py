@@ -28,19 +28,19 @@ IMAGE_WIDTH = 128
 # Shape generation parameters
 NUM_SHAPES_PER_IMAGE = (2, 5) # Min and max number of shapes per image
 SHAPE_SIZE_RANGE = (2, 15) # Min and max size for shapes
-SHAPE_INTENSITY_RANGE = (100, 255) # Intensity range for shapes (0-255)
+SHAPE_INTENSITY_RANGE = (120, 250) # Intensity range for shapes (0-255)
 
 # Squiggle generation parameters
 NUM_SQUIGGLES_PER_IMAGE = (1, 3) # Min and max number of squiggles per image
 SQUIGGLE_SEGMENTS = (5, 45) # Min and max number of segments in a squiggle
 SQUIGGLE_STEP_SIZE = (1, 5) # Max step size for each segment of a squiggle
 SQUIGGLE_LINE_WIDTH = (1, 5) # Line width for squiggles
-SQUIGGLE_INTENSITY_RANGE = (90, 200) # Intensity range for squiggles
+SQUIGGLE_INTENSITY_RANGE = (120, 250) # Intensity range for squiggles
 
 # Confounding lines per image
 NUM_CONFOUND_LINES = (0,3)
 CONFOUND_LINE_WIDTH = (1,2)
-CONFOUND_LINE_INTENSITY_RANGE = (50,100)
+CONFOUND_LINE_INTENSITY_RANGE = (50,120)
 # Background intensity parameters
 BACKGROUND_NOISE_SCALE = 0.05 # How much initial random noise for background
 BACKGROUND_BLUR_SIGMA = 15 # How much to blur the background noise for smooth changes

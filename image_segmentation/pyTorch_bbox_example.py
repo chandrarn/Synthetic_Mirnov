@@ -14,7 +14,7 @@ from multiprocessing import cpu_count
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 1000 # Increased samples for better regression training
+NUM_SAMPLES = 10000 # Increased samples for better regression training
 SAVE_PATH = 'synthetic_multi_bbox_dataset.pth' # New save path for multi-bbox dataset
 
 # Shape generation parameters
@@ -24,7 +24,7 @@ SHAPE_INTENSITY_RANGE = (100, 255)
 
 # Squiggle generation parameters
 NUM_SQUIGGLES_PER_IMAGE = (0, 2) # Can have no squiggles
-SQUIGGLE_SEGMENTS = (5, 10)
+SQUIGGLE_SEGMENTS = (5, 13)
 SQUIGGLE_STEP_SIZE = (5, 15)
 SQUIGGLE_LINE_WIDTH = (1, 3)
 SQUIGGLE_INTENSITY_RANGE = (50, 200)
@@ -39,6 +39,9 @@ CPUS = cpu_count()
 # --- NEW: Maximum number of objects the model will predict ---
 MAX_OBJECTS_PER_IMAGE = 5 # Model will always output 5*4=20 coordinates.
                           # If fewer than 5 objects, remaining bbox coords will be [0,0,0,0].
+
+MODEL_SAVE_PATH = 'bbox_model_traine.pt'
+INFERENCE_IMAGE_DIR = '../output_plots/training_plots/test_images/'
 
 from dataset_builder import SyntheticMultiBBoxDataset
 
@@ -186,6 +189,29 @@ class SyntheticMultiBBoxDataset(Dataset):
 
         return image_tensor, bboxes_tensor
 '''
+
+# --- NEW: Dataset for Inference (no ground truth bounding boxes) ---
+class InferenceDataset(Dataset):
+    def __init__(self, image_dir, height, width):
+        self.image_paths = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        self.height = height
+        self.width = width
+        self.transform = transforms.Compose([
+            transforms.Resize((height, width)), # Ensure image size matches model input
+            transforms.ToTensor()                # Convert to tensor and normalize to [0,1]
+        ])
+        print(f"Found {len(self.image_paths)} images for inference in {image_dir}")
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.image_paths[idx]
+        image = Image.open(img_path).convert('RGB') # Ensure RGB format
+        image_tensor = self.transform(image)
+        return image_tensor, img_path # Return path for identification if needed
+
+
 # --- U-Net Building Blocks ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -367,7 +393,7 @@ criterion = nn.MSELoss() # Mean Squared Error Loss
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 # --- Training Loop ---
-NUM_EPOCHS = 10 # Increased epochs for multi-object regression
+NUM_EPOCHS = 100 # Increased epochs for multi-object regression
 
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
 
@@ -413,6 +439,11 @@ for epoch in range(NUM_EPOCHS):
     print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Validation Loss: {epoch_val_loss:.6f}")
 
 print("\n--- Training Complete ---")
+# --- Save the trained model ---
+print(f"\nSaving trained model to {MODEL_SAVE_PATH}...")
+torch.save(model.state_dict(), MODEL_SAVE_PATH)
+print("Model state dictionary saved successfully.")
+
 
 # --- Visualize Training and Validation Loss ---
 plt.figure(figsize=(10, 5))
@@ -488,3 +519,57 @@ with torch.no_grad():
     plt.savefig('output.png')
 
 print("\nScript execution complete.")
+
+###########################################################################
+
+# 3. Instantiate the InferenceDataset and DataLoader
+inference_dataset = InferenceDataset(INFERENCE_IMAGE_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
+inference_dataloader = DataLoader(
+    inference_dataset,
+    batch_size=1, # Typically batch size of 1 for inference
+    shuffle=False,
+    num_workers=CPUS
+)
+
+# 4. Load the Trained Model
+print(f"\nLoading trained model from {MODEL_SAVE_PATH} for inference...")
+loaded_model = UNetMultiBBox(n_channels=INPUT_CHANNELS, max_objects=MAX_OBJECTS_PER_IMAGE)
+loaded_model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=device))
+loaded_model.to(device)
+loaded_model.eval() # Set to evaluation mode
+print("Model loaded successfully for inference.")
+
+
+# 5. Run Inference and Visualize Predictions
+print("\nRunning inference on new images...")
+for i, (image_tensor, img_path) in enumerate(inference_dataloader):
+    print(f"Processing image: {os.path.basename(img_path[0])}")
+    
+    image_tensor = image_tensor.to(device)
+    
+    with torch.no_grad():
+        predicted_bboxes_flat = loaded_model(image_tensor).squeeze(0) # Get predictions, remove batch dim
+    
+    # Reshape flat bbox tensor into list of individual bboxes
+    predicted_bboxes_list = [predicted_bboxes_flat[j:j+4].cpu().numpy() for j in range(0, len(predicted_bboxes_flat), 4)]
+    
+    # Detach from GPU and convert to numpy for visualization
+    image_np = image_tensor.squeeze(0).cpu().permute(1, 2, 0).numpy()
+
+    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+    axes.imshow(image_np)
+    axes.set_title(f'Inference: {os.path.basename(img_path[0])} with Predicted BBoxes')
+    axes.axis('off')
+
+    # Draw all predicted bounding boxes
+    for k, bbox in enumerate(predicted_bboxes_list):
+        draw_bbox(axes, bbox, color='red', label=f'Pred {k+1}' if k == 0 else None)
+
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    plt.savefig(INFERENCE_IMAGE_DIR+'final_out/'+os.path.basename(img_path[0])[:-4]+'_Validation.png')
+
+print("\nInference on new images complete.")
+print(f"You can find the generated inference images in the '{INFERENCE_IMAGE_DIR}' directory.")
+
