@@ -14,7 +14,7 @@ from multiprocessing import cpu_count
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 500 # Increased samples for better regression training
+NUM_SAMPLES = 50 # Increased samples for better regression training
 SAVE_PATH = 'synthetic_multi_bbox_dataset.pth' # New save path for multi-bbox dataset
 
 # Shape generation parameters
@@ -40,6 +40,9 @@ CPUS = cpu_count()
 MAX_OBJECTS_PER_IMAGE = 5 # Model will always output 5*4=20 coordinates.
                           # If fewer than 5 objects, remaining bbox coords will be [0,0,0,0].
 
+from dataset_builder import SyntheticMultiBBoxDataset
+
+'''
 # --- Helper Function for Image and Individual Bounding Box Generation ---
 def generate_image_and_individual_bboxes(height, width):
     """
@@ -182,7 +185,7 @@ class SyntheticMultiBBoxDataset(Dataset):
         bboxes_tensor = torch.tensor(bboxes_normalized, dtype=torch.float32)
 
         return image_tensor, bboxes_tensor
-
+'''
 # --- U-Net Building Blocks ---
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -284,6 +287,7 @@ class UNetMultiBBox(nn.Module):
 print(f"Checking for existing dataset at {SAVE_PATH}...")
 if os.path.exists(SAVE_PATH):
     try:
+        raise SyntaxError
         # Pass max_objects during load if it's stored in the dataset object's __init__
         # For pre-generated data, it's just loading the state.
         dataset = torch.load(SAVE_PATH)
@@ -363,7 +367,7 @@ criterion = nn.MSELoss() # Mean Squared Error Loss
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 # --- Training Loop ---
-NUM_EPOCHS = 3 # Increased epochs for multi-object regression
+NUM_EPOCHS = 1 # Increased epochs for multi-object regression
 
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
 
