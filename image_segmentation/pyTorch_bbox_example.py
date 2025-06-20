@@ -14,7 +14,7 @@ from multiprocessing import cpu_count
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 10000 # Increased samples for better regression training
+NUM_SAMPLES = 100 # Increased samples for better regression training
 SAVE_PATH = 'synthetic_multi_bbox_dataset.pth' # New save path for multi-bbox dataset
 
 # Shape generation parameters
@@ -393,7 +393,7 @@ criterion = nn.MSELoss() # Mean Squared Error Loss
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 # --- Training Loop ---
-NUM_EPOCHS = 100 # Increased epochs for multi-object regression
+NUM_EPOCHS = 1 # Increased epochs for multi-object regression
 
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
 
