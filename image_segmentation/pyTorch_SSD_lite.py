@@ -35,7 +35,7 @@ CPUS = cpu_count()
 
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 100 # Increased samples for better training
+NUM_SAMPLES = 1000 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
 
@@ -397,8 +397,8 @@ for epoch in range(NUM_EPOCHS):
         # SSDLite returns a dictionary of losses during training
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
-        
-        # Check for non-finite loss (NaN, Inf) and skip if found
+        if isinstance(losses, torch.Tensor) and losses.numel() > 1:
+            losses = losses.mean()
         if not torch.isfinite(losses):
             print(f"Warning: Non-finite loss encountered in epoch {epoch+1}, batch {batch_idx}. Skipping backward pass.")
             continue
