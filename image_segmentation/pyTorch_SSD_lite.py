@@ -29,7 +29,7 @@ import time
 
 
 from multiprocessing import cpu_count
-CPUS = cpu_count()
+CPUS = 1#cpu_count()
 
 # --- Configuration Parameters ---150 
 
