@@ -24,6 +24,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 # No need to import FastRCNNPredictor anymore
 
+# Timer
+import time
+
+
 from multiprocessing import cpu_count
 CPUS = cpu_count()
 
@@ -375,6 +379,8 @@ NUM_EPOCHS = 1 # Adjusted epochs for SSD
 
 print('Running on %d cores'%CPUS)
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
+start_time = time.time()
+
 
 train_losses = []
 val_losses = []
@@ -404,7 +410,7 @@ for epoch in range(NUM_EPOCHS):
 
     epoch_train_loss = running_loss / len(train_dataloader.dataset)
     train_losses.append(epoch_train_loss)
-    print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Train Loss: {epoch_train_loss:.6f}")
+    print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Train Loss: {epoch_train_loss:.6f}, Elapsed Time: {time.time() - start_time:.2f}s")
 
     # --- Validation Loop ---
     # Temporarily set to train mode to get loss dict output, then switch back to eval mode.
