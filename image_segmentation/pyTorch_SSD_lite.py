@@ -35,7 +35,7 @@ CPUS = cpu_count()
 
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 1000 # Increased samples for better training
+NUM_SAMPLES = 100 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
 
