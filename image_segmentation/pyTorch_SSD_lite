@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jun 20 17:39:40 2025
+    SSD Lighte example
+@author: rianc
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,17 +17,16 @@ from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 
-# NEW: Import Faster R-CNN model
-from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+# NEW: Import SSDLite320_MobileNet_V3_Large model
+from torchvision.models.detection import ssdlite320_mobilenet_v3_large
+# No need to import FastRCNNPredictor anymore
 
-from multiprocessing import cpu_count
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 20 # Increased samples for better Faster R-CNN training
-SAVE_PATH = 'synthetic_multi_bbox_dataset_frcnn.pth' # New save path for dataset
-MODEL_SAVE_PATH = 'faster_rcnn_model.pth' # Path to save the trained Faster R-CNN model
+NUM_SAMPLES = 1000 # Increased samples for better training
+SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
+MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
 
 # Shape generation parameters
 NUM_SHAPES_PER_IMAGE = (1, 3) # Min and max number of shapes per image
@@ -38,7 +44,6 @@ SQUIGGLE_INTENSITY_RANGE = (50, 200)
 BACKGROUND_NOISE_SCALE = 0.05
 BACKGROUND_BLUR_SIGMA = 15
 
-CPUS = cpu_count()
 # --- NEW: Number of object classes (1 for shapes/squiggles + 1 for background) ---
 NUM_CLASSES = 2 # Background (0), Shape/Squiggle (1)
 
@@ -135,7 +140,7 @@ def generate_image_and_individual_bboxes(height, width):
 
     return image_pil, individual_bboxes
 
-# --- PyTorch Dataset Class for Training/Validation (Adapted for Faster R-CNN) ---
+# --- PyTorch Dataset Class for Training/Validation (Adapted for Object Detection) ---
 class SyntheticObjectDetectionDataset(Dataset):
     def __init__(self, num_samples, height, width, transforms=None):
         super().__init__()
@@ -155,7 +160,7 @@ class SyntheticObjectDetectionDataset(Dataset):
             # Assign a label (1 for our single object class, 0 is background)
             labels = torch.ones((len(bboxes_raw),), dtype=torch.int64)
 
-            # Store in Faster R-CNN target format: dictionary
+            # Store in Object Detection target format: dictionary
             target = {}
             target["boxes"] = boxes
             target["labels"] = labels
@@ -179,14 +184,14 @@ class SyntheticObjectDetectionDataset(Dataset):
 
         return image_tensor, target
 
-# --- NEW: Custom Collate Function for DataLoader ---
-# Faster R-CNN expects a list of (image, target) tuples in a batch.
+# --- Custom Collate Function for DataLoader ---
+# Object detection models expect a list of (image, target) tuples in a batch.
 # It handles batching internally.
 def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-# --- NEW: Dataset for Inference (no ground truth bounding boxes) ---
+# --- Dataset for Inference (no ground truth bounding boxes) ---
 class InferenceDataset(Dataset):
     def __init__(self, image_dir, height, width):
         self.image_paths = [os.path.join(image_dir, f) for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -208,25 +213,15 @@ class InferenceDataset(Dataset):
         return image_tensor, img_path # Return path for identification if needed
 
 
-# --- NEW: Instantiate Faster R-CNN Model ---
-# Changed to accept score_thresh
-def get_faster_rcnn_model(num_classes, score_thresh=0.05):
-    # Load a pre-trained Faster R-CNN model with a ResNet50 FPN backbone
+# --- Instantiate SSDLite320_MobileNet_V3_Large Model ---
+def get_ssd_model(num_classes, score_thresh=0.05):
+    # Load a pre-trained SSDLite320_MobileNet_V3_Large model
     # weights="DEFAULT" loads the best available weights (pretrained on COCO)
-    # Pass box_score_thresh here to set the confidence threshold for predictions
-    model = fasterrcnn_resnet50_fpn_v2(weights="DEFAULT", box_score_thresh=score_thresh)
-
-    # Get the number of input features for the classifier head
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
-    
-    # Replace the pre-trained head with a new one for our custom number of classes
-    # num_classes includes the background class
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
-
+    # The `num_classes` and `score_thresh` are passed directly to the constructor for SSD models.
+    model = ssdlite320_mobilenet_v3_large(weights="DEFAULT", num_classes=num_classes, score_thresh=score_thresh)
     return model
 
 # --- Create Dataset ---
-# Note: Changed dataset class to SyntheticObjectDetectionDataset
 print(f"Checking for existing dataset at {SAVE_PATH}...")
 if os.path.exists(SAVE_PATH):
     try:
@@ -264,30 +259,29 @@ print(f"Training set size: {len(train_dataset)}")
 print(f"Validation set size: {len(val_dataset)}")
 
 # --- Create DataLoaders ---
-# Use the custom collate_fn for Faster R-CNN
 BATCH_SIZE = 4
 train_dataloader = DataLoader(
     train_dataset,
     batch_size=BATCH_SIZE,
     shuffle=True,
-    num_workers=CPUS,
-    collate_fn=collate_fn # Important for Faster R-CNN
+    num_workers=0,
+    collate_fn=collate_fn # Important for Object Detection Models
 )
 val_dataloader = DataLoader(
     val_dataset,
     batch_size=BATCH_SIZE,
     shuffle=False,
-    num_workers=CPUS,
-    collate_fn=collate_fn # Important for Faster R-CNN
+    num_workers=0,
+    collate_fn=collate_fn # Important for Object Detection Models
 )
 
 # Define the desired visualization threshold for predictions (used during model initialization)
 VIS_SCORE_THRESHOLD = 0.01 # TEMPORARILY LOW FOR DEBUGGING
 
-# Instantiate the Faster R-CNN model (pass VIS_SCORE_THRESHOLD here)
-model = get_faster_rcnn_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
+# Instantiate the SSDLite model
+model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
 
-print("\nFaster R-CNN model created successfully!")
+print("\nSSDLite320_MobileNet_V3_Large model created successfully!")
 print(model)
 
 # Move model to device
@@ -296,12 +290,10 @@ model.to(device)
 print(f"\nModel moved to: {device}")
 
 # Optimizer
-# Note: Faster R-CNN has its own internal loss calculations.
-# We optimize based on the sum of these losses.
-optimizer = torch.optim.Adam(model.parameters(), lr=0.005) # Increased learning rate for Faster R-CNN
+optimizer = torch.optim.Adam(model.parameters(), lr=0.005) # Increased learning rate
 
 # --- Training Loop ---
-NUM_EPOCHS = 2 # Adjusted epochs for Faster R-CNN
+NUM_EPOCHS = 15 # Adjusted epochs for SSD
 
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
 
@@ -317,7 +309,7 @@ for epoch in range(NUM_EPOCHS):
 
         optimizer.zero_grad()
         
-        # Faster R-CNN returns a dictionary of losses during training
+        # SSDLite returns a dictionary of losses during training
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
         
@@ -335,17 +327,15 @@ for epoch in range(NUM_EPOCHS):
     train_losses.append(epoch_train_loss)
     print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Train Loss: {epoch_train_loss:.6f}")
 
-    # --- Validation Loop (FIXED) ---
-    # To get losses in validation, temporarily switch to model.train()
-    # within the no_grad() context.
-    model.train() # Temporarily set to train mode to get loss dict output
+    # --- Validation Loop ---
+    # Temporarily set to train mode to get loss dict output, then switch back to eval mode.
+    model.train() 
     val_running_loss = 0.0
     with torch.no_grad(): # Disable gradient calculations
         for images, targets in val_dataloader:
             images = list(image.to(device) for image in images)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-            # In train mode, with targets, model returns a loss_dict
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
             
@@ -375,7 +365,7 @@ plt.plot(range(1, NUM_EPOCHS + 1), train_losses, label='Training Loss')
 plt.plot(range(1, NUM_EPOCHS + 1), val_losses, label='Validation Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
-plt.title('Training and Validation Loss Over Epochs (Faster R-CNN)')
+plt.title('Training and Validation Loss Over Epochs (SSDLite MobileNetV3)')
 plt.legend()
 plt.grid(True)
 plt.show()
@@ -406,8 +396,6 @@ def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_widt
 
 # --- Example Prediction on a Validation Sample ---
 print("\n--- Example Prediction on a Validation Sample (from Training Data) ---")
-# VIS_SCORE_THRESHOLD is now consistently used for model initialization
-# so no need to pass it to model(...) directly here.
 
 model.eval() # Set model to evaluation mode
 with torch.no_grad():
@@ -415,11 +403,9 @@ with torch.no_grad():
     sample_image_tensor, sample_target = val_dataset[0] 
     
     # Add batch dimension and move to device
-    # Faster R-CNN expects a list of tensors for batch processing
     sample_image_input = [sample_image_tensor.to(device)]
     
     # Get model prediction (list of dicts)
-    # The score_thresh is now handled by the model's internal configuration
     predictions = model(sample_image_input) 
     
     # --- DEBUGGING: Print raw scores ---
@@ -429,7 +415,6 @@ with torch.no_grad():
         print("No predictions or scores found for the validation sample (all below internal threshold or no detections).")
 
     # Extract predicted boxes and true boxes for the first image in batch
-    # Guard against empty predictions list
     predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
     predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
     predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
@@ -447,7 +432,6 @@ with torch.no_grad():
 
     # Draw all true bounding boxes
     for i, bbox in enumerate(true_boxes):
-        # Ensure bbox coordinates are in pixel space (Faster R-CNN works with pixels directly)
         draw_bbox(axes, bbox, color='green', label=f'True' if i == 0 else None, width=2)
     
     # Draw all predicted bounding boxes (filtered by the model's internal threshold)
@@ -479,7 +463,6 @@ print("Dummy inference images generated.")
 
 
 # 3. Instantiate the InferenceDataset and DataLoader
-# Use collate_fn even for inference if batch size > 1
 inference_dataset = InferenceDataset(INFERENCE_IMAGE_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
 inference_dataloader = DataLoader(
     inference_dataset,
@@ -491,8 +474,7 @@ inference_dataloader = DataLoader(
 
 # 4. Load the Trained Model
 print(f"\nLoading trained model from {MODEL_SAVE_PATH} for inference...")
-# Instantiate with the same score_thresh used during the model's training/saving
-loaded_model = get_faster_rcnn_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD) 
+loaded_model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD) 
 loaded_model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=device))
 loaded_model.to(device)
 loaded_model.eval() # Set to evaluation mode
@@ -501,42 +483,36 @@ print("Model loaded successfully for inference.")
 
 # 5. Run Inference and Visualize Predictions
 print("\nRunning inference on new images...")
-for i, (image_tensors, img_paths) in enumerate(inference_dataloader): # image_tensors is a list because of collate_fn
+for i, (image_tensors, img_paths) in enumerate(inference_dataloader):
     print(f"Processing image: {os.path.basename(img_paths[0])}")
     
-    # Faster R-CNN expects a list of image tensors
     image_tensors_on_device = [img.to(device) for img in image_tensors]
     
     with torch.no_grad():
-        # The score_thresh is now handled by the model's internal configuration
         predictions = loaded_model(image_tensors_on_device) 
     
-    # --- DEBUGGING: Print raw scores for inference images ---
     if predictions and 'scores' in predictions[0]:
         print(f"Raw predicted scores for inference image: {predictions[0]['scores'].cpu().numpy()}")
     else:
         print("No predictions or scores found for inference image (all below internal threshold or no detections).")
 
-    # Extract prediction for the single image in the batch
-    # Guard against empty predictions list
     predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
     predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
     predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
 
 
     # Denormalize image for display
-    image_np = image_tensors[0].cpu().permute(1, 2, 0).numpy() # Take the first image from the list
+    image_np = image_tensors[0].cpu().permute(1, 2, 0).numpy()
 
     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
     axes.imshow(image_np)
     axes.set_title(f'Inference: {os.path.basename(img_paths[0])} with Predicted BBoxes (Model Threshold: {VIS_SCORE_THRESHOLD})')
     axes.axis('off')
 
-    # Draw all predicted bounding boxes (filtered by the model's internal threshold)
     for k, bbox in enumerate(predicted_boxes):
         score = predicted_scores[k]
         label = predicted_labels[k]
-        draw_bbox(axes, bbox, color='red', label=f'Class {label}', score=score, width=2) # Display class label
+        draw_bbox(axes, bbox, color='red', label=f'Class {label}', score=score, width=2)
             
     plt.legend()
     plt.tight_layout()
@@ -544,3 +520,4 @@ for i, (image_tensors, img_paths) in enumerate(inference_dataloader): # image_te
 
 print("\nInference on new images complete.")
 print(f"You can find the generated inference images in the '{INFERENCE_IMAGE_DIR}' directory.")
+

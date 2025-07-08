@@ -63,7 +63,7 @@ def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12]):
         ax[i].set_xticklabels([])
         ax[i].set_yticklabels([None,0.25,None,None,1])
     
-    fig.savefig('../output_plots/FAR3D_Eigenfunction.png')
+    fig.savefig('../output_plots/FAR3D_Eigenfunction.pdf',transparent=True)
     plt.show()
     
 if __name__ == '__main__':plot_B()

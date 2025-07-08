@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 20 15:35:01 2025
-
-@author: rianc
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,11 +13,13 @@ from scipy.ndimage import gaussian_filter
 # NEW: Import Faster R-CNN model
 from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-
+# CPUS
+from multiprocessing import cpu_count
+CPUS = cpu_count()
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 1000 # Increased samples for better Faster R-CNN training
+NUM_SAMPLES = 10 # Increased samples for better Faster R-CNN training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_frcnn.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'faster_rcnn_model.pth' # Path to save the trained Faster R-CNN model
 
@@ -215,10 +209,10 @@ class InferenceDataset(Dataset):
 
 
 # --- NEW: Instantiate Faster R-CNN Model ---
-def get_faster_rcnn_model(num_classes):
+def get_faster_rcnn_model(num_classes, score_thresh=0.05):
     # Load a pre-trained Faster R-CNN model with a ResNet50 FPN backbone
     # weights="DEFAULT" loads the best available weights (pretrained on COCO)
-    model = fasterrcnn_resnet50_fpn_v2(weights="DEFAULT")
+    model = fasterrcnn_resnet50_fpn_v2(weights="DEFAULT",box_score_thresh=score_thresh)
 
     # Get the number of input features for the classifier head
     in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -274,19 +268,22 @@ train_dataloader = DataLoader(
     train_dataset,
     batch_size=BATCH_SIZE,
     shuffle=True,
-    num_workers=0,
+    num_workers=CPUS,
     collate_fn=collate_fn # Important for Faster R-CNN
 )
 val_dataloader = DataLoader(
     val_dataset,
     batch_size=BATCH_SIZE,
     shuffle=False,
-    num_workers=0,
+    num_workers=CPUS,
     collate_fn=collate_fn # Important for Faster R-CNN
 )
 
-# Instantiate the Faster R-CNN model
-model = get_faster_rcnn_model(num_classes=NUM_CLASSES)
+# Define the desired visualization threshold for predictions (used during model initialization)
+VIS_SCORE_THRESHOLD = 0.01 # TEMPORARILY LOW FOR DEBUGGING
+
+# Instantiate the Faster R-CNN model (pass VIS_SCORE_THRESHOLD here)
+model = get_faster_rcnn_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
 
 print("\nFaster R-CNN model created successfully!")
 print(model)
@@ -302,7 +299,7 @@ print(f"\nModel moved to: {device}")
 optimizer = torch.optim.Adam(model.parameters(), lr=0.005) # Increased learning rate for Faster R-CNN
 
 # --- Training Loop ---
-NUM_EPOCHS = 15 # Adjusted epochs for Faster R-CNN
+NUM_EPOCHS = 1 # Adjusted epochs for Faster R-CNN
 
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
 
@@ -380,7 +377,7 @@ plt.title('Training and Validation Loss Over Epochs (Faster R-CNN)')
 plt.legend()
 plt.grid(True)
 plt.show()
-plt.savefig('Training_Store.png')
+
 # --- Helper for drawing bounding boxes ---
 def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_width=IMAGE_WIDTH, image_height=IMAGE_HEIGHT):
     """
@@ -409,7 +406,7 @@ def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_widt
 print("\n--- Example Prediction on a Validation Sample (from Training Data) ---")
 # Lowering SCORE_THRESHOLD significantly for initial visualization to see any boxes
 # Adjust this back to a higher value (e.g., 0.5) after more training.
-VIS_SCORE_THRESHOLD = 0.01 # TEMPORARILY LOW FOR DEBUGGING
+
 
 model.eval() # Set model to evaluation mode
 with torch.no_grad():
@@ -421,15 +418,20 @@ with torch.no_grad():
     sample_image_input = [sample_image_tensor.to(device)]
     
     # Get model prediction (list of dicts)
-    predictions = model(sample_image_input)
+    # Pass score_thresh directly for this inference call to see more detections
+    predictions = model(sample_image_input,) 
     
     # --- DEBUGGING: Print raw scores ---
-    print(f"\nRaw predicted scores for the validation sample: {predictions[0]['scores'].cpu().numpy()}")
-    
+    if predictions and 'scores' in predictions[0]:
+        print(f"\nRaw predicted scores for the validation sample: {predictions[0]['scores'].cpu().numpy()}")
+    else:
+        print("No predictions or scores found for the validation sample (all below internal threshold or no detections).")
+
     # Extract predicted boxes and true boxes for the first image in batch
-    predicted_boxes = predictions[0]['boxes'].cpu().numpy()
-    predicted_labels = predictions[0]['labels'].cpu().numpy()
-    predicted_scores = predictions[0]['scores'].cpu().numpy()
+    # Guard against empty predictions list
+    predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
+    predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
+    predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
 
     true_boxes = sample_target['boxes'].cpu().numpy()
     true_labels = sample_target['labels'].cpu().numpy()
@@ -451,13 +453,13 @@ with torch.no_grad():
     for i, bbox in enumerate(predicted_boxes):
         score = predicted_scores[i]
         label = predicted_labels[i]
-        if score > VIS_SCORE_THRESHOLD: # Use the debugging threshold here
-            draw_bbox(axes, bbox, color='red', label=f'Pred', score=score, width=2)
+        # No need to filter by VIS_SCORE_THRESHOLD here, as it's already applied in model(...)
+        draw_bbox(axes, bbox, color='red', label=f'Pred', score=score, width=2)
 
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.savefig('Validation_Training.png')
+
 
 # --- NEW SECTION: Load and Test with New Images ---
 print("\n--- Testing with New, Unseen Images ---")
@@ -505,15 +507,17 @@ for i, (image_tensors, img_paths) in enumerate(inference_dataloader): # image_te
     image_tensors_on_device = [img.to(device) for img in image_tensors]
     
     with torch.no_grad():
-        predictions = loaded_model(image_tensors_on_device)
+        # Pass score_thresh directly for this inference call to see more detections
+        predictions = loaded_model(image_tensors_on_device) 
     
     # --- DEBUGGING: Print raw scores for inference images ---
     if predictions and 'scores' in predictions[0]:
         print(f"Raw predicted scores for inference image: {predictions[0]['scores'].cpu().numpy()}")
     else:
-        print("No predictions or scores found for inference image (likely all below internal threshold).")
+        print("No predictions or scores found for inference image (all below internal threshold or no detections).")
 
     # Extract prediction for the single image in the batch
+    # Guard against empty predictions list
     predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
     predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
     predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
@@ -528,16 +532,15 @@ for i, (image_tensors, img_paths) in enumerate(inference_dataloader): # image_te
     axes.axis('off')
 
     # Draw all predicted bounding boxes (filter by score)
-    # Use the debugging threshold here for inference too
+    # No need to filter by VIS_SCORE_THRESHOLD here, as it's already applied in model(...)
     for k, bbox in enumerate(predicted_boxes):
         score = predicted_scores[k]
         label = predicted_labels[k]
-        if score > VIS_SCORE_THRESHOLD:
-            draw_bbox(axes, bbox, color='red', label=f'Class {label}', score=score, width=2) # Display class label
+        draw_bbox(axes, bbox, color='red', label=f'Class {label}', score=score, width=2) # Display class label
             
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.savefig('Validation_%d.png'%i)
+
 print("\nInference on new images complete.")
 print(f"You can find the generated inference images in the '{INFERENCE_IMAGE_DIR}' directory.")

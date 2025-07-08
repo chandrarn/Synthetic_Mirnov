@@ -67,7 +67,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     # slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
     #                             save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
 
-    return sensors, coil_currs, tw_mesh, slices,slices_spl
+    # return sensors, coil_currs, tw_mesh, slices,slices_spl
 #    return sensor_,currents
 #####################################3
 def get_mesh(mesh_file,filament_file,params,sensor_set,debug=False):
@@ -220,8 +220,8 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # Plot Mesh
     if plot_B_surf: 
         p.add_mesh(grid,color="white",opacity=1,show_edges=True, \
-                   scalars=Jfull,clim=[0,200],smooth_shading=True,\
-                       scalar_bar_args={'title':'Eddy Current [A]'})
+                   scalars=Jfull,clim=[0,150],smooth_shading=True,\
+                       scalar_bar_args={'title':'Eddy Current [A/m]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
     #slices=grid.slice_orthogonal()
     #slice_coords=[np.linspace(0,1.6,10),[0]*10,np.linspace(-1.5,1.5,10)]
@@ -276,11 +276,12 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 if __name__=='__main__':
    
     params={'m':3,'n':1,'r':.3,'R':2,'n_pts':100,'m_pts':70,\
-        'f':1e1,'dt':1e-2,'T':3e-1,'periods':3,'n_threads':64,'I':30}
+        'f':1e4,'dt':1e-5,'T':3e-4,'periods':3,'n_threads':64,'I':30}
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
     
     # C-Mod Side
-    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    #mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
     eta = '1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011

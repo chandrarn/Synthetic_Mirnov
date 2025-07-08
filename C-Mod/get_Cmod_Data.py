@@ -769,6 +769,7 @@ class A_EQDSK_CCBRSP():
 class TRANSP():
     # Pull Transp Data required for FAR 3D
     # Note: TRANSP tree shot numberings different than regular tree
+    # See a few shot number mappings in /home/snipes/transp/transp_shots.txt
     
     def __init__(self, shotno, debug=False):
          if debug: print('Loading electon/ion density/temperature, fast ion density, pressure')
