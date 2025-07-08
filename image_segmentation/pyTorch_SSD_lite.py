@@ -424,9 +424,10 @@ for epoch in range(NUM_EPOCHS):
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
             
-            # Check for non-finite loss during validation as well
+            if isinstance(losses, torch.Tensor) and losses.numel() > 1:
+                losses = losses.mean()
             if not torch.isfinite(losses):
-                print(f"Warning: Non-finite validation loss encountered in epoch {epoch+1}. Skipping batch.")
+                print(f"Warning: Non-finite loss encountered in epoch {epoch+1}, batch {batch_idx}. Skipping backward pass.")
                 continue
 
             val_running_loss += losses.item() * len(images)
