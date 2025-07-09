@@ -561,14 +561,23 @@ inference_dataloader = DataLoader(
 # 4. Load the Trained Model
 VIS_SCORE_THRESHOLD = .7
 print(f"\nLoading trained model from {MODEL_SAVE_PATH} for inference...")
-loaded_model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD) 
-loaded_model.load_state_dict(torch.load(MODEL_SAVE_PATH, map_location=device))
+state_dict = torch.load(MODEL_SAVE_PATH, map_location=device)
+if any(k.startswith('module.') for k in state_dict.keys()):
+    # State dict was saved from DataParallel, strip 'module.' prefix
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k.replace('module.', '') if k.startswith('module.') else k
+        new_state_dict[name] = v
+    state_dict = new_state_dict
 
-# --- Multi-GPU support for inference ---
+loaded_model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
+loaded_model.load_state_dict(state_dict)
+
 if torch.cuda.is_available() and torch.cuda.device_count() > 1:
     loaded_model = nn.DataParallel(loaded_model)
 loaded_model.to(device)
-loaded_model.eval() # Set to evaluation mode
+loaded_model.eval()
 print("Model loaded successfully for inference.")
 
 
