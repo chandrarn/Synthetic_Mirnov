@@ -35,7 +35,7 @@ CPUS = 1#cpu_count()
 
 IMAGE_HEIGHT = 128
 IMAGE_WIDTH = 128
-NUM_SAMPLES = 100 # Increased samples for better training
+NUM_SAMPLES = 2000 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
 
@@ -63,6 +63,7 @@ BACKGROUND_BLUR_SIGMA = 15
 # --- NEW: Number of object classes (1 for shapes/squiggles + 1 for background) ---
 NUM_CLASSES = 2 # Background (0), Shape/Squiggle (1)
 
+NUM_EPOCHS = 50 # Adjusted epochs for SSD
 
 plt.close('all')
 
@@ -375,7 +376,6 @@ print(f"\nModel moved to: {device}")
 optimizer = torch.optim.Adam(model.parameters(), lr=0.005) # Increased learning rate
 
 # --- Training Loop ---
-NUM_EPOCHS = 1 # Adjusted epochs for SSD
 
 print('Running on %d cores'%CPUS)
 print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
