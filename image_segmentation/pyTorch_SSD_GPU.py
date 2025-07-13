@@ -29,11 +29,11 @@ from dataset_builder_SSD import generate_image_and_individual_bboxes
 # --- Configuration Parameters ---
 IMAGE_HEIGHT = 250
 IMAGE_WIDTH = 250
-NUM_SAMPLES = 100 # Increased samples for better training
+NUM_SAMPLES = 1000 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
-
-
+NUM_EPOCHS = 15
+NUM_CLASSES = 2
 
 # --- PyTorch Dataset Class for Training/Validation (Adapted for Object Detection) ---
 class SyntheticObjectDetectionDataset(Dataset):
@@ -191,7 +191,7 @@ def main_worker(rank, world_size, dataset, val_dataset, VIS_SCORE_THRESHOLD):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
 
     # --- Training Loop ---
-    NUM_EPOCHS = 15 
+    
     print(f"\n--- Process {rank}: Starting Training for {NUM_EPOCHS} Epochs ---")
 
     train_losses = []

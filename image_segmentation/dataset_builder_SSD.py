@@ -5,8 +5,8 @@ from scipy.ndimage import gaussian_filter
 import math
 
 # --- Configuration Parameters (can be adjusted) ---
-IMAGE_HEIGHT = 200
-IMAGE_WIDTH = 200
+IMAGE_HEIGHT = 250
+IMAGE_WIDTH = 250
 
 # Circle chain parameters
 ADD_CIRCLE_CHAIN_PROBABILITY = 0.7 # Probability of adding a circle chain (0.0 to 1.0)
