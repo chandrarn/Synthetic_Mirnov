@@ -29,13 +29,13 @@ import time
 
 
 from multiprocessing import cpu_count
-CPUS = 3#cpu_count()
+CPUS = 4#cpu_count()
 
 # --- Configuration Parameters ---150 
 
-IMAGE_HEIGHT = 128
-IMAGE_WIDTH = 128
-NUM_SAMPLES = 1000 # Increased samples for better training
+IMAGE_HEIGHT = 250
+IMAGE_WIDTH = 250
+NUM_SAMPLES = 2500 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
 
@@ -63,7 +63,7 @@ BACKGROUND_BLUR_SIGMA = 15
 # --- NEW: Number of object classes (1 for shapes/squiggles + 1 for background) ---
 NUM_CLASSES = 2 # Background (0), Shape/Squiggle (1)
 
-NUM_EPOCHS = 1 # Adjusted epochs for SSD
+NUM_EPOCHS = 190 # Adjusted epochs for SSD
 # Define the desired visualization threshold for predictions (used during model initialization)
 VIS_SCORE_THRESHOLD = 0.7 # TEMPORARILY LOW FOR DEBUGGING
 plt.close('all')
@@ -835,7 +835,8 @@ for i, (image_tensors, img_paths) in enumerate(inference_dataloader):
         predictions = loaded_model(image_tensors_on_device) 
     
     if predictions and 'scores' in predictions[0]:
-        print(f"Raw predicted scores for inference image: {predictions[0]['scores'].cpu().numpy()}")
+        #print(f"Raw predicted scores for inference image: {predictions[0]['scores'].cpu().numpy()}")
+        print('Score found for test image')
     else:
         print("No predictions or scores found for inference image (all below internal threshold or no detections).")
 

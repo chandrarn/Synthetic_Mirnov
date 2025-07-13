@@ -1,0 +1,1202 @@
+Checking for existing dataset at synthetic_multi_bbox_dataset_ssd.pth...
+Error loading dataset: None. Generating new dataset.
+Generating 2000 synthetic samples...
+Sample generation complete.
+Saving newly generated dataset to synthetic_multi_bbox_dataset_ssd.pth...
+Dataset saved successfully.
+Training set size: 1600
+Validation set size: 400
+
+SSDLite320_MobileNet_V3_Large model created successfully!
+SSD(
+  (backbone): SSDLiteFeatureExtractorMobileNet(
+    (features): Sequential(
+      (0): Sequential(
+        (0): Conv2dNormActivation(
+          (0): Conv2d(3, 16, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (1): BatchNorm2d(16, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): Hardswish()
+        )
+        (1): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=16, bias=False)
+              (1): BatchNorm2d(16, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(16, 16, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(16, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (2): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(16, 64, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(64, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=64, bias=False)
+              (1): BatchNorm2d(64, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (2): Conv2dNormActivation(
+              (0): Conv2d(64, 24, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(24, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (3): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(24, 72, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(72, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(72, 72, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=72, bias=False)
+              (1): BatchNorm2d(72, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (2): Conv2dNormActivation(
+              (0): Conv2d(72, 24, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(24, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (4): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(24, 72, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(72, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(72, 72, kernel_size=(5, 5), stride=(2, 2), padding=(2, 2), groups=72, bias=False)
+              (1): BatchNorm2d(72, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(72, 24, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(24, 72, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(72, 40, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(40, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (5): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(40, 120, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(120, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(120, 120, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), groups=120, bias=False)
+              (1): BatchNorm2d(120, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(120, 32, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(32, 120, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(120, 40, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(40, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (6): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(40, 120, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(120, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(120, 120, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), groups=120, bias=False)
+              (1): BatchNorm2d(120, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): ReLU(inplace=True)
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(120, 32, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(32, 120, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(120, 40, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(40, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (7): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(40, 240, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(240, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(240, 240, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=240, bias=False)
+              (1): BatchNorm2d(240, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): Conv2dNormActivation(
+              (0): Conv2d(240, 80, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(80, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (8): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(80, 200, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(200, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(200, 200, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=200, bias=False)
+              (1): BatchNorm2d(200, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): Conv2dNormActivation(
+              (0): Conv2d(200, 80, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(80, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (9): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(80, 184, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(184, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(184, 184, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=184, bias=False)
+              (1): BatchNorm2d(184, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): Conv2dNormActivation(
+              (0): Conv2d(184, 80, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(80, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (10): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(80, 184, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(184, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(184, 184, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=184, bias=False)
+              (1): BatchNorm2d(184, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): Conv2dNormActivation(
+              (0): Conv2d(184, 80, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(80, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (11): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(80, 480, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(480, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(480, 480, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=480, bias=False)
+              (1): BatchNorm2d(480, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(480, 120, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(120, 480, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(480, 112, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(112, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (12): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(112, 672, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(672, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(672, 672, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=672, bias=False)
+              (1): BatchNorm2d(672, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(672, 168, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(168, 672, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(672, 112, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(112, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (13): Conv2dNormActivation(
+          (0): Conv2d(112, 672, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(672, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): Hardswish()
+        )
+      )
+      (1): Sequential(
+        (0): Sequential(
+          (1): Conv2dNormActivation(
+            (0): Conv2d(672, 672, kernel_size=(5, 5), stride=(2, 2), padding=(2, 2), groups=672, bias=False)
+            (1): BatchNorm2d(672, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): Hardswish()
+          )
+          (2): SqueezeExcitation(
+            (avgpool): AdaptiveAvgPool2d(output_size=1)
+            (fc1): Conv2d(672, 168, kernel_size=(1, 1), stride=(1, 1))
+            (fc2): Conv2d(168, 672, kernel_size=(1, 1), stride=(1, 1))
+            (activation): ReLU()
+            (scale_activation): Hardsigmoid()
+          )
+          (3): Conv2dNormActivation(
+            (0): Conv2d(672, 160, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (1): BatchNorm2d(160, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          )
+        )
+        (1): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(160, 960, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(960, 960, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), groups=960, bias=False)
+              (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(960, 240, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(240, 960, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(960, 160, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(160, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (2): InvertedResidual(
+          (block): Sequential(
+            (0): Conv2dNormActivation(
+              (0): Conv2d(160, 960, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (1): Conv2dNormActivation(
+              (0): Conv2d(960, 960, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), groups=960, bias=False)
+              (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+              (2): Hardswish()
+            )
+            (2): SqueezeExcitation(
+              (avgpool): AdaptiveAvgPool2d(output_size=1)
+              (fc1): Conv2d(960, 240, kernel_size=(1, 1), stride=(1, 1))
+              (fc2): Conv2d(240, 960, kernel_size=(1, 1), stride=(1, 1))
+              (activation): ReLU()
+              (scale_activation): Hardsigmoid()
+            )
+            (3): Conv2dNormActivation(
+              (0): Conv2d(960, 160, kernel_size=(1, 1), stride=(1, 1), bias=False)
+              (1): BatchNorm2d(160, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (3): Conv2dNormActivation(
+          (0): Conv2d(160, 960, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): Hardswish()
+        )
+      )
+    )
+    (extra): ModuleList(
+      (0): Sequential(
+        (0): Conv2dNormActivation(
+          (0): Conv2d(960, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(256, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (1): Conv2dNormActivation(
+          (0): Conv2d(256, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=256, bias=False)
+          (1): BatchNorm2d(256, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (2): Conv2dNormActivation(
+          (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(512, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+      )
+      (1): Sequential(
+        (0): Conv2dNormActivation(
+          (0): Conv2d(512, 128, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (1): Conv2dNormActivation(
+          (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=128, bias=False)
+          (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (2): Conv2dNormActivation(
+          (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(256, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+      )
+      (2): Sequential(
+        (0): Conv2dNormActivation(
+          (0): Conv2d(256, 128, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (1): Conv2dNormActivation(
+          (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=128, bias=False)
+          (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (2): Conv2dNormActivation(
+          (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(256, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+      )
+      (3): Sequential(
+        (0): Conv2dNormActivation(
+          (0): Conv2d(256, 64, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(64, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (1): Conv2dNormActivation(
+          (0): Conv2d(64, 64, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=64, bias=False)
+          (1): BatchNorm2d(64, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+        (2): Conv2dNormActivation(
+          (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(1, 1), bias=False)
+          (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+          (2): ReLU6(inplace=True)
+        )
+      )
+    )
+  )
+  (anchor_generator): DefaultBoxGenerator(aspect_ratios=[[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]], clip=True, scales=[0.2, 0.35, 0.5, 0.65, 0.8, 0.95, 1.0], steps=None)
+  (head): SSDLiteHead(
+    (classification_head): SSDLiteClassificationHead(
+      (module_list): ModuleList(
+        (0): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(672, 672, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=672, bias=False)
+            (1): BatchNorm2d(672, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(672, 12, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (1): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(960, 960, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=960, bias=False)
+            (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(960, 12, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (2): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512, bias=False)
+            (1): BatchNorm2d(512, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(512, 12, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (3-4): 2 x Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256, bias=False)
+            (1): BatchNorm2d(256, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(256, 12, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (5): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128, bias=False)
+            (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(128, 12, kernel_size=(1, 1), stride=(1, 1))
+        )
+      )
+    )
+    (regression_head): SSDLiteRegressionHead(
+      (module_list): ModuleList(
+        (0): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(672, 672, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=672, bias=False)
+            (1): BatchNorm2d(672, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(672, 24, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (1): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(960, 960, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=960, bias=False)
+            (1): BatchNorm2d(960, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(960, 24, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (2): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=512, bias=False)
+            (1): BatchNorm2d(512, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(512, 24, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (3-4): 2 x Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=256, bias=False)
+            (1): BatchNorm2d(256, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(256, 24, kernel_size=(1, 1), stride=(1, 1))
+        )
+        (5): Sequential(
+          (0): Conv2dNormActivation(
+            (0): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), groups=128, bias=False)
+            (1): BatchNorm2d(128, eps=0.001, momentum=0.03, affine=True, track_running_stats=True)
+            (2): ReLU6(inplace=True)
+          )
+          (1): Conv2d(128, 24, kernel_size=(1, 1), stride=(1, 1))
+        )
+      )
+    )
+  )
+  (transform): GeneralizedRCNNTransform(
+      Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+      Resize(min_size=(320,), max_size=320, mode='bilinear')
+  )
+)
+Using 4 GPUs: ['NVIDIA A100-SXM4-80GB', 'NVIDIA A100-SXM4-80GB', 'NVIDIA A100-SXM4-80GB', 'NVIDIA A100-SXM4-80GB']
+
+Model moved to: cuda
+Running on 1 cores
+
+--- Starting Training for 120 Epochs ---
+Epoch 1/120, Train Loss: 7.371308, Elapsed Time: 111.62s
+Epoch 1/120, Validation Loss: 6.055038
+Epoch 2/120, Train Loss: 5.520443, Elapsed Time: 228.43s
+Epoch 2/120, Validation Loss: 5.317282
+Epoch 3/120, Train Loss: 4.989955, Elapsed Time: 345.44s
+Epoch 3/120, Validation Loss: 4.887159
+Epoch 4/120, Train Loss: 4.636850, Elapsed Time: 462.61s
+Epoch 4/120, Validation Loss: 4.605350
+Epoch 5/120, Train Loss: 4.361576, Elapsed Time: 578.91s
+Epoch 5/120, Validation Loss: 4.600470
+Epoch 6/120, Train Loss: 4.240665, Elapsed Time: 694.69s
+Epoch 6/120, Validation Loss: 4.141535
+Epoch 7/120, Train Loss: 3.990201, Elapsed Time: 811.01s
+Epoch 7/120, Validation Loss: 4.063899
+Epoch 8/120, Train Loss: 3.866739, Elapsed Time: 927.44s
+Epoch 8/120, Validation Loss: 4.022161
+Epoch 9/120, Train Loss: 3.768824, Elapsed Time: 1043.12s
+Epoch 9/120, Validation Loss: 3.949494
+Epoch 10/120, Train Loss: 3.747960, Elapsed Time: 1158.24s
+Epoch 10/120, Validation Loss: 3.994323
+Epoch 11/120, Train Loss: 3.574101, Elapsed Time: 1273.63s
+Epoch 11/120, Validation Loss: 3.920501
+Epoch 12/120, Train Loss: 3.513734, Elapsed Time: 1388.58s
+Epoch 12/120, Validation Loss: 3.793231
+Epoch 13/120, Train Loss: 3.459254, Elapsed Time: 1503.66s
+Epoch 13/120, Validation Loss: 3.724800
+Epoch 14/120, Train Loss: 3.525343, Elapsed Time: 1618.28s
+Epoch 14/120, Validation Loss: 3.776630
+Epoch 15/120, Train Loss: 3.460111, Elapsed Time: 1733.07s
+Epoch 15/120, Validation Loss: 3.740076
+Epoch 16/120, Train Loss: 3.325194, Elapsed Time: 1848.11s
+Epoch 16/120, Validation Loss: 3.646317
+Epoch 17/120, Train Loss: 3.300638, Elapsed Time: 1962.74s
+Epoch 17/120, Validation Loss: 3.702195
+Epoch 18/120, Train Loss: 3.343073, Elapsed Time: 2077.81s
+Epoch 18/120, Validation Loss: 3.663884
+Epoch 19/120, Train Loss: 3.363357, Elapsed Time: 2192.05s
+Epoch 19/120, Validation Loss: 3.751753
+Epoch 20/120, Train Loss: 3.244028, Elapsed Time: 2307.55s
+Epoch 20/120, Validation Loss: 3.660523
+Epoch 21/120, Train Loss: 3.178531, Elapsed Time: 2422.72s
+Epoch 21/120, Validation Loss: 3.554795
+Epoch 22/120, Train Loss: 3.170843, Elapsed Time: 2537.74s
+Epoch 22/120, Validation Loss: 3.590143
+Epoch 23/120, Train Loss: 3.093703, Elapsed Time: 2653.28s
+Epoch 23/120, Validation Loss: 3.498454
+Epoch 24/120, Train Loss: 3.079606, Elapsed Time: 2768.28s
+Epoch 24/120, Validation Loss: 3.537256
+Epoch 25/120, Train Loss: 3.098961, Elapsed Time: 2883.76s
+Epoch 25/120, Validation Loss: 3.503588
+Epoch 26/120, Train Loss: 3.037348, Elapsed Time: 2998.52s
+Epoch 26/120, Validation Loss: 3.491504
+Epoch 27/120, Train Loss: 3.051784, Elapsed Time: 3113.78s
+Epoch 27/120, Validation Loss: 3.577361
+Epoch 28/120, Train Loss: 3.031594, Elapsed Time: 3228.37s
+Epoch 28/120, Validation Loss: 3.525064
+Epoch 29/120, Train Loss: 3.099437, Elapsed Time: 3343.64s
+Epoch 29/120, Validation Loss: 3.485320
+Epoch 30/120, Train Loss: 3.008374, Elapsed Time: 3458.78s
+Epoch 30/120, Validation Loss: 3.536319
+Epoch 31/120, Train Loss: 2.969487, Elapsed Time: 3573.45s
+Epoch 31/120, Validation Loss: 3.434377
+Epoch 32/120, Train Loss: 2.970979, Elapsed Time: 3688.22s
+Epoch 32/120, Validation Loss: 3.462100
+Epoch 33/120, Train Loss: 2.947725, Elapsed Time: 3803.73s
+Epoch 33/120, Validation Loss: 3.438393
+Epoch 34/120, Train Loss: 2.902336, Elapsed Time: 3918.74s
+Epoch 34/120, Validation Loss: 3.427493
+Epoch 35/120, Train Loss: 2.884600, Elapsed Time: 4034.53s
+Epoch 35/120, Validation Loss: 3.439566
+Epoch 36/120, Train Loss: 2.884223, Elapsed Time: 4150.14s
+Epoch 36/120, Validation Loss: 3.427336
+Epoch 37/120, Train Loss: 2.857961, Elapsed Time: 4265.06s
+Epoch 37/120, Validation Loss: 3.404945
+Epoch 38/120, Train Loss: 2.830494, Elapsed Time: 4380.49s
+Epoch 38/120, Validation Loss: 3.400691
+Epoch 39/120, Train Loss: 2.827860, Elapsed Time: 4495.12s
+Epoch 39/120, Validation Loss: 3.455619
+Epoch 40/120, Train Loss: 2.811231, Elapsed Time: 4611.70s
+Epoch 40/120, Validation Loss: 3.336504
+Epoch 41/120, Train Loss: 2.768770, Elapsed Time: 4729.06s
+Epoch 41/120, Validation Loss: 3.340667
+Epoch 42/120, Train Loss: 2.884958, Elapsed Time: 4847.38s
+Epoch 42/120, Validation Loss: 3.507944
+Epoch 43/120, Train Loss: 2.838625, Elapsed Time: 4965.28s
+Epoch 43/120, Validation Loss: 3.373995
+Epoch 44/120, Train Loss: 2.774255, Elapsed Time: 5084.00s
+Epoch 44/120, Validation Loss: 3.337034
+Epoch 45/120, Train Loss: 2.763560, Elapsed Time: 5200.46s
+Epoch 45/120, Validation Loss: 3.389348
+Epoch 46/120, Train Loss: 2.784806, Elapsed Time: 5317.13s
+Epoch 46/120, Validation Loss: 3.325631
+Epoch 47/120, Train Loss: 2.748741, Elapsed Time: 5433.31s
+Epoch 47/120, Validation Loss: 3.321257
+Epoch 48/120, Train Loss: 2.714213, Elapsed Time: 5548.75s
+Epoch 48/120, Validation Loss: 3.316132
+Epoch 49/120, Train Loss: 2.791913, Elapsed Time: 5665.31s
+Epoch 49/120, Validation Loss: 3.406424
+Epoch 50/120, Train Loss: 2.780322, Elapsed Time: 5781.55s
+Epoch 50/120, Validation Loss: 3.381482
+Epoch 51/120, Train Loss: 2.707128, Elapsed Time: 5896.74s
+Epoch 51/120, Validation Loss: 3.443491
+Epoch 52/120, Train Loss: 2.729076, Elapsed Time: 6013.60s
+Epoch 52/120, Validation Loss: 3.371701
+Epoch 53/120, Train Loss: 2.715824, Elapsed Time: 6131.93s
+Epoch 53/120, Validation Loss: 3.354049
+Epoch 54/120, Train Loss: 2.716482, Elapsed Time: 6249.75s
+Epoch 54/120, Validation Loss: 3.318969
+Epoch 55/120, Train Loss: 2.674199, Elapsed Time: 6365.64s
+Epoch 55/120, Validation Loss: 3.303936
+Epoch 56/120, Train Loss: 2.658448, Elapsed Time: 6480.64s
+Epoch 56/120, Validation Loss: 3.263002
+Epoch 57/120, Train Loss: 2.670526, Elapsed Time: 6595.83s
+Epoch 57/120, Validation Loss: 3.364504
+Epoch 58/120, Train Loss: 2.691770, Elapsed Time: 6711.68s
+Epoch 58/120, Validation Loss: 3.427549
+Epoch 59/120, Train Loss: 2.710633, Elapsed Time: 6826.25s
+Epoch 59/120, Validation Loss: 3.304301
+Epoch 60/120, Train Loss: 2.663870, Elapsed Time: 6942.03s
+Epoch 60/120, Validation Loss: 3.282584
+Epoch 61/120, Train Loss: 2.626323, Elapsed Time: 7058.49s
+Epoch 61/120, Validation Loss: 3.252234
+Epoch 62/120, Train Loss: 2.592943, Elapsed Time: 7175.81s
+Epoch 62/120, Validation Loss: 3.316702
+Epoch 63/120, Train Loss: 2.602370, Elapsed Time: 7290.70s
+Epoch 63/120, Validation Loss: 3.281722
+Epoch 64/120, Train Loss: 2.621083, Elapsed Time: 7407.71s
+Epoch 64/120, Validation Loss: 3.307455
+Epoch 65/120, Train Loss: 2.668167, Elapsed Time: 7524.51s
+Epoch 65/120, Validation Loss: 3.381860
+Epoch 66/120, Train Loss: 2.669312, Elapsed Time: 7641.56s
+Epoch 66/120, Validation Loss: 3.299166
+Epoch 67/120, Train Loss: 2.634225, Elapsed Time: 7757.11s
+Epoch 67/120, Validation Loss: 3.328478
+Epoch 68/120, Train Loss: 2.616895, Elapsed Time: 7872.09s
+Epoch 68/120, Validation Loss: 3.273748
+Epoch 69/120, Train Loss: 2.578117, Elapsed Time: 7988.55s
+Epoch 69/120, Validation Loss: 3.262441
+Epoch 70/120, Train Loss: 2.567938, Elapsed Time: 8103.75s
+Epoch 70/120, Validation Loss: 3.269697
+Epoch 71/120, Train Loss: 2.569559, Elapsed Time: 8219.80s
+Epoch 71/120, Validation Loss: 3.273164
+Epoch 72/120, Train Loss: 2.575932, Elapsed Time: 8334.90s
+Epoch 72/120, Validation Loss: 3.310072
+Epoch 73/120, Train Loss: 2.590809, Elapsed Time: 8450.08s
+Epoch 73/120, Validation Loss: 3.292101
+Epoch 74/120, Train Loss: 2.588905, Elapsed Time: 8564.95s
+Epoch 74/120, Validation Loss: 3.367373
+Epoch 75/120, Train Loss: 2.576707, Elapsed Time: 8678.87s
+Epoch 75/120, Validation Loss: 3.246241
+Epoch 76/120, Train Loss: 2.590629, Elapsed Time: 8793.58s
+Epoch 76/120, Validation Loss: 3.291727
+Epoch 77/120, Train Loss: 2.559799, Elapsed Time: 8908.22s
+Epoch 77/120, Validation Loss: 3.249560
+Epoch 78/120, Train Loss: 2.562703, Elapsed Time: 9022.59s
+Epoch 78/120, Validation Loss: 3.211656
+Epoch 79/120, Train Loss: 2.538132, Elapsed Time: 9136.64s
+Epoch 79/120, Validation Loss: 3.227889
+Epoch 80/120, Train Loss: 2.524709, Elapsed Time: 9252.08s
+Epoch 80/120, Validation Loss: 3.191926
+Epoch 81/120, Train Loss: 2.517806, Elapsed Time: 9367.28s
+Epoch 81/120, Validation Loss: 3.238530
+Epoch 82/120, Train Loss: 2.565970, Elapsed Time: 9482.04s
+Epoch 82/120, Validation Loss: 3.288203
+Epoch 83/120, Train Loss: 2.549401, Elapsed Time: 9596.54s
+Epoch 83/120, Validation Loss: 3.222642
+Epoch 84/120, Train Loss: 2.523019, Elapsed Time: 9710.59s
+Epoch 84/120, Validation Loss: 3.215767
+Epoch 85/120, Train Loss: 2.565896, Elapsed Time: 9826.15s
+Epoch 85/120, Validation Loss: 3.265258
+Epoch 86/120, Train Loss: 2.724812, Elapsed Time: 9940.44s
+Epoch 86/120, Validation Loss: 3.294240
+Epoch 87/120, Train Loss: 2.589937, Elapsed Time: 10055.28s
+Epoch 87/120, Validation Loss: 3.185632
+Epoch 88/120, Train Loss: 2.518534, Elapsed Time: 10170.31s
+Epoch 88/120, Validation Loss: 3.209290
+Epoch 89/120, Train Loss: 2.506676, Elapsed Time: 10285.52s
+Epoch 89/120, Validation Loss: 3.185940
+Epoch 90/120, Train Loss: 2.483094, Elapsed Time: 10400.38s
+Epoch 90/120, Validation Loss: 3.162101
+Epoch 91/120, Train Loss: 2.493969, Elapsed Time: 10515.83s
+Epoch 91/120, Validation Loss: 3.180140
+Epoch 92/120, Train Loss: 2.473920, Elapsed Time: 10631.08s
+Epoch 92/120, Validation Loss: 3.165825
+Epoch 93/120, Train Loss: 2.472513, Elapsed Time: 10746.27s
+Epoch 93/120, Validation Loss: 3.156179
+Epoch 94/120, Train Loss: 2.489109, Elapsed Time: 10860.97s
+Epoch 94/120, Validation Loss: 3.201111
+Epoch 95/120, Train Loss: 2.524920, Elapsed Time: 10975.93s
+Epoch 95/120, Validation Loss: 3.289982
+Epoch 96/120, Train Loss: 2.570950, Elapsed Time: 11090.98s
+Epoch 96/120, Validation Loss: 3.190538
+Epoch 97/120, Train Loss: 2.532580, Elapsed Time: 11205.78s
+Epoch 97/120, Validation Loss: 3.188757
+Epoch 98/120, Train Loss: 2.510921, Elapsed Time: 11320.89s
+Epoch 98/120, Validation Loss: 3.556243
+Epoch 99/120, Train Loss: 2.746961, Elapsed Time: 11436.14s
+Epoch 99/120, Validation Loss: 3.287419
+Epoch 100/120, Train Loss: 2.570373, Elapsed Time: 11551.62s
+Epoch 100/120, Validation Loss: 3.209770
+Epoch 101/120, Train Loss: 2.532537, Elapsed Time: 11666.40s
+Epoch 101/120, Validation Loss: 3.208103
+Epoch 102/120, Train Loss: 2.488273, Elapsed Time: 11781.41s
+Epoch 102/120, Validation Loss: 3.180044
+Epoch 103/120, Train Loss: 2.488693, Elapsed Time: 11896.72s
+Epoch 103/120, Validation Loss: 3.182811
+Epoch 104/120, Train Loss: 2.479588, Elapsed Time: 12012.35s
+Epoch 104/120, Validation Loss: 3.177468
+Epoch 105/120, Train Loss: 2.475138, Elapsed Time: 12128.13s
+Epoch 105/120, Validation Loss: 3.192375
+Epoch 106/120, Train Loss: 2.486061, Elapsed Time: 12244.61s
+Epoch 106/120, Validation Loss: 3.199579
+Epoch 107/120, Train Loss: 2.508749, Elapsed Time: 12362.68s
+Epoch 107/120, Validation Loss: 3.227088
+Epoch 108/120, Train Loss: 2.489792, Elapsed Time: 12478.90s
+Epoch 108/120, Validation Loss: 3.156442
+Epoch 109/120, Train Loss: 2.465386, Elapsed Time: 12594.58s
+Epoch 109/120, Validation Loss: 3.151177
+Epoch 110/120, Train Loss: 2.458175, Elapsed Time: 12710.37s
+Epoch 110/120, Validation Loss: 3.178569
+Epoch 111/120, Train Loss: 2.489490, Elapsed Time: 12826.63s
+Epoch 111/120, Validation Loss: 3.352903
+Epoch 112/120, Train Loss: 2.568104, Elapsed Time: 12943.21s
+Epoch 112/120, Validation Loss: 3.154029
+Epoch 113/120, Train Loss: 2.486910, Elapsed Time: 13060.11s
+Epoch 113/120, Validation Loss: 3.155432
+Epoch 114/120, Train Loss: 2.473791, Elapsed Time: 13177.17s
+Epoch 114/120, Validation Loss: 3.165281
+Epoch 115/120, Train Loss: 2.462395, Elapsed Time: 13294.80s
+Epoch 115/120, Validation Loss: 3.137406
+Epoch 116/120, Train Loss: 2.448489, Elapsed Time: 13412.94s
+Epoch 116/120, Validation Loss: 3.156476
+Epoch 117/120, Train Loss: 2.452682, Elapsed Time: 13531.46s
+Epoch 117/120, Validation Loss: 3.143242
+Epoch 118/120, Train Loss: 2.503813, Elapsed Time: 13650.86s
+Epoch 118/120, Validation Loss: 3.294490
+Epoch 119/120, Train Loss: 2.477736, Elapsed Time: 13769.04s
+Epoch 119/120, Validation Loss: 3.157348
+Epoch 120/120, Train Loss: 2.463896, Elapsed Time: 13886.27s
+Epoch 120/120, Validation Loss: 3.151061
+
+--- Training Complete ---
+
+Saving trained model to ssd_mobilenet_v3_model.pth...
+Model state dictionary saved successfully.
+
+--- Example Prediction on a Validation Sample (from Training Data) ---
+
+Raw predicted scores for the validation sample: []
+
+--- Testing with New, Unseen Images ---
+Generating 108 dummy images for inference in 'new_inference_images'...
+Dummy inference images generated.
+Found 210 images for inference in ../output_plots/training_plots/test_images/test_again/
+
+Loading trained model from ssd_mobilenet_v3_model.pth for inference...
+Model loaded successfully for inference.
+
+Running inference on new images...
+Processing image: Spectrogram_C_Mod_Data_BP_K_1050415032_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1050415032_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1050415032_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1050415032_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1051202011_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1051202011_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1051202011_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1051202011_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1070828025_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1070828025_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1070828025_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1070828025_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080109006_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080109006_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080109006_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080109006_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080520006_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080520006_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080520006_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1080520006_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1090918006_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1090918006_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104019_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104019_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104019_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104019_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104030_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104030_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104030_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104030_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104034_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_0.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104034_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104034_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104034_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104035_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104035_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104035_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110104035_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316018_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316018_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316018_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316018_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316020_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316020_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316020_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316020_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316031_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316031_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316031_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1110316031_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927003_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927003_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927003_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927003_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927007_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927007_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927007_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927007_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927010_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927010_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927010_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927010_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927017_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927017_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927017_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927017_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927018_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927018_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927018_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927018_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927019_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927019_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927019_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927019_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927020_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927021_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927021_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927021_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927021_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927023_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927023_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927023_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927023_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927031_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927031_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927031_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1120927031_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_0.5-0.8_f_0-0.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_0.8-1.1_f_0-1.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_0.8-1.1_f_100-1.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_1.1-1.4_f_0-1.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_1.1-1.4_f_100-1.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160714026_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160826008_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160928001_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160928001_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160928001_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160928001_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160930034_t_0.8-1.1_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160930034_t_0.8-1.1_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160930034_t_1.1-1.4_f_0-100.png
+Raw predicted scores for inference image: []
+Processing image: Spectrogram_C_Mod_Data_BP_K_1160930034_t_1.1-1.4_f_100-600.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_1.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_2.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_3.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_4.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_5.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_6.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_7.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_8.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_9.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_10.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_11.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_12.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_13.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_14.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_15.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_16.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_17.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_18.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_19.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_20.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_21.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_22.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_23.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_24.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_25.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_26.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_27.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_28.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_29.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_30.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_31.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_32.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_33.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_34.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_35.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_36.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_37.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_38.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_39.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_40.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_41.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_42.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_43.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_44.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_45.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_46.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_47.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_48.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_49.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_50.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_51.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_52.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_53.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_54.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_55.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_56.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_57.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_58.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_59.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_60.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_61.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_62.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_63.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_64.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_65.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_66.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_67.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_68.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_69.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_70.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_71.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_72.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_73.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_74.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_75.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_76.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_77.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_78.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_79.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_80.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_81.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_82.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_83.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_84.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_85.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_86.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_87.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_88.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_89.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_90.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_91.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_92.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_93.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_94.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_95.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_96.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_97.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_98.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_99.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_100.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_101.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_102.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_103.png
+Raw predicted scores for inference image: []
+Processing image: Training_Prediction_104.png
+Raw predicted scores for inference image: []
+
+Inference on new images complete.
+You can find the generated inference images in the '../output_plots/training_plots/test_images/test_again/' directory.
