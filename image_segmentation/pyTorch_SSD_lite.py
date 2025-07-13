@@ -32,12 +32,12 @@ from multiprocessing import cpu_count
 CPUS = 4#cpu_count()
 
 # --- Configuration Parameters ---150 
-
+save_Ext = '_improved_model'
 IMAGE_HEIGHT = 250
 IMAGE_WIDTH = 250
 NUM_SAMPLES = 2500 # Increased samples for better training
-SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
-MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
+SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd%s.pth'%save_Ext # New save path for dataset
+MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model%s.pth'%save_Ext # Path to save the trained SSD model
 
 # Shape generation parameters
 NUM_SHAPES_PER_IMAGE = (1, 3) # Min and max number of shapes per image
@@ -697,7 +697,7 @@ plt.title('Training and Validation Loss Over Epochs (SSDLite MobileNetV3)')
 plt.legend()
 plt.grid(True)
 plt.show()
-plt.savefig('Training_Progress.png')
+plt.savefig('Training_Progress%.png'%save_Ext)
 # --- Helper for drawing bounding boxes ---
 def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_width=IMAGE_WIDTH, image_height=IMAGE_HEIGHT):
     """
@@ -771,7 +771,7 @@ with torch.no_grad():
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.savefig('Training_Validation.png')
+    plt.savefig('Training_Validation%s.png'%save_Ext)
 
 #raise SyntaxError
 # --- NEW SECTION: Load and Test with New Images ---
@@ -861,7 +861,7 @@ for i, (image_tensors, img_paths) in enumerate(inference_dataloader):
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.savefig(INFERENCE_IMAGE_DIR+'Training_Prediction_%d.png'%i)
+    plt.savefig(INFERENCE_IMAGE_DIR+'Training_Prediction_%d%s.png'%(i,save_Ext))
 
 print("\nInference on new images complete.")
 print(f"You can find the generated inference images in the '{INFERENCE_IMAGE_DIR}' directory.")
