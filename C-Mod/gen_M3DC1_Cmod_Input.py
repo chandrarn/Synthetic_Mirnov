@@ -21,8 +21,8 @@ import eqtools as eq
 
 def gen_M3DC1_CMod_Input(shotno,timePoint,
              saveDataFile='/home/rianc/Documents/Synthetic_Mirnov/data_output/',
-                         doPlot=False, doSavePlot='',dropChansTS=[],
-                         dropChansTS_Edge=[]):
+                         doPlot=False, doSavePlot='',dropChansTS=[3,10],
+                         dropChansTS_Edge=[0,1,2,3]):
     '''
     
 

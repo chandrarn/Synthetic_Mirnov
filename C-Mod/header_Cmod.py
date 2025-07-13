@@ -8,10 +8,12 @@ Created on Wed Mar  5 16:22:03 2025
 
 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d, gaussian_filter
 from scipy.io import loadmat 
 from scipy.signal import lombscargle, hilbert
 from scipy.optimize import minimize
+
+from skimage.transform import downscale_local_mean
 
 import imageio.v3 as iio
 import cv2
@@ -41,7 +43,7 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 
-from rolling_spectrogram import rolling_spectrogram
+from rolling_spectrogram import rolling_spectrogram, rolling_spectrogram_improved
 
 # TODO: verift atht this works for other users
 try:
@@ -132,3 +134,56 @@ def __cal_Correction(sensor_name,freq):
     
     
     return  f, np.interp(freq,f,H_spline) * fine_cal * fine_caln
+################################################################################
+def grouped_average(arr, n, axis=-1):
+    """
+    Averages a NumPy array along a specific axis in groups of n sequential samples.
+
+    Args:
+        arr (np.ndarray): The input NumPy array.
+        n (int): The number of sequential samples to group together for averaging.
+        axis (int): The axis along which to perform the grouping and averaging.
+                    Defaults to the last axis (-1).
+
+    Returns:
+        np.ndarray: The averaged array.
+    """
+    if n <= 0:
+        raise ValueError("Group size 'n' must be a positive integer.")
+
+    # Move the target axis to the last position for easier reshaping
+    arr_transposed = np.moveaxis(arr, axis, -1)
+
+    original_shape = arr_transposed.shape
+    target_axis_length = original_shape[-1]
+
+    if target_axis_length % n != 0:
+        # Handle cases where the length of the axis is not perfectly divisible by n
+        # You have a few options here:
+        # 1. Pad the array: Add zeros or a repeating pattern to make it divisible.
+        # 2. Truncate the array: Discard the last few samples that don't form a full group.
+        # 3. Raise an error (current implementation): Let the user know.
+        
+        # For this function, we'll truncate for simplicity and efficiency.
+        # This keeps the output clean without needing to handle partial groups.
+        print(f"Warning: Axis length ({target_axis_length}) is not divisible by group size ({n}). "
+              "Truncating the last few samples.")
+        arr_transposed = arr_transposed[..., :target_axis_length - (target_axis_length % n)]
+        target_axis_length = arr_transposed.shape[-1]
+
+
+    # Calculate the new shape for reshaping
+    # The new last dimension will be (original_length / n, n)
+    new_shape = original_shape[:-1] + (target_axis_length // n, n)
+
+    # Reshape the array to create the groups
+    arr_reshaped = arr_transposed.reshape(new_shape)
+
+    # Calculate the mean along the newly created last dimension (which is 'n')
+    averaged_arr = np.mean(arr_reshaped, axis=-1)
+
+    # Move the axis back to its original position if it was moved
+    if axis != -1:
+        averaged_arr = np.moveaxis(averaged_arr, -1, axis)
+
+    return averaged_arr

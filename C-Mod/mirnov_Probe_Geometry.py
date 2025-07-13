@@ -324,18 +324,23 @@ def Mirnov_Geometry(shotno,debug=True):
     try:
         conn = mds.Connection('alcdata')
         conn.openTree('cmod',shotno)
-        theta_pol_ab = conn.get('\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_AB').data()
-        theta_pol_gh = conn.get('\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_GH').data()
-        nodenames = conn.get('\MAGNETICS::TOP.RF_LIM_COILS:NODENAME').data()
+        theta_pol_ab = conn.get(r'\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_AB').data()
+        theta_pol_gh = conn.get(r'\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_GH').data()
+        nodenames = conn.get(r'\MAGNETICS::TOP.RF_LIM_COILS:NODENAME').data()
+        if debug:
+            print(f'Using MDSplus data for shot {shotno}')
     except:
         theta_pol_ab, theta_pol_gh, nodenames = hardcodedVals(shotno)
-        
+        if debug:
+            print(f'Using hardcoded values for shot {shotno}')
+
     for sensor_name in theta_pol:
         
         try: sensor_index = int(np.argwhere(nodenames==sensor_name)[0,0])
-        except:# will fail for _TOP, _BOT caseses
-            if debug:print('Correct Theta Orientation Failed For: %s'%sensor_name)
-            continue 
+        except:# will fail for _TOP, _BOT caseses. Use BP[3/8]T_AB_K as replacement, R,Z values are closest match
+            if 'TOP' in sensor_name: sensor_index= int(np.argwhere(nodenames=='BP3T_ABK')[0,0])
+            elif 'BOT' in sensor_name: sensor_index= int(np.argwhere(nodenames=='BP08_ABK')[0,0])
+            else: raise SyntaxError(f'Sensor {sensor_name} not found in nodenames')
         
         theta_pol[sensor_name] = theta_pol_ab[sensor_index] if 'AB' in \
             sensor_name else theta_pol_gh[sensor_index-30]
@@ -343,19 +348,32 @@ def Mirnov_Geometry(shotno,debug=True):
     ###############
     # Correction for phi: rotate to match CAD: Overall shift of ~60deg, rel shift of 7
     for node_name in phi:
-            if 'A' in node_name: phase_offset= (149.389-88)
-            else: phase_offset= (149.389-88-7.2)
+            if 'AB' in node_name: phase_offset= (149.489-88)
+            else: phase_offset= (149.489-88-7.2) # This shift is not verified for the TOP/BOT sensors
             phi[node_name] += phase_offset
     ###############
-    # Correction for _T sensors to be under tile face
+    # Corrections to put limiter sensors inside of limiter
     for node_name in R:
+        # Correction for _T sensors to be under tile face
         if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.01 
+        ###############
+         # Correction for limiter side sensors to be inside of limiter
+        elif 'T' not in node_name:
+            
+            if 'AB' in node_name:
+                # print('Check', int(node_name[2:4]))
+                if int(node_name[2:4]) <=12: 
+                    phi[node_name] +=  1
+                else: phi[node_name] -= 1
+            else: 
+                if int(node_name[2:4]) <=15: phi[node_name] +=  1
+                else: phi[node_name] -= 1
     ####################################
-    with open('C_Mod_Mirnov_Geometry_R.json','w', encoding='utf-8') as f: 
+    with open('../C-Mod/C_Mod_Mirnov_Geometry_R.json','w', encoding='utf-8') as f: 
         json.dump(R,f, ensure_ascii=False, indent=4)
-    with open('C_Mod_Mirnov_Geometry_Z.json','w', encoding='utf-8') as f: 
+    with open('../C-Mod/C_Mod_Mirnov_Geometry_Z.json','w', encoding='utf-8') as f: 
         json.dump(Z,f, ensure_ascii=False, indent=4)
-    with open('C_Mod_Mirnov_Geometry_Phi.json','w', encoding='utf-8') as f: 
+    with open('../C-Mod/C_Mod_Mirnov_Geometry_Phi.json','w', encoding='utf-8') as f: 
         json.dump(phi,f, ensure_ascii=False, indent=4)
     ####################################
     return phi, theta_pol, R, Z
@@ -364,27 +382,27 @@ def Mirnov_Geometry(shotno,debug=True):
 ######################################################
 def hardcodedVals(shotno):
     theta_pol_ab = [ -50.6,  -55.6,  -61.5,  -67.3,  -72.7,  -77.9, -102.1, -107.1,
-       -112.9, -118.6, -124.3, -129.5,  -50.6,  -55.6,  -61.5,  -67.3,
-        -72.7,  -77.9, -102.1, -107.1, -112.9, -118.6, -124.3, -129.5,
-        -71.1,  -71.1,  -71.1, -108.9, -108.9, -108.9]
+                    -112.9, -118.6, -124.3, -129.5,  -50.6,  -55.6,  -61.5,  -67.3,
+                    -72.7,  -77.9, -102.1, -107.1, -112.9, -118.6, -124.3, -129.5,
+                    -71.1,  -71.1,  -71.1, -108.9, -108.9, -108.9]
     theta_pol_gh = [ -50.5,  -55.7,  -61.5,  -67.2,  -72.9,  -77.6,  -84.4,  -90. ,
-        -96.1, -102.4, -107.3, -112.7, -118.5, -124.4, -129.4,  -50.5,
-        -55.7,  -61.5,  -67.2,  -72.9,  -77.6,  -84.4,  -96.1, -102.4,
-       -107.3, -112.7, -118.5, -124.4, -129.4,  -72.3,  -72.3,  -72.3,
-       -107.7, -107.7, -107.7]
+                    -96.1, -102.4, -107.3, -112.7, -118.5, -124.4, -129.4,  -50.5,
+                    -55.7,  -61.5,  -67.2,  -72.9,  -77.6,  -84.4,  -96.1, -102.4,
+                    -107.3, -112.7, -118.5, -124.4, -129.4,  -72.3,  -72.3,  -72.3,
+                    -107.7, -107.7, -107.7]
     nodenames = ['BP01_ABK', 'BP02_ABK', 'BP03_ABK', 'BP04_ABK', 'BP05_ABK',
-       'BP06_ABK', 'BP07_ABK', 'BP08_ABK', 'BP09_ABK', 'BP10_ABK',
-       'BP11_ABK', 'BP12_ABK', 'BP13_ABK', 'BP14_ABK', 'BP15_ABK',
-       'BP16_ABK', 'BP17_ABK', 'BP18_ABK', 'BP19_ABK', 'BP20_ABK',
-       'BP21_ABK', 'BP22_ABK', 'BP23_ABK', 'BP24_ABK', 'BP1T_ABK',
-       'BP2T_ABK', 'BP3T_ABK', 'BP4T_ABK', 'BP5T_ABK', 'BP6T_ABK',
-       'BP01_GHK', 'BP02_GHK', 'BP03_GHK', 'BP04_GHK', 'BP05_GHK',
-       'BP06_GHK', 'BP07_GHK', 'BP08_GHK', 'BP09_GHK', 'BP10_GHK',
-       'BP11_GHK', 'BP12_GHK', 'BP13_GHK', 'BP14_GHK', 'BP15_GHK',
-       'BP16_GHK', 'BP17_GHK', 'BP18_GHK', 'BP19_GHK', 'BP20_GHK',
-       'BP21_GHK', 'BP22_GHK', 'BP23_GHK', 'BP24_GHK', 'BP25_GHK',
-       'BP26_GHK', 'BP27_GHK', 'BP28_GHK', 'BP29_GHK', 'BP1T_GHK',
-       'BP2T_GHK', 'BP3T_GHK', 'BP4T_GHK', 'BP5T_GHK', 'BP6T_GHK',
-       'BP01_K', 'BP02_K', 'BP03_K', 'BP04_K', 'BP05_K', 'BP06_K']
+                'BP06_ABK', 'BP07_ABK', 'BP08_ABK', 'BP09_ABK', 'BP10_ABK',
+                'BP11_ABK', 'BP12_ABK', 'BP13_ABK', 'BP14_ABK', 'BP15_ABK',
+                'BP16_ABK', 'BP17_ABK', 'BP18_ABK', 'BP19_ABK', 'BP20_ABK',
+                'BP21_ABK', 'BP22_ABK', 'BP23_ABK', 'BP24_ABK', 'BP1T_ABK',
+                'BP2T_ABK', 'BP3T_ABK', 'BP4T_ABK', 'BP5T_ABK', 'BP6T_ABK',
+                'BP01_GHK', 'BP02_GHK', 'BP03_GHK', 'BP04_GHK', 'BP05_GHK',
+                'BP06_GHK', 'BP07_GHK', 'BP08_GHK', 'BP09_GHK', 'BP10_GHK',
+                'BP11_GHK', 'BP12_GHK', 'BP13_GHK', 'BP14_GHK', 'BP15_GHK',
+                'BP16_GHK', 'BP17_GHK', 'BP18_GHK', 'BP19_GHK', 'BP20_GHK',
+                'BP21_GHK', 'BP22_GHK', 'BP23_GHK', 'BP24_GHK', 'BP25_GHK',
+                'BP26_GHK', 'BP27_GHK', 'BP28_GHK', 'BP29_GHK', 'BP1T_GHK',
+                'BP2T_GHK', 'BP3T_GHK', 'BP4T_GHK', 'BP5T_GHK', 'BP6T_GHK',
+                'BP01_K', 'BP02_K', 'BP03_K', 'BP04_K', 'BP05_K', 'BP06_K']
     
     return theta_pol_ab, theta_pol_gh, nodenames

@@ -29,7 +29,7 @@ import time
 
 
 from multiprocessing import cpu_count
-CPUS = 1#cpu_count()
+CPUS = 3#cpu_count()
 
 # --- Configuration Parameters ---150 
 
@@ -360,7 +360,7 @@ VIS_SCORE_THRESHOLD = 0.5 # TEMPORARILY LOW FOR DEBUGGING
 model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
 
 print("\nSSDLite320_MobileNet_V3_Large model created successfully!")
-print(model)
+# print(model)
 
 # Move model to device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

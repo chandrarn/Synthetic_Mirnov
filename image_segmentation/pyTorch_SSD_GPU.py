@@ -23,124 +23,17 @@ from torchvision.models.detection.ssdlite import SSDLiteClassificationHead, SSDL
 from torchvision.models._utils import _ovewrite_named_param
 INFERENCE_IMAGE_DIR = 'new_inference_images'
 
+###############################
+from dataset_builder_SSD import generate_image_and_individual_bboxes
+
 # --- Configuration Parameters ---
-IMAGE_HEIGHT = 128
-IMAGE_WIDTH = 128
+IMAGE_HEIGHT = 250
+IMAGE_WIDTH = 250
 NUM_SAMPLES = 100 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd.pth' # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model.pth' # Path to save the trained SSD model
 
-# Shape generation parameters
-NUM_SHAPES_PER_IMAGE = (1, 3) # Min and max number of shapes per image
-SHAPE_SIZE_RANGE = (10, 40)
-SHAPE_INTENSITY_RANGE = (100, 255)
 
-# Squiggle generation parameters
-NUM_SQUIGGLES_PER_IMAGE = (0, 2) # Can have no squiggles
-SQUIGGLE_SEGMENTS = (5, 10)
-SQUIGGLE_STEP_SIZE = (5, 15)
-SQUIGGLE_LINE_WIDTH = (1, 3)
-SQUIGGLE_INTENSITY_RANGE = (50, 200)
-
-# Background intensity parameters
-BACKGROUND_NOISE_SCALE = 0.05
-BACKGROUND_BLUR_SIGMA = 15
-
-# Number of object classes (1 for shapes/squiggles + 1 for background)
-NUM_CLASSES = 2 # Background (0), Shape/Squiggle (1)
-
-# --- Helper Function for Image and Individual Bounding Box Generation ---
-def generate_image_and_individual_bboxes(height, width):
-    """
-    Generates a single synthetic image with random shapes/squiggles and a list
-    of bounding boxes, one for each generated object.
-
-    Returns:
-        tuple: A tuple containing:
-            - PIL.Image: The generated image.
-            - list: A list of [x_min, y_min, x_max, y_max] for each object.
-    """
-    # Create a base image with smoothly changing intensity
-    low_res_h, low_res_w = height // 8, width // 8
-    base_intensity = np.random.rand(low_res_h, low_res_w) * 255 * BACKGROUND_NOISE_SCALE
-    base_intensity = gaussian_filter(base_intensity, sigma=BACKGROUND_BLUR_SIGMA / 8)
-    base_intensity = np.interp(base_intensity, (base_intensity.min(), base_intensity.max()), (50, 150))
-    
-    base_image_pil = Image.fromarray(base_intensity.astype(np.uint8)).resize((width, height), Image.Resampling.BICUBIC)
-    image_np = np.array(base_image_pil)
-    image_np = np.stack([image_np, image_np, image_np], axis=-1)
-    image_pil = Image.fromarray(image_np.astype(np.uint8))
-    
-    draw = ImageDraw.Draw(image_pil)
-
-    individual_bboxes = [] # To store [x_min, y_min, x_max, y_max] for each object
-
-    # --- Draw Random Shapes ---
-    num_shapes = random.randint(*NUM_SHAPES_PER_IMAGE)
-    for _ in range(num_shapes):
-        shape_type = random.choice(['circle', 'rectangle'])
-        size = random.randint(*SHAPE_SIZE_RANGE)
-        
-        x = random.randint(0, width - size)
-        y = random.randint(0, height - size)
-        
-        intensity = random.randint(*SHAPE_INTENSITY_RANGE)
-        shape_color = (intensity, intensity, intensity)
-
-        bbox_coords = [x, y, x + size, y + size]
-
-        if shape_type == 'circle':
-            draw.ellipse(bbox_coords, fill=shape_color)
-        else: # rectangle
-            draw.rectangle(bbox_coords, fill=shape_color)
-        
-        individual_bboxes.append(bbox_coords)
-
-    # --- Draw Random Squiggles ---
-    num_squiggles = random.randint(*NUM_SQUIGGLES_PER_IMAGE)
-    for _ in range(num_squiggles):
-        num_segments = random.randint(*SQUIGGLE_SEGMENTS)
-        start_x = random.randint(0, width)
-        start_y = random.randint(0, height)
-        points = [(start_x, start_y)]
-        
-        current_x, current_y = start_x, start_y
-        min_x_seg, max_x_seg = current_x, current_x
-        min_y_seg, max_y_seg = current_y, current_y
-
-        for _ in range(num_segments - 1):
-            step_x = random.randint(-SQUIGGLE_STEP_SIZE[1], SQUIGGLE_STEP_SIZE[1])
-            step_y = random.randint(-SQUIGGLE_STEP_SIZE[1], SQUIGGLE_STEP_SIZE[1])
-            
-            next_x = max(0, min(width - 1, current_x + step_x))
-            next_y = max(0, min(height - 1, current_y + step_y))
-            
-            points.append((next_x, next_y))
-            current_x, current_y = next_x, next_y
-
-            min_x_seg = min(min_x_seg, current_x)
-            max_x_seg = max(max_x_seg, current_x)
-            min_y_seg = min(min_y_seg, current_y)
-            max_y_seg = max(max_y_seg, current_y)
-
-        line_width = random.randint(*SQUIGGLE_LINE_WIDTH)
-        squiggle_intensity = random.randint(*SQUIGGLE_INTENSITY_RANGE)
-        squiggle_color = (squiggle_intensity, squiggle_intensity, squiggle_intensity)
-
-        for i in range(len(points) - 1):
-            p1 = points[i]
-            p2 = points[i+1]
-            draw.line([p1, p2], fill=squiggle_color, width=line_width)
-        
-        # Add squiggle bounding box (expanded by line_width)
-        individual_bboxes.append([
-            max(0, min_x_seg - line_width),
-            max(0, min_y_seg - line_width),
-            min(width, max_x_seg + line_width),
-            min(height, max_y_seg + line_width)
-        ])
-
-    return image_pil, individual_bboxes
 
 # --- PyTorch Dataset Class for Training/Validation (Adapted for Object Detection) ---
 class SyntheticObjectDetectionDataset(Dataset):

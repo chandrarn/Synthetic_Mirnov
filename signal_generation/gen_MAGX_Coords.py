@@ -92,7 +92,7 @@ def gen_Node_Dict():
         
 #######################################
 def gen_Sensors(coord_file='input_data/MAGX_Coordinates.json'):
-    coords = json.load(open(coord_file,'r'))
+    coords = json.load(open(coord_file,'r'), )
     
     # Assuming "angle" is references from horizontal, and represents normal vector
     # Mirnov's assumed to have z-hat normal vec
@@ -269,10 +269,22 @@ def confluence_spreadsheet_coords(coord_file='input_data/MAGX_Coordinates_CFS.js
     return coords
 ####################################    
 def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
-                        select_sensor='MRNV',cmod_shot=1051202011):
+                        select_sensor='MRNV',cmod_shot=1051202011, skipBP=True, debug= False):
+    
+    """
+        Generate sensor coordinates for sensors.
+        Handles both C-Mod and SPARC sensors.
+        For C-Mod, skipBP=True will skip the low frequency sensors
+        and only return the high frequency Mirnov sensors.
+
+        For C-Mod, all sensors are returned if skipBP=False. Otherwise only high frequency Mirnov sensors are returned.
+        For SPARC, the sensors are loaded from a predefined JSON file.
+        If the file is not found, it will calculate the sensor locations manually.
+    """
+
     # Try loading predfined sensor sets
     try:
-        #raise SyntaxError
+        raise SyntaxError
         return __load_sensor_data(select_sensor)
     
     except: # Manually calculate sensor locations
@@ -335,10 +347,11 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
         
         else:# C-Mod side
             #shot is necessary for minor differences in TOP/BOT sensors
-            # Pulls data for limiters only
+            # Pulls data for  high-frequency sensors only [Tiles, sides of limiters, extentions]
             phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
-            try:BP_Data = BP(cmod_shot);skipBP=False # Pull data for Low freq sensors
-            except:skipBP=True
+            if not skipBP:
+                try:BP_Data = BP(cmod_shot);skipBP=False # Pull data for Low freq sensors
+                except:skipBP=True
             dx = 4e-3 # True at minimum for BP probes, from 'Magnetic diagnostics in Alcator C‐MOD', R. Granetz 1990
            
             sensor_Mirnov_T = []
@@ -346,22 +359,29 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             sensor_BP = []
             sensor_Lim = []
             sensor_all = []
-            # doing fast Mirnovs CMOD_T
-            for phi_num in ['AB','GH']:
-                for sens_num in np.arange(1,7):
-                    name = 'BP%dT_%sK'%(sens_num,phi_num)
-                    pt, norm = __coords_xyz_Mirnov_C_Mod(phi, theta_pol, R, Z, name)
-                    sens = Mirnov(pt, norm, name,dx)
-                    sensor_Mirnov_T.append(sens)
-                for sens in np.arange(1,29):
-                    name = 'BP%d_%sK'%(sens_num,phi_num)
-                    if name not in phi:continue
+            # doing all fast Mirnovs
+            for name in phi:
+                # for sens_num in np.arange(1,7):
+                    # name = 'BP%dT_%sK'%(sens_num,phi_num)
+                    # pt, norm = __coords_xyz_Mirnov_C_Mod(phi, theta_pol, R, Z, name)
+                    # sens = Mirnov(pt, norm, name,dx)
+                    # sensor_Mirnov_T.append(sens)
+                # for sens in np.arange(1,29):
+                #     name = 'BP%d_%sK'%(sens_num,phi_num)
+                #     if name not in phi:continue
+                    #print(name)
                     pt, norm = __cords_xyz_C_Mod(phi[name], \
                              R[name], Z[name], theta_pol[name], 0)
                     sens = Mirnov(pt, norm, name,dx)
-                    sensor_Mirnov.append(sens)
+                    if 'O' in name: sensor_all.append(sens)
+                    else: 
+                        sensor_Lim.append(sens)
+                        sensor_all.append(sens)
+                # # If existant, run top/bot Mirnov sensors
+                # if 
             # Slower BP sensors
             if not skipBP:
+                print('Including Low Frequency BP sensors')
                 cad_shift = 61.389 # Toroidal rotational shift to match CAD
                 for phi_num in ['bc','de','gh','jk']:
                     if phi_num=='bc':set_ = BP_Data.BC
@@ -382,12 +402,12 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                         sensor_BP.append(sens)
             
                 ############################################
-                sensor_all.extend(sensor_Mirnov_T)
+                #sensor_all.extend(sensor_Mirnov_T)
                 sensor_all.extend(sensor_Mirnov)
                 sensor_all.extend(sensor_BP)
                 
-                sensor_Lim.extend(sensor_Mirnov_T)
-                sensor_Lim.extend(sensor_Mirnov)
+                #sensor_Lim.extend(sensor_Mirnov_T)
+                #sensor_Lim.extend(sensor_Mirnov)
                 
                 # Save in ThinCurr readable format
                 # Mirnov object itself is directly readable: can extract location
@@ -400,8 +420,8 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             if select_sensor == 'Synth-C_MOD_BP':
                 __save_C_Mod_BP_xyz(sensor_BP)
                 return sensor_BP
-            if select_sensor == 'Synth-C_MOD_BP_T': return sensor_Mirnov_T
-            if select_sensor == 'C_MOD_LIM': return sensor_Lim
+            if select_sensor == 'Synth-C_MOD_BP_T': return sensor_Mirnov
+            if select_sensor == 'C_MOD_LIM': print('Returning limiter sensors');return sensor_Lim
             if select_sensor == 'C_MOD_BP': return sensor_BP
             if select_sensor == 'C_MOD_ALL': return sensor_all
         

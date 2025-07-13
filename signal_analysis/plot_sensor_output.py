@@ -181,7 +181,8 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
    current_label = r'$\phi=%d^\circ,\,\theta=0^\circ$'%current_phi  if manualCurrents else r'$\phi=0,\theta=0$'
    ax[0].plot(times*timeScale,currents,label=current_label)
    # import decimal 
-   sensors=['MIRNOV_TOR_SET_340_V5','MIRNOV_TOR_SET_340_V9','MIRNOV_TOR_SET_340_H6']
+   #sensors=['MIRNOV_TOR_SET_340_V5','MIRNOV_TOR_SET_340_V9','MIRNOV_TOR_SET_340_H6']
+   sensors=['BP1T_ABK']
    #sensors=['BP-LOMN-008M']
    # decimal.Decimal(-.25).as_integer_ratio()
 
@@ -202,6 +203,40 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
            (sensor_set,m,n,f*1e-3,'V' if doVoltage else 'Bz' ,save_Ext)
        fig.savefig(fName,transparent=True) 
        print('Saved: %s'%fName)
+
+# Simplified single sensor plotting
+def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None,params=None,doSave=True):
+    hist_file = histfile(hist_file_name)
+    # Sanitize input
+    if type(sensor_name) is str: sensor_name = [sensor_name]
+    if coil_inds is not None:
+        if type(coil_inds) is int: coil_inds = [coil_inds]
+        m = params['m'] if type(params['m']) is list else [params['m']]
+        n = params['n'] if type(params['n']) is list else [params['n']]
+
+    plt.close('Single_Sensor_%s'%sensor_name)
+    fig,ax=plt.subplots(1+(1 if np.any(coil_currs) else 0),1,sharex=True,
+            tight_layout=True,num='Single_Sensor_%s'%sensor_name,squeeze=False)
+    for name in sensor_name:
+        ax[0,0].plot(hist_file['time'][:]*1e3,hist_file[name][:]*1e4,label=name,\
+                     alpha=1-.5*sensor_name.index(name)/len(sensor_name))
+    
+    ax[0,0].set_ylabel(r'B [G]')
+    ax[0,0].legend(fontsize=8,loc='upper right',handlelength=1.5)
+    ax[0,0].grid()
+    if np.any(coil_currs):
+        for i in range(0,len(coil_inds)):
+            ax[1,0].plot(coil_currs[:,0]*1e3,coil_currs[:,coil_inds[i]],label='Filament %d/%d'%(m[i],n[i]),\
+                         alpha=1-.5*i/len(coil_inds))
+        ax[1,0].set_ylabel('Filament Current [A]')
+        #ax[1,0].set_xlabel('Time [s]')
+        ax[1,0].grid()
+        ax[1,0].legend(fontsize=8)
+    ax[-1,0].set_xlabel('Time [ms]')
+    if doSave:
+        save_name = hist_file_name.split('/')[-1].split('.')[0]
+        fig.savefig('../output_plots/'+save_name+'_Single_Sensor.pdf',transparent=True)
+    plt.show()
 
 #####################################
 def gen_label(sensor_set,sensor_name,sensor_params,file_geqdsk,params):
