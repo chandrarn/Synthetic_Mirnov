@@ -35,7 +35,7 @@ CPUS = 4#cpu_count()
 save_Ext = '_improved_model'
 IMAGE_HEIGHT = 250
 IMAGE_WIDTH = 250
-NUM_SAMPLES = 2500 # Increased samples for better training
+NUM_SAMPLES = 1400 # Increased samples for better training
 SAVE_PATH = 'synthetic_multi_bbox_dataset_ssd%s.pth'%save_Ext # New save path for dataset
 MODEL_SAVE_PATH = 'ssd_mobilenet_v3_model%s.pth'%save_Ext # Path to save the trained SSD model
 
@@ -63,7 +63,7 @@ BACKGROUND_BLUR_SIGMA = 15
 # --- NEW: Number of object classes (1 for shapes/squiggles + 1 for background) ---
 NUM_CLASSES = 2 # Background (0), Shape/Squiggle (1)
 
-NUM_EPOCHS = 190 # Adjusted epochs for SSD
+NUM_EPOCHS = 150 # Adjusted epochs for SSD
 # Define the desired visualization threshold for predictions (used during model initialization)
 VIS_SCORE_THRESHOLD = 0.7 # TEMPORARILY LOW FOR DEBUGGING
 plt.close('all')
@@ -697,7 +697,7 @@ plt.title('Training and Validation Loss Over Epochs (SSDLite MobileNetV3)')
 plt.legend()
 plt.grid(True)
 plt.show()
-plt.savefig('Training_Progress%.png'%save_Ext)
+plt.savefig('Training_Progress%s.png'%save_Ext)
 # --- Helper for drawing bounding boxes ---
 def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_width=IMAGE_WIDTH, image_height=IMAGE_HEIGHT):
     """
