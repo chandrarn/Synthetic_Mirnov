@@ -344,12 +344,13 @@ if __name__=='__main__':
     
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    #mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
     eta = '1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     sensor_set='C_MOD_LIM';cmod_shot=1051202011
-
+    sensor_set = 'C_MOD_ALL'
+    
     # SPARC Side
     #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
     #mesh_file='SPARC_Sept2023_noPR.h5'
@@ -401,6 +402,6 @@ if __name__=='__main__':
     #coil_currs=gen_coil_currs(params,True)
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
-         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk, plotOnly=False)
+         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk, plotOnly=True)
     
     print('Run complete')

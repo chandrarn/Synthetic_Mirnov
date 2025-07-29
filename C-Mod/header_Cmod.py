@@ -43,7 +43,7 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 
-from rolling_spectrogram import rolling_spectrogram, rolling_spectrogram_improved
+from rolling_spectrogram import rolling_spectrogram#, rolling_spectrogram_improved
 
 # TODO: verift atht this works for other users
 try:

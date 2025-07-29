@@ -67,6 +67,8 @@ NUM_EPOCHS = 150 # Adjusted epochs for SSD
 # Define the desired visualization threshold for predictions (used during model initialization)
 VIS_SCORE_THRESHOLD = 0.7 # TEMPORARILY LOW FOR DEBUGGING
 plt.close('all')
+
+doTraining = False
 '''
 
 # --- Helper Function for Image and Individual Bounding Box Generation ---
@@ -442,6 +444,31 @@ def generate_image_and_individual_bboxes(height, width):
 
     return image_pil, individual_bboxes
 
+# --- Helper for drawing bounding boxes ---
+def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_width=IMAGE_WIDTH, image_height=IMAGE_HEIGHT):
+    """
+    Draws a single bounding box on a matplotlib axis.
+    bbox is assumed to be raw [x_min, y_min, x_max, y_max] pixels.
+    """
+    x_min, y_min, x_max, y_max = bbox
+    
+    # Create a Rectangle patch
+    rect = plt.Rectangle((x_min, y_min), x_max - x_min, y_max - y_min,
+                         fill=False, edgecolor=color, linewidth=width)
+    ax.add_patch(rect)
+    
+    display_label = ""
+    if label is not None:
+        display_label += f"Class: {label}"
+    if score is not None:
+        display_label += f" | Score: {score:.2f}"
+    
+    if display_label:
+        ax.text(x_min, y_min - 5, display_label, color=color, fontsize=8,
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
+
+
+
 # --- PyTorch Dataset Class for Training/Validation (Adapted for Object Detection) ---
 class SyntheticObjectDetectionDataset(Dataset):
     def __init__(self, num_samples, height, width, transforms=None):
@@ -541,15 +568,28 @@ def get_ssd_model(num_classes, score_thresh=0.05):
 
     return model
 
-# --- Create Dataset ---
-print(f"Checking for existing dataset at {SAVE_PATH}...")
-if os.path.exists(SAVE_PATH):
-    try:
-        raise SyntaxError
-        dataset = torch.load(SAVE_PATH)
-        print("Dataset loaded successfully.")
-    except Exception as e:
-        print(f"Error loading dataset: {e}. Generating new dataset.")
+######################################################################################
+if doTraining:
+    # --- Create Dataset ---
+    print(f"Checking for existing dataset at {SAVE_PATH}...")
+    if os.path.exists(SAVE_PATH):
+        try:
+            raise SyntaxError
+            dataset = torch.load(SAVE_PATH)
+            print("Dataset loaded successfully.")
+        except Exception as e:
+            print(f"Error loading dataset: {e}. Generating new dataset.")
+            dataset = SyntheticObjectDetectionDataset(
+                num_samples=NUM_SAMPLES,
+                height=IMAGE_HEIGHT,
+                width=IMAGE_WIDTH,
+                transforms=None
+            )
+            print(f"Saving newly generated dataset to {SAVE_PATH}...")
+            torch.save(dataset, SAVE_PATH)
+            print("Dataset saved successfully.")
+    else:
+        print("No existing dataset found. Generating new dataset.")
         dataset = SyntheticObjectDetectionDataset(
             num_samples=NUM_SAMPLES,
             height=IMAGE_HEIGHT,
@@ -559,309 +599,275 @@ if os.path.exists(SAVE_PATH):
         print(f"Saving newly generated dataset to {SAVE_PATH}...")
         torch.save(dataset, SAVE_PATH)
         print("Dataset saved successfully.")
-else:
-    print("No existing dataset found. Generating new dataset.")
-    dataset = SyntheticObjectDetectionDataset(
-        num_samples=NUM_SAMPLES,
-        height=IMAGE_HEIGHT,
-        width=IMAGE_WIDTH,
-        transforms=None
+    
+    # --- Split Dataset into Training and Validation ---
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    
+    print(f"Training set size: {len(train_dataset)}")
+    print(f"Validation set size: {len(val_dataset)}")
+    
+    # --- Create DataLoaders ---
+    BATCH_SIZE = 4
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        num_workers=CPUS,
+        collate_fn=collate_fn # Important for Object Detection Models
     )
-    print(f"Saving newly generated dataset to {SAVE_PATH}...")
-    torch.save(dataset, SAVE_PATH)
-    print("Dataset saved successfully.")
-
-# --- Split Dataset into Training and Validation ---
-train_size = int(0.8 * len(dataset))
-val_size = len(dataset) - train_size
-train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-
-print(f"Training set size: {len(train_dataset)}")
-print(f"Validation set size: {len(val_dataset)}")
-
-# --- Create DataLoaders ---
-BATCH_SIZE = 4
-train_dataloader = DataLoader(
-    train_dataset,
-    batch_size=BATCH_SIZE,
-    shuffle=True,
-    num_workers=CPUS,
-    collate_fn=collate_fn # Important for Object Detection Models
-)
-val_dataloader = DataLoader(
-    val_dataset,
-    batch_size=BATCH_SIZE,
-    shuffle=False,
-    num_workers=CPUS,
-    collate_fn=collate_fn # Important for Object Detection Models
-)
-
-
-
-# Instantiate the SSDLite model
-model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
-
-print("\nSSDLite320_MobileNet_V3_Large model created successfully!")
-# print(model)
-
-# Move model to device
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# --- Multi-GPU support ---
-if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-    print(f"Using {torch.cuda.device_count()} GPUs: {[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]}")
-    model = nn.DataParallel(model)
-model.to(device)
-print(f"\nModel moved to: {device}")
-
-# Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.005) # Increased learning rate
-
-# --- Training Loop ---
-
-print('Running on %d cores'%CPUS)
-print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
-start_time = time.time()
-
-
-train_losses = []
-val_losses = []
-
-for epoch in range(NUM_EPOCHS):
-    model.train() # Set model to training mode
-    running_loss = 0.0
-    for batch_idx, (images, targets) in enumerate(train_dataloader):
-        images = list(image.to(device) for image in images)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
-        optimizer.zero_grad()
-        
-        # SSDLite returns a dictionary of losses during training
-        loss_dict = model(images, targets)
-        losses = sum(loss for loss in loss_dict.values())
-        if isinstance(losses, torch.Tensor) and losses.numel() > 1:
-            losses = losses.mean()
-        if not torch.isfinite(losses):
-            print(f"Warning: Non-finite loss encountered in epoch {epoch+1}, batch {batch_idx}. Skipping backward pass.")
-            continue
-
-        losses.backward()
-        optimizer.step()
-
-        running_loss += losses.item() * len(images) # Accumulate loss based on number of images in batch
-
-    epoch_train_loss = running_loss / len(train_dataloader.dataset)
-    train_losses.append(epoch_train_loss)
-    print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Train Loss: {epoch_train_loss:.6f}, Elapsed Time: {time.time() - start_time:.2f}s")
-
-    # --- Validation Loop ---
-    # Temporarily set to train mode to get loss dict output, then switch back to eval mode.
-    model.train() 
-    val_running_loss = 0.0
-    with torch.no_grad(): # Disable gradient calculations
-        for images, targets in val_dataloader:
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=CPUS,
+        collate_fn=collate_fn # Important for Object Detection Models
+    )
+    
+    
+    
+    # Instantiate the SSDLite model
+    model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
+    
+    print("\nSSDLite320_MobileNet_V3_Large model created successfully!")
+    # print(model)
+    
+    # Move model to device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # --- Multi-GPU support ---
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs: {[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]}")
+        model = nn.DataParallel(model)
+    model.to(device)
+    print(f"\nModel moved to: {device}")
+    
+    # Optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005) # Increased learning rate
+    
+    # --- Training Loop ---
+    
+    print('Running on %d cores'%CPUS)
+    print(f"\n--- Starting Training for {NUM_EPOCHS} Epochs ---")
+    start_time = time.time()
+    
+    
+    train_losses = []
+    val_losses = []
+    
+    for epoch in range(NUM_EPOCHS):
+        model.train() # Set model to training mode
+        running_loss = 0.0
+        for batch_idx, (images, targets) in enumerate(train_dataloader):
             images = list(image.to(device) for image in images)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
+    
+            optimizer.zero_grad()
+            
+            # SSDLite returns a dictionary of losses during training
             loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
-            
             if isinstance(losses, torch.Tensor) and losses.numel() > 1:
                 losses = losses.mean()
             if not torch.isfinite(losses):
                 print(f"Warning: Non-finite loss encountered in epoch {epoch+1}, batch {batch_idx}. Skipping backward pass.")
                 continue
-
-            val_running_loss += losses.item() * len(images)
-            
-    model.eval() # Switch back to eval mode after loss calculation
     
-    epoch_val_loss = val_running_loss / len(val_dataloader.dataset)
-    val_losses.append(epoch_val_loss)
-    print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Validation Loss: {epoch_val_loss:.6f}")
-
-print("\n--- Training Complete ---")
-
-# --- Save the trained model ---
-print(f"\nSaving trained model to {MODEL_SAVE_PATH}...")
-torch.save(model.state_dict(), MODEL_SAVE_PATH)
-print("Model state dictionary saved successfully.")
-
-# --- Visualize Training and Validation Loss ---
-plt.figure(figsize=(10, 5))
-plt.plot(range(1, NUM_EPOCHS + 1), train_losses, label='Training Loss')
-plt.plot(range(1, NUM_EPOCHS + 1), val_losses, label='Validation Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
-plt.title('Training and Validation Loss Over Epochs (SSDLite MobileNetV3)')
-plt.legend()
-plt.grid(True)
-plt.show()
-plt.savefig('Training_Progress%s.png'%save_Ext)
-# --- Helper for drawing bounding boxes ---
-def draw_bbox(ax, bbox, color='red', label=None, score=None, width=2, image_width=IMAGE_WIDTH, image_height=IMAGE_HEIGHT):
-    """
-    Draws a single bounding box on a matplotlib axis.
-    bbox is assumed to be raw [x_min, y_min, x_max, y_max] pixels.
-    """
-    x_min, y_min, x_max, y_max = bbox
+            losses.backward()
+            optimizer.step()
     
-    # Create a Rectangle patch
-    rect = plt.Rectangle((x_min, y_min), x_max - x_min, y_max - y_min,
-                         fill=False, edgecolor=color, linewidth=width)
-    ax.add_patch(rect)
+            running_loss += losses.item() * len(images) # Accumulate loss based on number of images in batch
     
-    display_label = ""
-    if label is not None:
-        display_label += f"Class: {label}"
-    if score is not None:
-        display_label += f" | Score: {score:.2f}"
+        epoch_train_loss = running_loss / len(train_dataloader.dataset)
+        train_losses.append(epoch_train_loss)
+        print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Train Loss: {epoch_train_loss:.6f}, Elapsed Time: {time.time() - start_time:.2f}s")
     
-    if display_label:
-        ax.text(x_min, y_min - 5, display_label, color=color, fontsize=8,
-                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', pad=1))
-
-
-# --- Example Prediction on a Validation Sample ---
-print("\n--- Example Prediction on a Validation Sample (from Training Data) ---")
-
-model.eval() # Set model to evaluation mode
-with torch.no_grad():
-    # Get one sample from the validation dataset
-    sample_image_tensor, sample_target = val_dataset[0] 
+        # --- Validation Loop ---
+        # Temporarily set to train mode to get loss dict output, then switch back to eval mode.
+        model.train() 
+        val_running_loss = 0.0
+        with torch.no_grad(): # Disable gradient calculations
+            for images, targets in val_dataloader:
+                images = list(image.to(device) for image in images)
+                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
     
-    # Add batch dimension and move to device
-    sample_image_input = [sample_image_tensor.to(device)]
+                loss_dict = model(images, targets)
+                losses = sum(loss for loss in loss_dict.values())
+                
+                if isinstance(losses, torch.Tensor) and losses.numel() > 1:
+                    losses = losses.mean()
+                if not torch.isfinite(losses):
+                    print(f"Warning: Non-finite loss encountered in epoch {epoch+1}, batch {batch_idx}. Skipping backward pass.")
+                    continue
     
-    # Get model prediction (list of dicts)
-    predictions = model(sample_image_input) 
+                val_running_loss += losses.item() * len(images)
+                
+        model.eval() # Switch back to eval mode after loss calculation
+        
+        epoch_val_loss = val_running_loss / len(val_dataloader.dataset)
+        val_losses.append(epoch_val_loss)
+        print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Validation Loss: {epoch_val_loss:.6f}")
     
-    # --- DEBUGGING: Print raw scores ---
-    if predictions and 'scores' in predictions[0]:
-        print(f"\nRaw predicted scores for the validation sample: {predictions[0]['scores'].cpu().numpy()}")
-    else:
-        print("No predictions or scores found for the validation sample (all below internal threshold or no detections).")
-
-    # Extract predicted boxes and true boxes for the first image in batch
-    predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
-    predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
-    predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
-
-    true_boxes = sample_target['boxes'].cpu().numpy()
-    true_labels = sample_target['labels'].cpu().numpy()
-
-    # Denormalize image for display
-    sample_image_np = sample_image_tensor.cpu().permute(1, 2, 0).numpy()
-
-    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
-    axes.imshow(sample_image_np)
-    axes.set_title(f'Validation Sample: Input Image with True and Predicted BBoxes (Model Threshold: {VIS_SCORE_THRESHOLD})')
-    axes.axis('off')
-
-    # Draw all true bounding boxes
-    for i, bbox in enumerate(true_boxes):
-        draw_bbox(axes, bbox, color='green', label=f'True' if i == 0 else None, width=2)
+    print("\n--- Training Complete ---")
     
-    # Draw all predicted bounding boxes (filtered by the model's internal threshold)
-    for i, bbox in enumerate(predicted_boxes):
-        score = predicted_scores[i]
-        label = predicted_labels[i]
-        draw_bbox(axes, bbox, color='red', label=f'Pred', score=score, width=2)
-
+    # --- Save the trained model ---
+    print(f"\nSaving trained model to {MODEL_SAVE_PATH}...")
+    torch.save(model.state_dict(), MODEL_SAVE_PATH)
+    print("Model state dictionary saved successfully.")
+    
+    # --- Visualize Training and Validation Loss ---
+    plt.figure(figsize=(10, 5))
+    plt.plot(range(1, NUM_EPOCHS + 1), train_losses, label='Training Loss')
+    plt.plot(range(1, NUM_EPOCHS + 1), val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss Over Epochs (SSDLite MobileNetV3)')
     plt.legend()
-    plt.tight_layout()
+    plt.grid(True)
     plt.show()
-    plt.savefig('Training_Validation%s.png'%save_Ext)
-
-#raise SyntaxError
-# --- NEW SECTION: Load and Test with New Images ---
-print("\n--- Testing with New, Unseen Images ---")
-
-# 1. Create a dummy directory for new inference images if it doesn't exist
-INFERENCE_IMAGE_DIR = 'new_inference_images'
-os.makedirs(INFERENCE_IMAGE_DIR, exist_ok=True)
-
-# 2. Generate a few dummy images directly into the inference directory
-#    These images will NOT have corresponding ground truth bboxes.
-num_inference_images_to_generate = 108
-print(f"Generating {num_inference_images_to_generate} dummy images for inference in '{INFERENCE_IMAGE_DIR}'...")
-for i in range(num_inference_images_to_generate):
-    img_pil, _ = generate_image_and_individual_bboxes(IMAGE_HEIGHT, IMAGE_WIDTH) # Bboxes not used for inference
-    img_pil.save(os.path.join(INFERENCE_IMAGE_DIR, f'inference_img_{i+1}.png'))
-print("Dummy inference images generated.")
-
-INFERENCE_IMAGE_DIR = '../output_plots/training_plots/test_images/test_again/'
-# 3. Instantiate the InferenceDataset and DataLoader
-inference_dataset = InferenceDataset(INFERENCE_IMAGE_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
-inference_dataloader = DataLoader(
-    inference_dataset,
-    batch_size=1, # Typically batch size of 1 for inference
-    shuffle=False,
-    num_workers=CPUS,
-    collate_fn=collate_fn # Use collate_fn
-)
-
-# 4. Load the Trained Model
-VIS_SCORE_THRESHOLD = .1
-print(f"\nLoading trained model from {MODEL_SAVE_PATH} for inference...")
-state_dict = torch.load(MODEL_SAVE_PATH, map_location=device)
-if any(k.startswith('module.') for k in state_dict.keys()):
-    # State dict was saved from DataParallel, strip 'module.' prefix
-    from collections import OrderedDict
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k.replace('module.', '') if k.startswith('module.') else k
-        new_state_dict[name] = v
-    state_dict = new_state_dict
-
-loaded_model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
-loaded_model.load_state_dict(state_dict)
-
-if torch.cuda.is_available() and torch.cuda.device_count() > 1:
-    loaded_model = nn.DataParallel(loaded_model)
-loaded_model.to(device)
-loaded_model.eval()
-print("Model loaded successfully for inference.")
-
-
-# 5. Run Inference and Visualize Predictions
-print("\nRunning inference on new images...")
-for i, (image_tensors, img_paths) in enumerate(inference_dataloader):
-    print(f"Processing image: {os.path.basename(img_paths[0])}")
-    if i > 5: break
-    image_tensors_on_device = [img.to(device) for img in image_tensors]
+    plt.savefig('Training_Progress%s.png'%save_Ext)
     
+    # --- Example Prediction on a Validation Sample ---
+    print("\n--- Example Prediction on a Validation Sample (from Training Data) ---")
+    
+    model.eval() # Set model to evaluation mode
     with torch.no_grad():
-        predictions = loaded_model(image_tensors_on_device) 
+        # Get one sample from the validation dataset
+        sample_image_tensor, sample_target = val_dataset[0] 
+        
+        # Add batch dimension and move to device
+        sample_image_input = [sample_image_tensor.to(device)]
+        
+        # Get model prediction (list of dicts)
+        predictions = model(sample_image_input) 
+        
+        # --- DEBUGGING: Print raw scores ---
+        if predictions and 'scores' in predictions[0]:
+            print(f"\nRaw predicted scores for the validation sample: {predictions[0]['scores'].cpu().numpy()}")
+        else:
+            print("No predictions or scores found for the validation sample (all below internal threshold or no detections).")
     
-    if predictions and 'scores' in predictions[0]:
-        #print(f"Raw predicted scores for inference image: {predictions[0]['scores'].cpu().numpy()}")
-        print('Score found for test image')
-    else:
-        print("No predictions or scores found for inference image (all below internal threshold or no detections).")
-
-    predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
-    predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
-    predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
-
-
-    # Denormalize image for display
-    image_np = image_tensors[0].cpu().permute(1, 2, 0).numpy()
-
-    fig, axes = plt.subplots(1, 1, figsize=(8, 8))
-    axes.imshow(image_np)
-    axes.set_title(f'Inference: {os.path.basename(img_paths[0])} with Predicted BBoxes (Model Threshold: {VIS_SCORE_THRESHOLD})')
-    axes.axis('off')
-
-    for k, bbox in enumerate(predicted_boxes):
-        score = predicted_scores[k]
-        label = predicted_labels[k]
-        draw_bbox(axes, bbox, color='red', label=f'Class {label}', score=score, width=2)
-            
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-    plt.savefig(INFERENCE_IMAGE_DIR+'Training_Prediction_%d%s.png'%(i,save_Ext))
-
-print("\nInference on new images complete.")
-print(f"You can find the generated inference images in the '{INFERENCE_IMAGE_DIR}' directory.")
+        # Extract predicted boxes and true boxes for the first image in batch
+        predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
+        predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
+        predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
+    
+        true_boxes = sample_target['boxes'].cpu().numpy()
+        true_labels = sample_target['labels'].cpu().numpy()
+    
+        # Denormalize image for display
+        sample_image_np = sample_image_tensor.cpu().permute(1, 2, 0).numpy()
+    
+        fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+        axes.imshow(sample_image_np)
+        axes.set_title(f'Validation Sample: Input Image with True and Predicted BBoxes (Model Threshold: {VIS_SCORE_THRESHOLD})')
+        axes.axis('off')
+    
+        # Draw all true bounding boxes
+        for i, bbox in enumerate(true_boxes):
+            draw_bbox(axes, bbox, color='green', label=f'True' if i == 0 else None, width=2)
+        
+        # Draw all predicted bounding boxes (filtered by the model's internal threshold)
+        for i, bbox in enumerate(predicted_boxes):
+            score = predicted_scores[i]
+            label = predicted_labels[i]
+            draw_bbox(axes, bbox, color='red', label=f'Pred', score=score, width=2)
+    
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+        plt.savefig('Training_Validation%s.png'%save_Ext)
+    
+    #raise SyntaxError
+    # --- NEW SECTION: Load and Test with New Images ---
+    print("\n--- Testing with New, Unseen Images ---")
+    
+    # 1. Create a dummy directory for new inference images if it doesn't exist
+    INFERENCE_IMAGE_DIR = 'new_inference_images'
+    os.makedirs(INFERENCE_IMAGE_DIR, exist_ok=True)
+    
+    # 2. Generate a few dummy images directly into the inference directory
+    #    These images will NOT have corresponding ground truth bboxes.
+    num_inference_images_to_generate = 108
+    print(f"Generating {num_inference_images_to_generate} dummy images for inference in '{INFERENCE_IMAGE_DIR}'...")
+    for i in range(num_inference_images_to_generate):
+        img_pil, _ = generate_image_and_individual_bboxes(IMAGE_HEIGHT, IMAGE_WIDTH) # Bboxes not used for inference
+        img_pil.save(os.path.join(INFERENCE_IMAGE_DIR, f'inference_img_{i+1}.png'))
+    print("Dummy inference images generated.")
+    
+    INFERENCE_IMAGE_DIR = '../output_plots/training_plots/test_images/test_again/'
+    # 3. Instantiate the InferenceDataset and DataLoader
+    inference_dataset = InferenceDataset(INFERENCE_IMAGE_DIR, IMAGE_HEIGHT, IMAGE_WIDTH)
+    inference_dataloader = DataLoader(
+        inference_dataset,
+        batch_size=1, # Typically batch size of 1 for inference
+        shuffle=False,
+        num_workers=CPUS,
+        collate_fn=collate_fn # Use collate_fn
+    )
+    
+    # 4. Load the Trained Model
+    VIS_SCORE_THRESHOLD = .1
+    print(f"\nLoading trained model from {MODEL_SAVE_PATH} for inference...")
+    state_dict = torch.load(MODEL_SAVE_PATH, map_location=device)
+    if any(k.startswith('module.') for k in state_dict.keys()):
+        # State dict was saved from DataParallel, strip 'module.' prefix
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k.replace('module.', '') if k.startswith('module.') else k
+            new_state_dict[name] = v
+        state_dict = new_state_dict
+    
+    loaded_model = get_ssd_model(num_classes=NUM_CLASSES, score_thresh=VIS_SCORE_THRESHOLD)
+    loaded_model.load_state_dict(state_dict)
+    
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        loaded_model = nn.DataParallel(loaded_model)
+    loaded_model.to(device)
+    loaded_model.eval()
+    print("Model loaded successfully for inference.")
+    
+    
+    # 5. Run Inference and Visualize Predictions
+    print("\nRunning inference on new images...")
+    for i, (image_tensors, img_paths) in enumerate(inference_dataloader):
+        print(f"Processing image: {os.path.basename(img_paths[0])}")
+        if i > 5: break
+        image_tensors_on_device = [img.to(device) for img in image_tensors]
+        
+        with torch.no_grad():
+            predictions = loaded_model(image_tensors_on_device) 
+        
+        if predictions and 'scores' in predictions[0]:
+            #print(f"Raw predicted scores for inference image: {predictions[0]['scores'].cpu().numpy()}")
+            print('Score found for test image')
+        else:
+            print("No predictions or scores found for inference image (all below internal threshold or no detections).")
+    
+        predicted_boxes = predictions[0]['boxes'].cpu().numpy() if predictions else np.array([])
+        predicted_labels = predictions[0]['labels'].cpu().numpy() if predictions else np.array([])
+        predicted_scores = predictions[0]['scores'].cpu().numpy() if predictions else np.array([])
+    
+    
+        # Denormalize image for display
+        image_np = image_tensors[0].cpu().permute(1, 2, 0).numpy()
+    
+        fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+        axes.imshow(image_np)
+        axes.set_title(f'Inference: {os.path.basename(img_paths[0])} with Predicted BBoxes (Model Threshold: {VIS_SCORE_THRESHOLD})')
+        axes.axis('off')
+    
+        for k, bbox in enumerate(predicted_boxes):
+            score = predicted_scores[k]
+            label = predicted_labels[k]
+            draw_bbox(axes, bbox, color='red', label=f'Class {label}', score=score, width=2)
+                
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+        plt.savefig(INFERENCE_IMAGE_DIR+'Training_Prediction_%d%s.png'%(i,save_Ext))
+    
+    print("\nInference on new images complete.")
+    print(f"You can find the generated inference images in the '{INFERENCE_IMAGE_DIR}' directory.")

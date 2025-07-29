@@ -770,8 +770,8 @@ class TRANSP():
     # Pull Transp Data required for FAR 3D
     # Note: TRANSP tree shot numberings different than regular tree
     # See a few shot number mappings in /home/snipes/transp/transp_shots.txt
-    
-    def __init__(self, shotno, debug=False):
+    # 1051202011 = 3400
+    def __init__(self, shotno=3400, debug=False):
          if debug: print('Loading electon/ion density/temperature, fast ion density, pressure')
          
          self.shotno = shotno

@@ -56,12 +56,13 @@ server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 
 # from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot
 
-from rolling_spectrogram import rolling_spectrogram
+
 
 #####################3
 # Add paths
 #ssys.path.append('signal_analysis/')
 sys.path.append('../C-Mod/')
+from rolling_spectrogram import rolling_spectrogram
 ##############################################
 def doFFT(time,signal,doPlot=False):
     # Do and return fft
