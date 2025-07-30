@@ -77,9 +77,9 @@ def get_fields_from_C1(filename,n,saveNetCDF=True):
         
 def return_local(n):
     print('Returning local netCDF files: %s'%('bfield_1_n%d.nc'%n))
-    psi = xr.load_dataarray('psi.nc')
-    b_field_2=xr.load_dataarray('b_field2_n%d.nc'%n)
-    b_field_1=xr.load_dataarray('bfield_1_n%d.nc'%n)
+    psi = xr.load_dataarray('../M3D-C1_Data/psi.nc')
+    b_field_2=xr.load_dataarray('../M3D-C1_Data/b_field2_n%d.nc'%n)
+    b_field_1=xr.load_dataarray('../M3D-C1_Data/bfield_1_n%d.nc'%n)
     
     R=b_field_1.coords['R'].values;Z=b_field_1.coords['Z'].values
     psi=psi.data
@@ -90,7 +90,7 @@ def return_local(n):
     return psi, b_field_1, b_field_2, R, Z, rmagx, zmagx, psi_LCFS
 def __debug_local_bnorm(doSave=''):
     
-    psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = return_local()
+    psi,B1,B2,R,Z,rmagx,zmagx,PsiLCFS = return_local(2)
     #return psi,R,Z,b_field
     b_norm, R_sig, Z_sig,all_norm, contour, all_dr, B  = \
         calculate_normal_vector(psi, R, Z, B1, 
