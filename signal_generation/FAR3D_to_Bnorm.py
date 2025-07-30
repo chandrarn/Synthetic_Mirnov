@@ -86,6 +86,8 @@ def calc_n_hat_b_norm_coords_geqdsk(file_geqdsk,R,Z,m,n,psi_norm_downsamp,B_r,\
     all_norm=[]
     all_tang=[]
     all_dr=[]
+    all_r_hat = []
+    all_dot_prod = []
     # Indexing is flipped
     contour = contour[:,[1,0]]
     R_sig = R[contour[:,0],contour[:,1]] 
@@ -114,25 +116,27 @@ def calc_n_hat_b_norm_coords_geqdsk(file_geqdsk,R,Z,m,n,psi_norm_downsamp,B_r,\
                                    v1[2]*v2[0]-v1[0]*v2[2],
                                    v1[0]*v2[1]-v1[1]*v2[0])
         norm = fn_cross(tang,tor_vec)
-
+        all_norm.append(norm)
        
         # Calculate r-hat (r,phi,z) from magnetic axis, at contour point
-        r_hat = [R_sig[ind]-eqdsk.rmagx,0,Z_sig[ind]-eqdsk.zmagx]
-        r_hat = 1/np.linalg.norm(r_hat) * np.array(r_hat) # Normalize (-1 is because unit normal is flipped, I think)
-
+        r_hat = np.array([R_sig[ind]-eqdsk.rmagx,0,Z_sig[ind]-eqdsk.zmagx])
+        r_hat /= fn_norm(r_hat)# Normalize (-1 is because unit normal is flipped, I think)
+        all_r_hat.append(r_hat)
         # Take dot product with norm, scale by B_r
         b_norm.append(fn_dot(r_hat,norm)*B_r[index[0],index[1]]*1e4)
-        all_norm.append(b_norm)
+        all_dot_prod.append(fn_dot(r_hat,norm))
+        #all_norm.append(b_norm)
     
             
     b_norm = np.array(b_norm)
 
-    if debug: __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,eqdsk.rmagx,eqdsk.zmagx,q_rz,
+    if debug: __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,eqdsk.rmagx,eqdsk.zmagx,q_rz,all_r_hat,all_norm,all_tang,all_dot_prod,
                              save_ext=save_ext,doSave=doSave)
     
     return b_norm, R_sig, Z_sig
 ###################################################################################
-def __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,rmagx,zmagx,q_rz,save_ext,doSave=''):
+def __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,rmagx,zmagx,q_rz,all_r_hat,all_norm,all_tang,\
+                   all_dot_prod,save_ext,doSave='',doPlot_norm=False):
     plt.close('B_Norm_Extraction%s'%save_ext)
     fig,ax=plt.subplots(1,2,tight_layout=True,figsize=(5.5,3),
                             num='B_Norm_Extraction%s'%save_ext)
@@ -140,23 +144,37 @@ def __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,rmagx,zmagx,q_rz,save_ext,
     extent=[min(R_sig),max(R_sig),min(Z_sig),max(Z_sig)]
     vmin=np.nanmin(B_r);vmax=np.nanmax(B_r)
     #ax.imshow(B_r.T,origin='lower',extent=extent,vmin=vmin,vmax=vmax)
-    for i in range(2):ax[i].contourf(R,Z,B_r)
+    for i in range(2):ax[i].contourf(R,Z,B_r,zorder=-5)
     ax[0].contour(R,Z,q_rz,cmap='plasma')
     norm_q = Normalize(vmin=np.nanmin(q_rz),vmax=np.nanmax(q_rz))
     fig.colorbar(cm.ScalarMappable(norm=norm_q,cmap=cm.get_cmap('plasma')),
         label=r'q(r,z)',ax=ax[0])
     
-    norm = Normalize(vmin=vmin,vmax=vmax)
+    if not doPlot_norm:norm = Normalize(vmin=vmin,vmax=vmax)
+    else: norm = Normalize(vmin = min(all_dot_prod),vmax=max(all_dot_prod))
     for i in range(len(contour)):
-             ax[1].plot(R_sig[i],Z_sig[i],'*',
+            if not doPlot_norm:  ax[1].plot(R_sig[i],Z_sig[i],'*',
                      c=cm.get_cmap('plasma')(norm(b_norm[i]) ),alpha=.6)
-    ax[0].set_ylabel('Z [m]')
-    for i in range(2):ax[i].set_xlabel('R [m]')
-    #ax[1].set_title(r'B$_\mathrm{r}$')
+            else:
+                ax[1].plot(R_sig[i],Z_sig[i],'*',
+                            c=cm.get_cmap('plasma')(norm(all_dot_prod[i]) ),alpha=.6)
+                if not (i % 4):
+                    ax[1].plot([R_sig[i],R_sig[i]+all_r_hat[i][0]*.05],[Z_sig[i],Z_sig[i]+all_r_hat[i][2]*.05],label=r'$\hat{r}$' if i==0 else None,lw=1)
+                    ax[1].plot([R_sig[i],R_sig[i]+all_norm[i][0]*.05],[Z_sig[i],Z_sig[i]+all_norm[i][2]*.05],c='k',label=r'$\hat{n}$' if i==0 else None,lw=1)
+                    ax[1].plot([R_sig[i],R_sig[i]+all_tang[i][0]*.05],[Z_sig[i],Z_sig[i]+all_tang[i][2]*.05],c='r',label=r'$\frac{d}{dr,z}\hat{r}$' if i==0 else None,lw=1)
 
+            
+    ax[0].set_ylabel('Z [m]')
+    for i in range(2):
+        ax[i].set_rasterization_zorder(-1)
+        ax[i].set_xlabel('R [m]')
+    #ax[1].set_title(r'B$_\mathrm{r}$')
+    if doPlot_norm: ax[1].legend(fontsize=8,handlelength=1)
     fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('plasma')),
-        label=r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [G]',ax=ax[1])
-    if doSave: fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',transparent=True)
+        label=r'$\hat{r}\cdot\hat{n}$' if doPlot_norm else r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [G]',ax=ax[1])
+    
+    
+    if doSave: fig.savefig(doSave+fig.canvas.manager.get_window_title()+('_vecs_' if doPlot_norm else '')+'.pdf',transparent=True)
 ########################################################################################
 ########################################################################################
 # Get Psi grid, r,z from gEqdsk file
@@ -203,7 +221,7 @@ def interpolate_B(theta_inside,R_inside,Z_inside,dat_B,indices,m,psi_norm_inside
     # Evaluate the FAR3D eigenfunction _at the Psi, theta points corresponding to R,Z
     def eigenfunc(theta,B,B_indices,m):
         out = np.zeros((len(B_indices),))
-        for ind,m_ in enumerate(m): out += B[B_indices,2*ind]*np.cos(m_*theta+phase) + B[B_indices,2*ind+1]*np.sin(m_*theta+phase)
+        for ind,m_ in enumerate(m): out += B[B_indices,ind]*np.cos(m_*(theta+0*np.pi/2)+phase) + B[B_indices,ind+len(m)]*np.sin(m_*(theta+0*np.pi/2)+phase)
         return out
     B_RZ = eigenfunc(theta_inside,dat_B,indices,m)
 
@@ -277,13 +295,14 @@ def map_psi_to_equilibrium(br_file='br_0000',bth_file='bth_0000',\
         if vmin >np.nanmin(B_th_RZ_downsamp_cos): vmin = np.nanmin(B_th_RZ_downsamp_cos)
         vmax=np.nanmax(B_r_RZ_downsamp_cos)
         if vmax <np.nanmax(B_th_RZ_downsamp_cos): vmax = np.nanmax(B_th_RZ_downsamp_cos)
-        ax[0].contourf(R_downsamp+rmagx,Z_downsamp+zmagx,B_r_RZ_downsamp_cos,levels=30,vmin=vmin,vmax=vmax)
-        ax[1].contourf(R_downsamp+rmagx,Z_downsamp+zmagx,B_th_RZ_downsamp_cos,levels=30,vmin=vmin,vmax=vmax)
+        ax[0].contourf(R_downsamp+rmagx,Z_downsamp+zmagx,B_r_RZ_downsamp_cos,levels=30,vmin=vmin,vmax=vmax,zorder=-5)
+        ax[1].contourf(R_downsamp+rmagx,Z_downsamp+zmagx,B_th_RZ_downsamp_cos,levels=30,vmin=vmin,vmax=vmax,zorder=-5)
         ax[0].set_title(r'B$_r(\psi_N)$')
         ax[1].set_title(r'B$_\theta(\psi_N)$')
         ax[0].set_ylabel(r'Z [m]')
         for i in range(2):
             ax[i].set_xlabel(r'R [m]')
+            ax[i].set_rasterization_zorder(-1)
 
         norm = Normalize(vmin=vmin,vmax=vmax)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('viridis')),
@@ -313,7 +332,7 @@ def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12],\
     theta = np.linspace(0,2*np.pi,100)
     def eigenfunc(theta,B,m):
         out = np.zeros((len(B),))
-        for ind,m_ in enumerate(m): out += B[:,2*ind]*np.cos(m_*theta) + B[:,2*ind+1]*np.sin(m_*theta)
+        for ind,m_ in enumerate(m): out += B[:,ind]*np.cos(m_*theta) + B[:,ind+len(m)]*np.sin(m_*theta)
         return out
     
     r_grid = np.array([eigenfunc(t,dat_r,m) for t in theta]).T
@@ -326,12 +345,13 @@ def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12],\
 
     #ax[0].contourf(theta,psi_normalized,r_grid)
     #ax[1].contourf(theta,psi_normalized,th_grid)
-    ax[0].contourf(theta,psi_norm,r_grid)
-    ax[1].contourf(theta,psi_norm,th_grid)
+    ax[0].contourf(theta,psi_norm,r_grid,zorder=-5)
+    ax[1].contourf(theta,psi_norm,th_grid,zorder=-5)
     
     ax[1].set_xlabel(r'B$_\theta(\psi_N)$')
     ax[0].set_xlabel(r'B$_r(\psi_N)$')
     for i in range(2):
+        ax[i].set_rasterization_zorder(-1)
         ax[i].set_xticklabels([])
         ax[i].set_yticklabels([None,0.25,None,None,1])
     
@@ -340,8 +360,8 @@ def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12],\
 ###############################################################################
 ###############################################################################
 if __name__ == '__main__':
-    plot_B(plot_directory='../output_plots/')
-    map_psi_to_equilibrium(plot_directory='../output_plots/')
-    convert_FAR3D_to_Bnorm(doSave='../output_plots/')
+    #plot_B(plot_directory='../output_plots/')
+    #map_psi_to_equilibrium(plot_directory='../output_plots/')
+    # convert_FAR3D_to_Bnorm(doSave='../output_plots/')
     print('Finished')
 

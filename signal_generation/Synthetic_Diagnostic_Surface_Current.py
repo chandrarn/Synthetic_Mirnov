@@ -17,28 +17,34 @@ from header_signal_generation import np, plt, ThinCurr, histfile, geqdsk, cv2,ma
     h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
         gethostname, server, I_KM, F_KM, F_KM_plot
 from M3DC1_to_Bnorm import convert_to_Bnorm
+from FAR3D_to_Bnorm import convert_FAR3D_to_Bnorm
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
-sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3},doPlot=True,\
-    C1_file='/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'):
+    sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
+    'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3},doPlot=True,\
+    C1_file='/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5',\
+    FAR3D_br_file='',FAR3D_bth_file='',plotOnly=False):
     
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
+    elif FAR3D_br_file: convert_FAR3D_to_Bnorm(FAR3D_br_file,FAR3D_bth_file,m=params['m'],n=params['n'],\
+                                               eqdsk_file=file_geqdsk,debug=False)
     else: __gen_b_norm_manual(file_geqdsk,params)
     
-    # Build mode mesh
-    __gen_b_norm_mesh('C1' if server else '',params['m_pts'],params['n_pts'],params['n_threads'],
-                      sensor_set,doSave,save_ext,params,doPlot)
     
     #return 
     # Build linked inductances and mode/current drivers
     mode_driver, sensor_mode, sensor_obj, tw_torus = \
         __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
     
+    # Build mode mesh
+    prefix = ('C1' if C1_file else 'FAR3D') if server else ''
+    __gen_b_norm_mesh(prefix,params['m_pts'],params['n_pts'],params['n_threads'],
+                      sensor_set,doSave,save_ext,params,doPlot,tw_mesh=tw_torus)
+    
     # Run time dependent calculation
-    __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj, params,sensor_set,save_ext)
+    if not plotOnly: __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj, params,sensor_set,save_ext)
 ########################################################
 def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
              sensor_set,save_Ext):
@@ -131,7 +137,7 @@ def __gen_linked_inductances(mesh_file,n_threads,sensor_set):
     return mode_driver, sensor_mode, sensor_obj, tw_torus
 #########################################################
 def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
-                      doSave,save_Ext,params,doPlot=False):
+                      doSave,save_Ext,params,doPlot,tw_mesh):
     # Convert B-normal from C1 file LCFS to equivalent suface current via self inductance
     
     # Build mesh on which the surface current lives?
@@ -216,11 +222,11 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
     # Plot J(theta,phi)
     #return output,nfp,n_phi,n_theta,bnorm
     if doPlot:__do_plot_B_J(output,nfp,n_phi,n_theta,bnorm,tw_mode,sensor_set,
-                            doSave,save_Ext,params)
+                            doSave,save_Ext,params,tw_mesh)
         
 #########################################################
 def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
-                  save_Ext,params):
+                  save_Ext,params,tw_mesh):
     
     # 2D Plot of B-norm and J
     theta=np.linspace(-np.pi,np.pi,ntheta,endpoint=False)/np.pi
@@ -276,9 +282,22 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
     grid = pyvista.UnstructuredGrid(cells, celltypes, r)
     
     p = pyvista.Plotter()
-    p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
+    actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
                scalars=J_c,scalar_bar_args={'title':'J_c'})
+    actor.prop.edge_opacity = 0.5
     #p.add_scalar_bar(title='J_c')
+
+    # Plot Conducting Structures
+    # tw_mesh.build_XDMF()
+    # with h5py.File('plasma/mesh.0001.h5','r') as h5_file:
+    #     r = np.asarray(h5_file['R_surf'])
+    #     lc = np.asarray(h5_file['LC_surf'])
+    # celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
+    # cells = np.insert(lc, [0,], 3, axis=1)
+    # grid = pyvista.UnstructuredGrid(cells, celltypes, r)
+    # actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True)
+   
+
     # Plot Sensors
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
     for ind,s in enumerate(sensors):
@@ -380,4 +399,29 @@ def __gen_r_theta(file_geqdsk,a,R,m,n,):
     return r_theta, zmagx,rmagx
     
 #########################################################
-if __name__=='__main__':Synthetic_Mirnov_Surface()
+if __name__=='__main__':
+    # SPARC Side
+    mesh_file='SPARC_Sept2023_noPR.h5';doSave='';save_ext='';file_geqdsk='g1051202011.1000',
+    sensor_set='BP';xml_filename='oft_in.xml';
+    # params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
+    # 'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
+
+    # C-Mod Side
+    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    file_geqdsk='g1051202011.1000'
+    eta = '1.8E-5, 1.8E-5'#, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
+    # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
+    sensor_set='C_MOD_LIM';cmod_shot=1051202011
+    sensor_set = 'C_MOD_ALL'
+
+    params={'m':[9,10,11,12],'n':10,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
+    'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
+    doPlot=True; plotOnly=True
+    C1_file=None#'/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'
+    FAR3D_br_file = 'br_0000';FAR3D_bth_file='bth_0000';
+
+    Synthetic_Mirnov_Surface(mesh_file=mesh_file,doSave=doSave,save_ext=save_ext,file_geqdsk=file_geqdsk,\
+                             sensor_set=sensor_set,xml_filename=xml_filename,params=params,doPlot=doPlot,\
+                            C1_file=C1_file,FAR3D_br_file=FAR3D_br_file,FAR3D_bth_file=FAR3D_bth_file,\
+                            plotOnly=plotOnly)
