@@ -217,8 +217,10 @@ class Mirnov :
                 self.t=numpy.array(self.tree.getNode('active_mhd.signals.timebase').getData().evaluate().getData())
             except :
                 print('active_mhd.signals.timebase node also unavailable -- pull for bp1t_ghk')
-                self.t=numpy.array(self.tree.getNode('active_mhd.signals.bp1t_ghk').getDimensionAt(0).getData().evaluate().getData())
-            
+                try:
+                    self.t=numpy.array(self.tree.getNode('active_mhd.signals.bp1t_ghk').getDimensionAt(0).getData().evaluate().getData())
+                except Exception as e:  raise SyntaxWarning('Node Not Found, Skipping Shot, Error: %s'%e)
+
             min_t=max(self.t[0],min_t)
             max_t=min(self.t[-1],max_t)
             self.keep_inds=numpy.array(self.t>=min_t) & numpy.array(self.t<=max_t)
@@ -434,7 +436,9 @@ class Mirnov :
 
                 if val is None :
                     #If data has not been pulled for this signal, then pull data
-                    this_y=numpy.array(this_node.getData().evaluate().getData())
+                    try: this_y=numpy.array(this_node.getData().evaluate().getData())
+                    except Exception as e: 
+                        raise SyntaxWarning('Alert: Node %s cannot be evaluated, error code: %s'%(key,e))
                     this_t=numpy.array(this_node.getDimensionAt(0).getData().evaluate().getData())
                     
                     #Align on uniform timebase between t1 and t2

@@ -126,7 +126,8 @@ class BP_K:
         if 'skipInteger' not in params: skipInteger=0
         else: skipInteger = params['skipInteger']
         
-        sensors=Mirnov(shotno,t1=tLim[0],t2=tLim[1])
+        try:sensors=Mirnov(shotno,t1=tLim[0],t2=tLim[1])
+        except Exception as e: raise SyntaxWarning('Mirnov cannot be loaded, error: %s'%e)
         data = []
         time = sensors.getT()
         f_samp = 1/(time[1]-time[0])
@@ -144,8 +145,8 @@ class BP_K:
 
         for name in sensors.coil_names:
             if debug: print('Loading sensor %s'%name)
-            data.append(sensors.getSig(name)[inds])
-        
+            try:data.append(sensors.getSig(name)[inds])
+            except: continue
         self.time=time[inds]
         self.data = np.array(data).astype(np.float32)
         self.R = sensors.getR(sensors.coil_names)

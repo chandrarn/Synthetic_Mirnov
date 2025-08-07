@@ -9,9 +9,9 @@ Created on Tue Dec 17 11:43:59 2024
 # header
 from header_signal_generation import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
-        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys, gen_coupled_freq
+        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys, gen_coupled_freq, debug_mode_frequency_plot
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
-from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk
+from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk, calc_filament_coords_field_lines
 from prep_sensors import conv_sensor
 sys.path.append('../signal_analysis/')
 from plot_sensor_output import plot_Currents, plot_single_sensor
@@ -25,22 +25,25 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
-                                eta = '1.8E-5, 3.6E-5, 2.4E-5'):
+                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi'):
     
     #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
     # Get mode amplitudes, assign to fillaments [eventually, from simulation]
 
     # Generate coil currents (for artificial mode)
-    coil_currs = gen_coil_currs(params)
+    coil_currs = gen_coil_currs(params,wind_in=wind_in)
 
     
     # Get coordinates for fillaments
-    theta,phi=gen_filament_coords(params)
+    theta,phi=gen_filament_coords(params,wind_in=wind_in)
     
     #return theta,phi
-    filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
-    
+    if wind_in == 'phi':
+        filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
+    else: 
+        filament_coords = calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False)
+
 
     # Generate sensors, filamanets
     gen_filaments(xml_filename,params,filament_coords, eta)
@@ -119,7 +122,7 @@ def gen_filaments(filament_file,params,filament_coords,\
             
             for filament in filament_:
                 f.write('\t<coil_set>\n')
-                f.write('\n\t\t<coil npts="%d" scale="1.0">\n'%n_pts)
+                f.write('\n\t\t<coil npts="%d" scale="1.0">\n'%np.shape(filament)[1])
                 for xyz in np.array(filament).T:
                     x=xyz[0];y=xyz[1];z=xyz[2]
                     # for some starting theta, wind in phi
@@ -139,7 +142,7 @@ def gen_sensors():
     save_sensors(sensors)
     return sensors
 ####################################
-def gen_coil_currs(param,debug=True,doSave=True):
+def gen_coil_currs(param,debug=True,doSave=True,wind_in='theta'):
     # Assign currents to existing fillaments for time dependent calculation
     # Eventually, the balooning approximation goes here, as does straight field line apprxoiation
 
@@ -153,12 +156,13 @@ def gen_coil_currs(param,debug=True,doSave=True):
     I=param['I'];n=param['n'];n_pts=param['n_pts']
     nsteps = int(param['T']/dt)
     
-    theta_,phi_= gen_filament_coords(param) # returns as lists
+    # Need to get the list of starting angles, to correctly assign filament colors
+    starting_angle,_= gen_filament_coords(param,wind_in=wind_in) # returns as lists
     time=np.linspace(0,param['T'],nsteps)
     
     # assume that m_pts can be a list
-    if type(m_pts) == int: num_filaments = m_pts*len(theta_)
-    else: num_filaments = sum([len(theta) for theta in theta_])
+    if type(m_pts) == int: num_filaments = m_pts*len(starting_angle)
+    else: num_filaments = sum([len(theta) for theta in starting_angle])
     if debug:print('Number of filaments: %d'%num_filaments)
     coil_currs = np.zeros((time.size,num_filaments+1))
 
@@ -166,9 +170,9 @@ def gen_coil_currs(param,debug=True,doSave=True):
     # and assign the current to each filament
 
     # Necessary step for dealing with uneven number of filaments
-    cumulative_filament_coords = np.cumsum([len(theta__) for theta__ in theta_]) 
+    cumulative_filament_coords = np.cumsum([len(starting_angle_) for starting_angle_ in starting_angle]) 
     cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
-    for ind_filament, theta_list in enumerate(theta_):
+    for ind_filament, starting_angle_list in enumerate(starting_angle):
         # Get (potentially time dependent) mode amplitude and frequency
         if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
         elif type(param['I']) == list: mode_amp = param['I'][ind_filament]
@@ -179,12 +183,15 @@ def gen_coil_currs(param,debug=True,doSave=True):
         # assume frequency is a function taken [0,1] as the argument
         elif type(param['f']) == list: mode_freq = param['f'][ind_filament]
         else:mode_freq = param['f'] #  
+        
+        # set initial mode phase based on starting angle position for a given filament
+        initial_mode_phase = m[ind_filament] if wind_in == 'phi' else n[ind_filament]
 
         for ind,t in enumerate(time):
             np.random.seed(ind) # Set seed for reproducibility
-            coil_currs[ind,cumulative_filament_coords[ind_filament]:cumulative_filament_coords[ind_filament+1]] = \
-                np.random.normal(1, noise_envelope, len(theta_list)) * \
-                    [mode_amp[ind]*np.cos(m[ind_filament]*theta+mode_freq[ind]) for theta in theta_list] 
+            coil_currs[ind,cumulative_filament_coords[ind_filament]+1:cumulative_filament_coords[ind_filament+1]+1] = \
+                np.random.normal(1, noise_envelope, len(starting_angle_list)) * \
+                    [mode_amp[ind]*np.cos(initial_mode_phase*initial_angle+mode_freq[ind]) for initial_angle in starting_angle_list] 
                  
             
     # Time vector in first column
@@ -279,15 +286,12 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
                    scalars=Jfull,clim=[0,150],smooth_shading=True,\
                        scalar_bar_args={'title':'Eddy Current [A/m]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
-    #slices=grid.slice_orthogonal()
-    #slice_coords=[np.linspace(0,1.6,10),[0]*10,np.linspace(-1.5,1.5,10)]
-    #slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
-    #slices = grid.slice_along_line(slice_line)
-    #slices.plot()
-    #p.add_mesh(slices,label='Mesh Frame')
     
     tmp=[]
     if debug:print('Plotted Mesh')
+
+
+    ###############################################
     # Plot Filaments
     colors=['red','green','blue']
     #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
@@ -295,22 +299,29 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     cumulative_filament_coords = np.cumsum([len(filament) for filament in filament_coords])
     cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
     for ind_mn, filament_list in enumerate(filament_coords):
+       
         for ind,filament in enumerate(filament_list):
+
             pts = np.array(filament).T
-            #print(np.array(calc_filament_coord(m,n,r,R,theta,phi)).shape)
-            pts=np.array(pts)
-            #print(pts.shape,theta)
+            p.add_points(pts[0],render_points_as_spheres=True,opacity=1,point_size=20,\
+                         color='k',label='Launch Point' if ind == 0 else None)
+            
             spl=pyvista.Spline(pts,len(pts))
             #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
             #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
             #slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
-            if coil_currs[t_pt,1+ind+cumulative_filament_coords[ind_mn]] == 0: continue
+           
+            #if coil_currs[t_pt,1+ind+cumulative_filament_coords[ind_mn]] == 0: continue
+
             p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,1+ind+cumulative_filament_coords[ind_mn]]/np.max(coil_currs[t_pt,:]) + 1) /2),
                     line_width=10,render_points_as_spheres=True,
                     label='Filament %d/%d'%(m[ind_mn],n[ind_mn]) if ind==0 else None, opacity=1-.5*ind_mn/len(filament_coords))
+           
             #p.add_points(pts,render_points_as_spheres=True,opaity=1,point_size=20,color=colors[ind])
             tmp.append(pts)
     if debug:print('Plotted Fillaments')
+    
+    ###################################################
     # Plot Sensors
     for ind,s in enumerate(sensors):
         p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
@@ -339,8 +350,8 @@ if __name__=='__main__':
     # params={'m':3,'n':1,'r':.3,'R':2,'n_pts':100,'m_pts':70,\
     #     'f':1e4,'dt':1e-5,'T':3e-4,'periods':3,'n_threads':64,'I':30}
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
-    params={'m':[1,4,8],'n':[1,3,4],'r':.3,'R':2,'n_pts':90,'m_pts':[40,60,80],\
-        'f':1e4,'dt':1e-6,'T':10e-3,'periods':3,'n_threads':12,'I':30,'noise_envelope':0.05}
+    params={'m':[3],'n':[1],'r':.3,'R':2,'n_pts':[60],'m_pts':[60],\
+        'f':1e4,'dt':1e-6,'T':10e-3,'periods':3,'n_threads':12,'I':30,'noise_envelope':0.00}
     
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
@@ -349,7 +360,8 @@ if __name__=='__main__':
     eta = '1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     sensor_set='C_MOD_LIM';cmod_shot=1051202011
-    sensor_set = 'C_MOD_ALL'
+    # sensor_set = 'C_MOD_ALL'
+    wind_in = 'theta'
     
     # SPARC Side
     #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
@@ -362,46 +374,52 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'
     #mesh_file='vacuum_mesh.h5'
 
+    save_ext=''
+    doSave='../output_plots/'
+
     # Frequency, amplitude modulation
     # Note: If the amplitude and frequency are not set correctly for LF signals, 
     # the modulation frequency will dominate the spectrogram
     # Separately, if the noise envelope is too high, it induces some odd integration noise
-    time = np.linspace(0,params['T'],int(params['T']/params['dt']))
-    periods = 5
-    dead_fraction = 0.4
-    f_mod = lambda t: 7e3 + 3e3*t
-    I_mod = lambda t: .1*4*(5 + 7*t**4)
+    # time = np.linspace(0,params['T'],int(params['T']/params['dt']))
+    # periods = 5
+    # dead_fraction = 0.4
+    # f_mod = lambda t: 7e3 + 3e3*t
+    # I_mod = lambda t: .1*4*(5 + 7*t**4)
     
-    f_out_1, I_out_1, f_out_plot_1 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
-                                                      random_seed=42)
+    # f_out_1, I_out_1, f_out_plot_1 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
+    #                                                   random_seed=42)
 
     
-    periods = 2
-    dead_fraction = 0.2
-    f_mod = lambda t: 35e3 + 5e3*t
-    I_mod = lambda t: .05*(6 + 3*np.sin(periods*2*np.pi*t))
+    # periods = 2
+    # dead_fraction = 0.2
+    # f_mod = lambda t: 35e3 + 5e3*t
+    # I_mod = lambda t: .05*(6 + 3*np.sin(periods*2*np.pi*t))
     
-    f_out_2, I_out_2, f_out_plot_2 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
-                                                        random_seed=42)
+    # f_out_2, I_out_2, f_out_plot_2 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
+    #                                                     random_seed=42)
 
-    periods = 3
-    dead_fraction = 0.2
-    f_mod = lambda t: 200e3 - 5e3*t**2
-    I_mod = lambda t: .02*(2 + 4*t**2)
+    # periods = 3
+    # dead_fraction = 0.2
+    # f_mod = lambda t: 200e3 - 5e3*t**2
+    # I_mod = lambda t: .02*(2 + 4*t**2)
     
-    f_out_3, I_out_3, f_out_plot_3 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
-                                                        random_seed=42)
+    # f_out_3, I_out_3, f_out_plot_3 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
+    #                                                     random_seed=42)
     
-    
-    params['f'] = [f_out_1, f_out_2, f_out_3]  # List of frequencies for each m/n pair
-    params['I'] = [I_out_1, I_out_2, I_out_3]  # List of amplitudes for each m/n pair
 
-    save_ext=''
-    doSave='../output_plots/'
+    # debug_mode_frequency_plot(time,f_out_1,I_out_1,f_out_plot_1,f_out_2,I_out_2,f_out_plot_2,f_out_3,I_out_3,f_out_plot_3,save_ext)
+
+    # params['f'] = [f_out_1, f_out_2, f_out_3]  # List of frequencies for each m/n pair
+    # params['I'] = [I_out_1, I_out_2, I_out_3]  # List of amplitudes for each m/n pair
+
+
 
     #coil_currs=gen_coil_currs(params,True)
+    
 
-    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,
+
+    gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
          save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk, plotOnly=True)
     
     print('Run complete')

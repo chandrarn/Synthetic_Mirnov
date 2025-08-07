@@ -14,25 +14,36 @@ from freeqdsk import geqdsk
 import cv2
 from fractions import Fraction
 from os import getcwd
+from sys import path; path.append('/home/rianc/Documents/TARS/')
+from tars.filaments import EquilibriumFilament, TraceType
+from tars.magnetic_field import EquilibriumField
+import matplotlib;matplotlib.use('TkAgg')
 plt.ion()
 
 ########################
-def gen_filament_coords(params):
+def gen_filament_coords(params, wind_in='phi'):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
     # generate theta,phi coordinates for fillaments
     # The points launch in a fractional sector of the poloidal plane, and
     # wrap toroidally enough times to return to their starting point
-    theta_out=[]; phi_out=[]
-    if type(m_pts) is int: m_pts = [m_pts]
+
+    starting_angle=[]; winding_angle=[]
+    if type(m_pts) is int: m_pts = [m_pts]*len(m)
     if type(n_pts) is int: n_pts = [n_pts]*len(m_pts)
     for ind_m, m_ in enumerate(m if type(m) is list else [m]):
+        
         n_ = n[ind_m] if type(n) is list else n
         ratio = Fraction(m_,n_)
         m_local=ratio.numerator;n_local=ratio.denominator
-        theta_out.append(np.linspace(0,2*np.pi/m_local*n_local,m_pts[ind_m],endpoint=True))
-        phi_out.append(np.linspace(0,m_local*2*np.pi,n_pts[ind_m],endpoint=True))
-    return theta_out, phi_out
-        
+        if wind_in == 'phi':
+            starting_angle.append(np.linspace(0,2*np.pi/m_local*n_local,m_pts[ind_m],endpoint=True))
+            winding_angle.append(np.linspace(0,m_local*2*np.pi,n_pts[ind_m],endpoint=True))
+        elif wind_in == 'theta':
+            starting_angle.append( np.linspace(0,2*np.pi/n_local,n_pts[ind_m],endpoint=False) )
+            winding_angle.append( np.linspace(0,2*np.pi*m_local,m_pts[ind_m]) )
+
+    return starting_angle, winding_angle
+
 ########################
 def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
                                 R_lim=[1.5,2.3],Z_lim=[-.4,.4]):
@@ -50,6 +61,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
         n=params['n'][ind_m] if type(params['n']) is list else params['n']
         R=params['R'][ind_m] if type(params['R']) is list else params['R']
         a=params['r'][ind_m] if type(params['r']) is list else params['r']
+        
         
         if file_geqdsk is None: # Assigning circiular flux surface, fixed radius at a
             r_theta = lambda theta: np.array([a]*len(theta)) # running circular approximation
@@ -117,44 +129,141 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
             x = (rmagx+r_x)*np.cos(phi[ind_m])
             y = (rmagx+r_x)*np.sin(phi[ind_m])
             coords[-1].append([x,y,z])
-    
+
         # Debug plots
         if debug:
-            plt.close('filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
-            fig,ax = plt.subplots(1,3,tight_layout=True,figsize=(7,4),
-                    num='filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
-            ax[0].plot(R_eq[contour[:,1]],Z_eq[contour[:,0]],'*')
-            theta_fit=np.linspace(0,2*np.pi,50)#-np.pi
-            ax[0].plot(r_theta(theta_fit)*np.cos(theta_fit)+rmagx,
-                    r_theta(theta_fit)*np.sin(theta_fit)+zmagx,alpha=.6)
-        
-            ax[1].plot(theta_r/(2*np.pi),r_norm,'*',label=r'$\psi_{%d/%d}$'%(m,n))
-            ax[1].plot(theta_fit/(2*np.pi),r_theta(theta_fit),alpha=.6,label='Spl. Fit')
-            ax[1].legend(fontsize=8)
+            if calculate_old_way:
+                plt.close('filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
+                fig,ax = plt.subplots(1,3,tight_layout=True,figsize=(7,4),
+                        num='filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
+                ax[0].plot(R_eq[contour[:,1]],Z_eq[contour[:,0]],'*')
+                theta_fit=np.linspace(0,2*np.pi,50)#-np.pi
+                ax[0].plot(r_theta(theta_fit)*np.cos(theta_fit)+rmagx,
+                        r_theta(theta_fit)*np.sin(theta_fit)+zmagx,alpha=.6)
             
-            ax[2].plot(phi[ind_m]/(2*np.pi),coords[ind_m][fil][0],label='X')
-            ax[2].plot(phi[ind_m]/(2*np.pi),coords[ind_m][fil][1],label='Y')
-            ax[2].plot(phi[ind_m]/(2*np.pi),coords[ind_m][fil][2],label='Z')
-            ax[2].legend(fontsize=8)
-            
-            for i in range(len(ax)):ax[i].grid()
-            
-            ax[0].set_xlabel('R [m]')
-            ax[0].set_ylabel('Z [m]')
-            
-            ax[1].set_xlabel(r'$\theta$ [2$\pi$ rad]')
-            ax[1].set_ylabel(r'$||r_{%d/%d}||$ [m]'%(m,n))
-            
-            ax[2].set_xlabel(r'$\phi$ [2$\pi$ rad]')
-            ax[2].set_ylabel(r'Filament \#%d Coordinatate [m]'%fil)
-            plt.show()
+                ax[1].plot(theta_r/(2*np.pi),r_norm,'*',label=r'$\psi_{%d/%d}$'%(m,n))
+                ax[1].plot(theta_fit/(2*np.pi),r_theta(theta_fit),alpha=.6,label='Spl. Fit')
+                ax[1].legend(fontsize=8)
+                
+                ax[2].plot(phi[ind_m]/(2*np.pi),coords[ind_m][fil][0],label='X')
+                ax[2].plot(phi[ind_m]/(2*np.pi),coords[ind_m][fil][1],label='Y')
+                ax[2].plot(phi[ind_m]/(2*np.pi),coords[ind_m][fil][2],label='Z')
+                ax[2].legend(fontsize=8)
+                
+                for i in range(len(ax)):ax[i].grid()
+                
+                ax[0].set_xlabel('R [m]')
+                ax[0].set_ylabel('Z [m]')
+                
+                ax[1].set_xlabel(r'$\theta$ [2$\pi$ rad]')
+                ax[1].set_ylabel(r'$||r_{%d/%d}||$ [m]'%(m,n))
+                
+                ax[2].set_xlabel(r'$\phi$ [2$\pi$ rad]')
+                ax[2].set_ylabel(r'Filament \#%d Coordinatate [m]'%fil)
+                plt.show()
+            else:
+                plt.close('filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
+                fig,ax = plt.subplots(1,1,tight_layout=True,figsize=(7,4),subplot_kw={'projection':'3d'},
+                        num='filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
+                ax.plot(coords[ind_m][:,0],coords[ind_m][:,1],coords[ind_m][:,2])
+                plt.show()
     return coords
-##########################
+
+
+#########################################################################
+#########################################################################
+# Field Line Following Model
+##########################################################################
+#########################################################################
+
+#########################################################################
+# Initial phi positions for filaments to launch from
+def starting_phi(m,n,m_pts,n_pts):
+    ratio = Fraction(m,n)
+    m_local=ratio.numerator;n_local=ratio.denominator
+    phi_start = np.linspace(0,2*np.pi/n_local,n_pts,endpoint=False)
+    phi_advance = np.linspace(0,2*np.pi*m_local,m_pts)
+    return phi_start, phi_advance
+
+###############################################################
+# Core of new Winding Method
+def wind_in_theta(file_geqdsk,m,n, debug=False):
+    with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+    eq_field = EquilibriumField(eqdsk)
+    eq_filament = EquilibriumFilament(m,n,eq_field)
+    filament_points,filament_etas = eq_filament._trace(method=TraceType.AVERAGE,num_filament_points=300)
+
+    if debug:
+        plt.close('Winding_Theta')
+        plt.figure(num='Winding_Theta',tight_layout=True);
+        plt.plot(filament_points[:,1]/(2*np.pi));
+        plt.plot([0,len(filament_points)],[0,filament_points[-1,1]/(2*np.pi)],'--k');
+        plt.grid();
+        plt.ylabel(r'$\hat{\phi}$ [2$\pi$ Rad]')
+        plt.xlabel('Filament Points')
+        plt.show()
+
+    # Nan Check
+    return filament_points,filament_etas
+
+#######################################
+def conv_theta_wind_to_coords(filament_points,phi_start):
+    # Convert R, Phi, Z for each filament, with starting launch offset in phi
+    coords = []
+
+    for phi_0 in phi_start:
+        phi_ = filament_points[:,1]+phi_0 # local phi for a given filament
+        X = filament_points[:,0]*np.cos(phi_)
+        Y = filament_points[:,0]*np.sin(phi_)
+        Z = filament_points[:,2]
+        coords.append([X,Y,Z])
+    
+    return np.array(coords).T
+
+#################################################
+# def debug_filament_currents(coords,phi_start,n):
+#     plt.close('Filament_New_Way_Test')
+#     fig,ax=plt.subplots(1,1,num='Filament_New_Way_Test',tight_layout=True,subplot_kw={'projection':'3d'})
+#     for ind,filament in enumerate(coords):
+#         color = plt.get_cmap('plasma')((np.cos(phi_start[ind]*n)+1)/2)
+#         ax.plot(filament[0,:],filament[1,:],filament[2,:],c=color,lw=2)
+    
+#     plt.show()
+
+##########################################
+def calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False):
+    # Calling container for field-tracing filaments
+
+    m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
+    # generate theta,phi coordinates for fillaments
+    # The points launch in a fractional sector of the poloidal plane, and
+    # wrap toroidally enough times to return to their starting point
+
+    starting_angle=[]; winding_angle=[]
+    if type(m_pts) is int: m_pts = [m_pts]*len(m)
+    if type(n_pts) is int: n_pts = [n_pts]*len(m_pts)
+    coords = []
+    for ind_m, m_ in enumerate(m if type(m) is list else [m]):
+        phi_start, phi_advance =  starting_phi(m_,n[ind_m],m_pts[ind_m],n_pts[ind_m])
+
+        filament_points,filament_etas = wind_in_theta(file_geqdsk,m_,n[ind_m])
+
+        coords_ = conv_theta_wind_to_coords(filament_points,phi_start)
+
+        # if doDebug: debug_filament_currents(coords_,phi_start,n[ind_m])
+        #coords_[:,0]= coords[:,1]
+        # coords_[0,:2,:]=coords_[1,:2,:]
+        coords.append(coords_.T)
+
+    return coords
+
+############################################################
+
 if __name__ == '__main__': 
     params={'m':[2,3],'n':[1,2],'r':.35,'R':1.9,'n_pts':100,'m_pts':20,\
     'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     theta ,phi = gen_filament_coords(params)
     #geqdsk_freegsu_run0_mod_00.geq
-    # g1051202011.1000
-    coords = calc_filament_coords_geqdsk('geqdsk_freegsu_run0_mod_00.geq',theta,phi,params,debug='_gEqdsk')
-    coords = calc_filament_coords_geqdsk(None,theta,phi,params,debug='_Fixed_Radius')
+    file_geqdsk =  'g1051202011.1000'
+    #coords = calc_filament_coords_geqdsk('geqdsk_freegsu_run0_mod_00.geq',theta,phi,params,debug='_gEqdsk')
+    coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug='_Fixed_Radius')

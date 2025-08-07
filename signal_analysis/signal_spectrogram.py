@@ -43,11 +43,11 @@ def multiple_spect(params=[{'m':12,'n':10,'f':50e3,'dt':2e-7},
 def gen_single_spect_multimode(params,sensor_names=['BP1T_ABK','BP01_ABK'],\
         sensor_set='C_MOD_LIM',mesh_file='C_Mod_ThinCurr_Combined-homology.h5',
         pad = 800, fft_window = 400,doSave='', filament = True,f_lim=[0,100],
-        save_Ext='',HP_Freq=10e3,LP_Freq=None):
+        save_Ext='',HP_Freq=10e3,LP_Freq=None,cLim=[0,1],doSave_data=False):
     # Generate a spectrogram for a given sensor or set of sensors, averaged
     
     # Pull saved data
-    filename = gen_filename(params,sensor_set,mesh_file)
+    filename = gen_filename(params,sensor_set,mesh_file,save_Ext=save_Ext)
     hist = histfile(filename+'.hist')
     time = hist['time'][:-1]
 
@@ -70,7 +70,9 @@ def gen_single_spect_multimode(params,sensor_names=['BP1T_ABK','BP01_ABK'],\
 
     # Run spectrogram
     plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,
-                               filament,save_Ext,f_lim,doColorbar=True,clabel=r'B [T/s, Mode Amplitude Arb]')
+                               filament,save_Ext,f_lim,doColorbar=True,\
+                                clabel=r'B [T/s, Mode Amplitude Arb]',\
+                                cLim=cLim,doSave_data=doSave_data)
     # Loop over sensors
 def gen_single_spect(params,filament,save_Ext,phi_sensor=[180],
                      sensor_file='MAGX_Coordinates_CFS.json',sensor_set='MRNV',
@@ -125,20 +127,26 @@ def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 if __name__ == '__main__':
     # Example usage
     params={'m':[1,4,8],'n':[1,3,4],'f':[]}
+    #params={'m':[1,3,12],'n':[1,2,9],'f':[]}
     filament = True
-    save_Ext = '_Multimode'
+    save_Ext = '_Synth_1'#'_Multimode'
     sensor_set='C_MOD_LIM'
+    sensor_set = 'C_MOD_ALL'
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     #mesh_file='vacuum_mesh.h5'
     sensor_names=['BP01_ABK','BP1T_ABK','BP2T_GHK', 'BP02_GHK']
     fft_window = 230
     pad = 230
     doSave = '../output_plots/'
     f_lim= [0,220]
+    cLim = [0,.2]
+    doSave_data = True
 
     gen_single_spect_multimode(params=params,sensor_set=sensor_set,fft_window=fft_window,
                                mesh_file=mesh_file,save_Ext=save_Ext,pad=pad,f_lim=f_lim,
-                               doSave=doSave,filament=filament,sensor_names=sensor_names,)
+                               doSave=doSave,filament=filament,sensor_names=sensor_names,
+                               cLim=cLim,doSave_data=doSave_data)
         
         
     print('Done generating spectrograms')

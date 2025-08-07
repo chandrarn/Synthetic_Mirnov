@@ -14,14 +14,18 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
 from fractions import Fraction
-
+from sys import path; path.append('/home/rianc/Documents/TARS/')
+from tars.filaments import EquilibriumFilament, TraceType
+from tars.magnetic_field import EquilibriumField
+from freeqdsk import geqdsk
 
 def main():
     params={'m':4,'n':1,'r':.25,'R':1,'n_pts':300,'m_pts':10,\
     'f':1e3,'dt':1e-4,'periods':1,'n_threads':4,'I':10}
     
     
-        
+    
+
     coords = gen_filament_coords(params)
     
     
@@ -90,5 +94,17 @@ def gen_filament_coords(params):
     m_local=ratio.numerator;n_local=ratio.denominator
     return np.linspace(0,2*np.pi/m_local*n_local,m_pts,endpoint=True),\
         np.linspace(0,m_local*2*np.pi,n_pts,endpoint=True)
+
+####################################
+def calc_coords_improved(file_geqdsk='g1051202011.1000',):
+    with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+    eq_field = EquilibriumField(eqdsk)
+    eqfil = EquilibriumFilament(m=3,n=1,eq_field=eq_field)
+
+    filament_points, filament_etas = eqfil._trace(method=TraceType.AVERAGE)
+
+    print('Calculation complete')
 ##########################
-if __name__=='__main__':main()
+if __name__=='__main__':
+    calc_coords_improved()
+    # main()

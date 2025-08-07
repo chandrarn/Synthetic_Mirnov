@@ -9,7 +9,7 @@ Created on Wed Mar  5 16:21:32 2025
 
 from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter, \
     gaussianHighPassFilter, rolling_spectrogram_improved, grouped_average, \
-        gaussian_filter, downscale_local_mean
+        gaussian_filter, downscale_local_mean, xr
 
 
 import get_Cmod_Data as gC
@@ -23,7 +23,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
                             clabel='',HP_Freq=100,cLim=None,
                             doSave_Extractor=True,block_reduce=[200,40000],
                             data_archive='',cmap='viridis',figsize=(6,6),
-                            params={},save_Ext='',batch=False,sigma_plot_reduce=(3,5)):
+                            params={},save_Ext='',batch=False,sigma_plot_reduce=(3,5),
+                            doSave_data=False):
     '''
     
 
@@ -83,7 +84,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
             ' large to plot, consider increasing signal or plot reduction term')
     
     # Pull and select data
-    signals, time, clabel,diag = get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug)
+    signals, time, clabel,diag = get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim)
     
     # # Desired time range to operate on
     # t_inds = np.arange((tLim[0]-time[0])/(time[1]-time[0]),\
@@ -99,7 +100,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     nfft = n_samples + pad
     freq, time, out_spect = compute_averaged_spectrogram_from_blocks(\
         signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=nfft)
-    
+    time += tLim[0] # Correction for block sampling 
+
     #return out_spect, time, freq
     '''
     if block_reduce:
@@ -149,14 +151,14 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,
                  save_Ext,'',f_lim,shotno,doSave_Extractor=doSave_Extractor,tScale=1,
                  doColorbar=doColorbar,clabel=clabel,cLim=cLim,cmap=cmap,
-                 figsize=figsize,batch=batch)
+                 figsize=figsize,batch=batch,doSave_data=doSave_data)
     
     if debug: print('Finished Plot')
     
     return diag,signals,time,out_spect, freq
 
 ###############################################################################
-def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug):
+def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim):
     # Pull C-Mod data from server for a given diagnostic
     if sensor_set == 'BP_T':
         if diag is None: diag = gC.__loadData(shotno,pullData=['bp_t'],
@@ -169,13 +171,19 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug):
         
         clabel=r'$\partial_t{\mathrm{B}}_\theta$ [T/s]'
     elif sensor_set == 'BP_K':
+        params={'skipInteger':0}
+        if tLim[1]-tLim[0]>1:
+            params['tLim']=tLim
+            forceReload='bp_k'
+        else:forceReload=[]
+        forceReload=[]
         if diag is None: diag = gC.__loadData(shotno,pullData=['bp_k'],
-                   data_archive=data_archive,params={'skipInteger':0})['bp_k']
+                   data_archive=data_archive,params=params,forceReload=forceReload)['bp_k']
         signals = diag.data 
         # Check which sensor exists if undefined
         if not sensor_name:
             sensors=[]
-            for ind,name in enumerate(['bp6t_ghk','bp4t_ghk','bp2t_ghk']):
+            for ind,name in enumerate(['bp6t_ghk','bp4t_ghk','bp2t_ghk','bp1t_abk']):
                 if name in diag.names:sensors.append(name)
                 if ind ==2:break                
             signals=signals[[np.argwhere(np.array(diag.names)==n).squeeze() for n in sensors]]#,'bp2t_ghk']]]
@@ -224,7 +232,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
                      save_Ext,f_lim,shotno=None,
                      doSave_Extractor=False,tScale=1e3,doColorbar=False,
                      clabel='',cLim=None,cmap='viridis',figsize=(6,6),
-                     batch=False):
+                     batch=False,doSave_data=False,doLog=False):
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
@@ -237,6 +245,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     f_inds = np.arange(*[np.argmin((freq*1e-3-f)**2) for f in f_lim]) if f_lim\
         else np.arange(*[0,len(freq)])
     
+    if doLog: out_spect= 10*np.log(out_spect)
     vmin,vmax = cLim if cLim else [0,5*np.std(out_spect[f_inds])]
     if not cLim and vmax < 1: vmax = 1 # protect against noise dominated signals
     ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],
@@ -255,7 +264,8 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     
     ax.set_xlabel('Time [%s]'%('s' if tScale==1 else 'ms'))
     ax.set_ylabel('Freq [kHz]')
-    
+    if doLog: clabel = r'Log ' + clabel 
+
     if doColorbar:
         norm = Normalize(vmin,vmax)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cmap),ax=ax,
@@ -271,7 +281,15 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         fig.savefig(doSave+'Spectrogram_%s.pdf'%fName,transparent=True)
         print('Saved: '+doSave+'Spectrogram_%s.pdf'%fName)
     
-    
+    if doSave_data:
+        spect_xr = xr.Dataset({  "Sxx": (['frequency','time'],out_spect[f_inds]) },
+            coords = {'frequency':freq[f_inds],'time':time},
+            attrs = {'sampling_frequency':1/(time[1]-time[0])}
+        )
+        # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
+        #                         coords={'time':time,'frequency':freq[f_inds]})
+        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'Spectrogram_%s.nc'%fName)
+
     if batch: 
         plt.close(fName) # terminal blocks untill plot is closed for some reason    
     else:plt.show()
@@ -283,14 +301,14 @@ def __gen_fName(params,sensor_set,save_Ext,filament,shotno):
                 ( '-'.join(sensor_set),'-'.join(['%d'%param['m'] for param in params]),
                 '-'.join(['%d'%param['n'] for param in params]),
                 '-'.join(['%d'%(param['f']*1e-3) for param in params]),save_Ext) if \
-                    type(params) is list else 'floops_%s_%s_m-n_%d-%d_f_%d%s.pdf'%\
+                    type(params) is list else 'floops_%s_%s_m-n_%d-%d_f_%d%s'%\
                 ('filament' if filament else 'surface', sensor_set,params['m'],
                 params['n'],params['f']*1e-3,save_Ext)
         else:
             fName = 'floops_%s_m-n_%s_f_%s%s'%\
                 ( '-'.join(sensor_set),'-'.join(['%d-%d'%(m_,n_) for m_,n_ in zip(params['m'],params['n'])]),
                 '-'.join(['%d'%(param['f']*1e-3) for param in params]),save_Ext) if \
-                    type(params) is list else 'floops_%s_%s_m-n_%s_f_%s%s.pdf'%\
+                    type(params) is list else 'floops_%s_%s_m-n_%s_f_%s%s'%\
                 ('filament' if filament else 'surface', sensor_set,'-'.join(['%d-%d'%(m_,n_) for m_,n_ in zip(params['m'],params['n'])]),
                 'custom',save_Ext)
     elif 'tLim' in params:
@@ -302,39 +320,6 @@ def __gen_fName(params,sensor_set,save_Ext,filament,shotno):
     return fName
 
 ###############################################################################
-def gen_lf_signals():
-    file = 'cmod_logbook_ntm.csv'
-    shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
-
-    shotnos = np.append(shotnos,[1051202011,1160930034])
-    print(shotnos)
-    # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
-    tLims=[[.7,1.5]]
-    # Break up into two frequency bins[.5,.8],
-    # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
-    #               'f_lim':[[0,100],[100,600]]}
-    
-    dataRanges = {'tLim':[[.7,1.5]], 'signal_reduce':2,\
-                  'block_reduce':[1000,1000],'sigma':(3,5),'plot_reduce':(4,1)}
-    f_lim=[0,650]; c_lim=None
-    pad = 14000;fft_window=500;HP_Freq=2e3
-    for shot in shotnos:
-        diag = None
-        plt.close('all') # Clear plots    
-        for ind_t,tLim in enumerate(dataRanges['tLim']):
-            #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
-               
-                diag,signals,time,out_spect, freq = \
-                    signal_spectrogram_C_Mod(shot,sensor_set='BP_K',diag=diag,\
-                         sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
-                             block_reduce=dataRanges['block_reduce'],
-                             signal_reduce=dataRanges['signal_reduce'],
-                             pad=pad,fft_window=fft_window,cmap='gray',
-                             figsize=(6,6),doSave='../output_plots/training_plots/'*True,\
-                             params={'tLim':tLim,'f_lim':f_lim},save_Ext='_Training',
-                             batch=True,sigma_plot_reduce=dataRanges['sigma'],\
-                                 plot_reduce=dataRanges['plot_reduce'],cLim=c_lim)
-                
 ###############################################################################
 def smooth_and_downsample_spectrogram(spectrogram,time,freq, sigma=1.0, factors=(2, 2)):
     """
@@ -500,11 +485,81 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
 
     return frequencies, block_time_centers, averaged_spectrogram_magnitude
 
+###############################################################################
+def gen_lf_signals():
+    file = 'cmod_logbook_ntm.csv'
+    file = 'C_Mod_Shot_List_with_TAEs_Sheet1.csv'
+    shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
+    shotnos.sort()
+    shotnos=shotnos[::-1]
+    shotnos = [1050615011]
+    #shotnos = np.append(shotnos,[1051202011,1160930034])
+    print(shotnos)
+    # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
+    tLims=[[.7,1.5]]
+    # Break up into two frequency bins[.5,.8],
+    # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
+    #               'f_lim':[[0,100],[100,600]]}
+    
+    dataRanges = {'tLim':[[.3,1.8]], 'signal_reduce':2,\
+                  'block_reduce':[1000,1000],'sigma':(3,5),'plot_reduce':(2,1)}
+    f_lim=[0,800]; c_lim=None
+    pad = 14000;fft_window=1000;HP_Freq=2e3
+    doSave_data=True
+    cmap='viridis'
+
+    for ind,shot in enumerate(shotnos):
+        diag = None
+        if shot > 1080221018: continue
+        plt.close('all') # Clear plots    
+        for ind_t,tLim in enumerate(dataRanges['tLim']):
+            #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
+                try: 
+                    diag,signals,time,out_spect, freq = \
+                    signal_spectrogram_C_Mod(shot,sensor_set='BP_K',diag=diag,\
+                         sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
+                             block_reduce=dataRanges['block_reduce'],
+                             signal_reduce=dataRanges['signal_reduce'],
+                             pad=pad,fft_window=fft_window,cmap=cmap,
+                             figsize=(6,6),doSave='../output_plots/training_plots/'*True,\
+                             params={'tLim':tLim,'f_lim':f_lim},save_Ext='_Training',
+                             batch=True,sigma_plot_reduce=dataRanges['sigma'],\
+                                 plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
+                                    doSave_data=True)
+                except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
+    
+    print('Finished Batch')
+
+# fix xarray
+import os
+import glob
+def fix_xarray(directory_path='../data_output/Spectrogram_Xarrays/',pattern='*.nc'):
+    full_pattern = os.path.join(directory_path, pattern)
+    matching_files = glob.glob(full_pattern)
+
+    for f in matching_files:
+        print(f)
+        dat=xr.open_dataset(f)
+        try:data = dat.__xarray_dataarray_variable__.values
+        except:continue
+        try:
+            time =dat.coords['Time'].values
+            frequency = dat.coords['Frequency'].values
+        except:
+            time =dat.coords['time'].values
+            frequency = dat.coords['frequency'].values
+
+        spect_xr = xr.Dataset({  "Sxx": (['frequency','time'],data.T) },
+            coords = {'frequency':frequency,'time':time},
+            attrs = {'sampling_frequency':1/(time[1]-time[0])}
+        )
+        # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
+        #                         coords={'time':time,'frequency':freq[f_inds]})
+        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/temp/'+f.split('/')[-1])
 
 #############################################################################
 # Batch launch
 if __name__ == '__main__':
-
-    gen_lf_signals()
-
+    fix_xarray()
+    # gen_lf_signals()
 

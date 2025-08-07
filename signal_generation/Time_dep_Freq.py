@@ -113,10 +113,12 @@ def gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,
         I_out[band[0:len(local_t)]] = I_chirp 
     return f_out, I_out, f_out_plot
 ##################################################
-if debug_plot:
+def debug_mode_frequency_plot(time,f_out_1,I_out_1,f_out_plot_1,f_out_2,\
+                              I_out_2,f_out_plot_2,f_out_3,I_out_3,f_out_plot_3,save_ext):
     plt.close('test_f_i')
     fig = plt.figure(tight_layout=True,num='test_f_i')
     
+    '''
     time = np.linspace(0,10e-3,int(10e-3/1e-6))
     periods = 5
     dead_fraction = 0.4
@@ -142,12 +144,16 @@ if debug_plot:
     
     f_out_3, I_out_3, f_out_plot_3 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
                                                         random_seed=42)
-
+    '''
 
     f_out_plot_1[f_out_plot_1==0] = np.nan
     f_out_plot_2[f_out_plot_2==0] = np.nan
     f_out_plot_3[f_out_plot_3==0] = np.nan
     
+    f_out_plot_1[I_out_1==0] = np.nan
+    f_out_plot_2[I_out_2==0] = np.nan
+    f_out_plot_3[I_out_3==0] = np.nan
+
     norm = colors.Normalize(1,7)
     #norm_ae = colors.Normalize(min(I_ae),max(I_ae))
     ax = fig.add_subplot(1,2,1)
@@ -184,7 +190,7 @@ if debug_plot:
     ax.set_ylabel('Current [A]')
     ax.grid()
     plt.show()
-    plt.savefig('../output_plots/multimode_target_spectrum.pdf',transparent=True)
+    plt.savefig('../output_plots/multimode_target_spectrum%s.pdf'%save_ext,transparent=True)
 
 if __name__ == '__main__':
     # Test the coupled frequency generation

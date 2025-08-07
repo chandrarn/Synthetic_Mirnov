@@ -33,8 +33,10 @@ rc('font',**{'size':11})
 rc('text', usetex=True)
 
 
-sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
-sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/')
+#sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
+sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one
+# sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Updated/src/python/')
+#sys.path.append('/home/rianc/Downloads/OpenFUSIONToolkit_v1.0 (2).0-beta6-Ubuntu_22_04-GNU-x86_64/OpenFUSIONToolkit_v1.0.0-beta6-Linux-GNU-x86_64/python/')
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 from OpenFUSIONToolkit.util import build_XDMF, mu0
@@ -53,7 +55,7 @@ import xarray as xr
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 
-from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot, gen_coupled_freq
+from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot, gen_coupled_freq,debug_mode_frequency_plot
 
 #from rolling_spectrogram import rolling_spectrogram
 

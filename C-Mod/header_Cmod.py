@@ -21,6 +21,7 @@ import cv2
 import pickle as pk
 import sys
 from os import getlogin
+import xarray as xr
 import json
 from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip
@@ -34,6 +35,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import rc,cm
 from matplotlib.patches import Rectangle
+import matplotlib
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
 plt.rcParams['axes.labelweight']='bold'
@@ -42,8 +44,10 @@ plt.rcParams['lines.markeredgewidth']=2
 rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
+matplotlib.use('TkAgg')
+plt.ion()
 
-from rolling_spectrogram import rolling_spectrogram#, rolling_spectrogram_improved
+from rolling_spectrogram import rolling_spectrogram, rolling_spectrogram_improved
 
 # TODO: verift atht this works for other users
 try:
