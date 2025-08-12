@@ -31,17 +31,19 @@ plt.rcParams['lines.markeredgewidth']=2
 rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
-
+import matplotlib;matplotlib.use('TkAgg') # Use TkAgg backend for plotting
 
 #sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
-sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one
+#sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Updated/src/python/')
-#sys.path.append('/home/rianc/Downloads/OpenFUSIONToolkit_v1.0 (2).0-beta6-Ubuntu_22_04-GNU-x86_64/OpenFUSIONToolkit_v1.0.0-beta6-Linux-GNU-x86_64/python/')
+# Updated OFT:
+sys.path.append('/home/rianc/Downloads/OpenFUSIONToolkit_v1.0 (2).0-beta6-Ubuntu_22_04-GNU-x86_64/OpenFUSIONToolkit_v1.0.0-beta6-Linux-GNU-x86_64/python/')
+from OpenFUSIONToolkit import OFT_env
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
-from OpenFUSIONToolkit.util import build_XDMF, mu0
+from OpenFUSIONToolkit.util import mu0
 from OpenFUSIONToolkit.io import histfile
-from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh, build_torus_bnorm_grid, build_periodic_mesh, write_periodic_mesh
+from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh, build_torus_bnorm_grid, ThinCurr_periodic_toroid
 
     
 from freeqdsk import geqdsk

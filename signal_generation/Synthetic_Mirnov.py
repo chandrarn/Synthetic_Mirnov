@@ -2,20 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 17 11:43:59 2024
- Basic wrapper code for arbitrary fillament generation and mesh integration
+ Wrapper code to generate synthetic Mirnov data from an arbitrary mesh, arbitrary filament path,
+ with arbitrary current evolution, and aribtrary sensors
 @author: rian
 """
 
 # header
 from header_signal_generation import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
-    Mirnov, save_sensors, build_XDMF, mu0, histfile, subprocess, geqdsk, cv2,\
+    Mirnov, save_sensors, OFT_env, mu0, histfile, subprocess, geqdsk, cv2,\
         make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys, gen_coupled_freq, debug_mode_frequency_plot
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk, calc_filament_coords_field_lines
 from prep_sensors import conv_sensor
 sys.path.append('../signal_analysis/')
 from plot_sensor_output import plot_Currents, plot_single_sensor
-import matplotlib;matplotlib.use('TkAgg') # Use TkAgg backend for plotting
+
 
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5',
@@ -27,30 +28,27 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 plotOnly=False ,archiveExt='',doPlot=False,
                                 eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi'):
     
-    #os.system('rm -rf vector*') # kernal restart still required for vector numbering issue
     
-    # Get mode amplitudes, assign to fillaments [eventually, from simulation]
-
+    # Get mode amplitudes, indexed to filament positions
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params,wind_in=wind_in)
 
     
-    # Get coordinates for fillaments
+    # Get starting coorindates for fillaments
     theta,phi=gen_filament_coords(params,wind_in=wind_in)
-    
-    #return theta,phi
+
     if wind_in == 'phi':
         filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
     else: 
         filament_coords = calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False)
 
 
-    # Generate sensors, filamanets
+    # Generate sensors, filamanets in OFT file format
     gen_filaments(xml_filename,params,filament_coords, eta)
     sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot, skipBP= True, debug=True)
 
     
-    # Get Mesh
+    # Get finite element Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
         get_mesh(mesh_file,xml_filename,params,sensor_set)
 
@@ -58,11 +56,10 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 
     
     # Run time dependent simulation
-    if not plotOnly:coil_currs, plot_data =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
+    if not plotOnly:coil_currs =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
                             save_ext,mesh_file,archiveExt)
     if not doPlot: return coil_currs,filament_coords,sensors
-    # return tw_mesh,params,coil_currs,sensors,doSave,\
-    #                             save_ext,Mc, L_inv,filament_coords,file_geqdsk, plot_data
+    
     scale= makePlots(tw_mesh,params,coil_currs,sensors,doSave,
                                 save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
     
@@ -70,49 +67,50 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     return tw_mesh,params,coil_currs,sensors,doSave,\
                                 save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set, scale
 
-
-    # slices,slices_spl=makePlots(tw_mesh,params,coil_currs,sensors,doSave,
-    #                             save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
-
-    # return sensors, coil_currs, tw_mesh, slices,slices_spl
-#    return sensor_,currents
-#####################################3
-def get_mesh(mesh_file,filament_file,params,sensor_set,debug=False):
-    tw_mesh = ThinCurr(nthreads=params['n_threads'],debug_level=2,)
+################################################################################################
+################################################################################################
+def get_mesh(mesh_file,filament_file,params,sensor_set,debug=True):
+    # Load mesh, compute inductance matrices   
+    if debug: print('Loading mesh from %s'%mesh_file)
+    oft_env = OFT_env(nthreads=params['n_threads'])
+    tw_mesh = ThinCurr(oft_env)
     tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename='input_data/'+filament_file)
-    print('checkpoint 0')
     tw_mesh.setup_io()
-    
-    print('checkpoint 1')
+
+
     # Sensor - mesh and sensor - filament inductances
+    if debug: print(('Computing mutual inductances between mesh and %s sensors'%sensor_set))
     Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
-    #print('floops_%s.loc'%sensor_set)
-    print('checkpoint 2')
+
     # Filament - mesh inductance
+    if debug: print('Computing mutual inductances between mesh and filaments')
     Mc = tw_mesh.compute_Mcoil()
-    print('checkpoint 3')
+
     # Build inductance matrix
+    if debug: print('Computing mesh self-inductance')
     tw_mesh.compute_Lmat(use_hodlr=True,cache_file='input_data/HOLDR_L_%s_%s.save'%(mesh_file,sensor_set))
-    print('checkpoint 4')
+
     # Buld resistivity matrix
     tw_mesh.compute_Rmat()
     
-    # Get eigenvectors of inductance for low rank reconstruction
-    eig_vals, eig_vecs =(0,0)# tw_mesh.get_eigs(100,False)
-    L_inv = 0#np.linalg.pinv(np.dot(np.dot(eig_vecs.T,np.diag(eig_vals)),np.linalg.pinv(eig_vecs.T)))
-    print('checkpoint 5')
+    # Get eigenvectors of inductance for low rank reconstruction [Not used presently]
+    eig_vals, eig_vecs =(None,None)# tw_mesh.get_eigs(100,False)
+    L_inv = None#np.linalg.pinv(np.dot(np.dot(eig_vecs.T,np.diag(eig_vals)),np.linalg.pinv(eig_vecs.T)))
+
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
-####################################
+################################################################################################
 def gen_filaments(filament_file,params,filament_coords,\
-                  eta = '1.8E-5, 3.6E-5, 2.4E-5'):#, 6.54545436E-5, 2.4E-5' ):
-    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
-    n_pts=params['n_pts'];m_pts=params['m_pts']
-    #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
-    #eta='1E6, 1E6, 1E6, 1E6, 1E6'# Effective insulator wall
+                  eta = '1.8E-5, 3.6E-5, 2.4E-5'):
+    # Write filament (x,y,z) coordinates to xml file in OFT format 
+
     # Coords comes in as a list of m/n pairs, each with a list of filaments
     # Each filament is a list of points, each point is a list of [x,y,z] points
     # This holds even if there's only one m/n pair
+
+    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
+    n_pts=params['n_pts'];m_pts=params['m_pts']
+
     with open('input_data/'+filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
@@ -123,31 +121,22 @@ def gen_filaments(filament_file,params,filament_coords,\
             for filament in filament_:
                 f.write('\t<coil_set>\n')
                 f.write('\n\t\t<coil npts="%d" scale="1.0">\n'%np.shape(filament)[1])
+
                 for xyz in np.array(filament).T:
                     x=xyz[0];y=xyz[1];z=xyz[2]
-                    # for some starting theta, wind in phi
                     f.write('\t\t\t %1.1f, %1.1f, %1.1f\n'%(x,y,z) )
+
                 f.write('\t\t</coil>\n')
                 f.write('\t</coil_set>\n')
-        f.write('\t</icoils>\n\t</thincurr>\n</oft>')
-    # Assume we have the shaping jacobian for theta into minor radial corrdinanat
-    # Eventually manually calc points
-    
-   
-####################################
-def gen_sensors():
-    sensors = []
-    for i, theta in enumerate(np.linspace(0.0-np.pi/4,2.0*np.pi/2.0-np.pi/4,5)):
-        sensors.append(Mirnov(1.6*np.r_[np.cos(theta),np.sin(theta),0.0], np.r_[0.0,0.0,1.0], 'Bz_{0}'.format(i+1)))
-    save_sensors(sensors)
-    return sensors
-####################################
-def gen_coil_currs(param,debug=True,doSave=True,wind_in='theta'):
-    # Assign currents to existing fillaments for time dependent calculation
-    # Eventually, the balooning approximation goes here, as does straight field line apprxoiation
 
-    # TODO: Set up to run with multiple sets of theta, phi for different m/n pairs
-    # TODO: Set up to run with multiple frequency functions or single valued frequencies
+        f.write('\t</icoils>\n\t</thincurr>\n</oft>')
+
+   
+################################################################################################
+################################################################################################
+def gen_coil_currs(param,debug=True,doSave=False,wind_in='theta'):
+    # Assign currents to existing fillaments for time dependent calculation
+    # The ordering of the filaments and currents must match for the field topology to be correct
 
     m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
     noise_envelope = param['noise_envelope'] # Random noise envelope
@@ -166,19 +155,21 @@ def gen_coil_currs(param,debug=True,doSave=True,wind_in='theta'):
     if debug:print('Number of filaments: %d'%num_filaments)
     coil_currs = np.zeros((time.size,num_filaments+1))
 
-    # Loop through each set of theta values for each m/n pair
+    # Loop through each set of starting angle values for each m/n pair
     # and assign the current to each filament
 
-    # Necessary step for dealing with uneven number of filaments
+    # Necessary step for dealing with uneven number of filaments for different m/n pairs
     cumulative_filament_coords = np.cumsum([len(starting_angle_) for starting_angle_ in starting_angle]) 
     cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
     for ind_filament, starting_angle_list in enumerate(starting_angle):
-        # Get (potentially time dependent) mode amplitude and frequency
+        if debug: print('Assigning currents to filaments for m/n = %d/%d'%(m[ind_filament],n[ind_filament]))
+
+        # Get (potentially time dependent) mode amplitude 
         if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
         elif type(param['I']) == list: mode_amp = param['I'][ind_filament]
         else: mode_amp = param['I']
 
-       
+        # Potentially time dependent frequency
         if type(param['f']) == float: mode_freq = param['f']*2*np.pi*time # always just return f
         # assume frequency is a function taken [0,1] as the argument
         elif type(param['f']) == list: mode_freq = param['f'][ind_filament]
@@ -196,95 +187,97 @@ def gen_coil_currs(param,debug=True,doSave=True,wind_in='theta'):
             
     # Time vector in first column
     coil_currs[:,0]=time
-    
+    # Save coil currents to .npy for manual inspection later
     if doSave: np.savez('../data_output/coil_currs.npz', coil_currs=coil_currs,m=m,n=n,n_pts=n_pts,m_pts=m_pts)
+
     return coil_currs
 
-####################################
+################################################################################################
+################################################################################################
 def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
-           archiveExt='',doPlot=False,doPlot_Currents=True):
+           archiveExt='',doPlot=True,doPlot_Currents=True,debug=True):
+    # Run time dependent simulation
+
     dt=param['dt'];f=param['f'];periods=param['periods'];m=param['m'];
     n=param['n']
     nsteps = int(param['T']/dt)
 
-    
 
-    # run time depenent simulation, save floops.hist file
+    # run time depenent simulation, save floops.hist file for output sensor measurements
+    # Note: plot_freq creates output files for the nth timestep: needs to be less than nsteps for 
+    # plotting at minimum the J_surf plot 
     tw_mesh.run_td(dt,nsteps,
-                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=1000,plot_freq=1000)
-    if doPlot:tw_mesh.plot_td(nsteps,compute_B=True,sensor_obj=sensor_obj,plot_freq=1000)
+                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
+    if doPlot:tw_mesh.plot_td(nsteps,compute_B=True,sensor_obj=sensor_obj,plot_freq=100)
     
     # Save B-norm surface for later plotting # This may be unnecessar
     if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='input_data/HODLR_B_%s_%s.save'%(mesh_file,sensor_set)) 
      
-    # Saves floops.hist (no, run_Td does this?)
-    plot_data = tw_mesh.build_XDMF()
-    hist_file = histfile('floops.hist');
-    for h in hist_file:print(h)
+    # Saves floops.hist 
+    hist_file = histfile('floops.hist') # floops.hist created after run_td(), but it's loaded back in here
+
+
+    if debug:
+        print('Ran time dependent simulation for the following sensors:')
+        for h in hist_file:print(h)
+
     # Rename output 
-    if type(f) is float: f_out = '%d'%f*1e-3 
+    if type(f) is float: f_out = '%d'%(f*1e-3) 
     else: f_out = 'custom'
     if type(m) is not list: mn_out = '%d-%d'%(m,n)
     else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
         '-'.join([str(n_) for n_ in n])
     f_save = '../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
                     (archiveExt,sensor_set,mn_out,f_out,mesh_file,save_Ext)
-    subprocess.run(['cp','floops.hist',f_save+'.hist'])
 
-    # Also save as .json file for easy reading
+    subprocess.run(['cp','floops.hist',f_save+'.hist'])
+    if debug: print('Saved output to %s.hist'%f_save)
+
+
+    # Also save as output as .json file for easy reading
     data_out={}
     for key in hist_file.keys():data_out[key]=hist_file[key].tolist()
     with open(f_save+'.json','w', encoding='utf-8') as f:
         json.dump(data_out,f,ensure_ascii=False, indent=4)
    
-    # Save coil currents
-    #with open(f_save+'.json','w', encoding='utf-8') as f:
-    # plot 
+    # Test plot for a few single sensors
     if doPlot:plot_single_sensor(f_save+'.hist',['BP1T_ABK','BP01_ABK'],coil_currs=coil_currs,\
-                       coil_inds=[1,30,55],params=param)
+                       coil_inds=[1],params=param)
     print('Saved: %s'%f_save)
                     
-    return coil_currs, plot_data
-########################
+    return coil_currs
+
+################################################################################################
+################################################################################################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, sensor_set,t_pt=100,plot_B_surf=False,debug=True):
-    
-    # MEsh and Filaments
+              filament_coords,file_geqdsk, sensor_set,t_pt=100,plot_B_surf=True,debug=True):
+    # Generate plots of mesh, filaments, sensors, and currents
+    # Will plot induced current on the mesh if plot_B_surf is True
+
+    if debug:print('Generating output plots')
+    # Mesh and Filaments
     m=params['m'];n=params['n'];r=params['r'];R=params['R'];
     if type(m) is int: m = [m]# Convert type to correct format
     if type(n) is int: n = [n]# Convert type to correct format
     n_pts=params['n_pts'];m_pts=params['m_pts'];periods=params['periods']
     f=params['f'];dt=params['dt'];I=params['I']
+    
 
-    # Calculate induced current in mesh
-    
-    #tw_plate.save_current(np.dot(Linv,M[0]),'M')
-    # tw_mesh.save_current(np.dot(L_inv,np.dot(Mc.T,coil_currs[0,1:])), 'Ind_Curr')
-    # Necessary to clear old vector file: otherwise vector # keeps counting up
-    
-    
-    with h5py.File('mesh.0001.h5','r') as h5_file:
-        r_ = np.asarray(h5_file['R_surf'])
-        lc = np.asarray(h5_file['LC_surf'])
-    if plot_B_surf:
-        with h5py.File('vector_dump.0001.h5') as h5_file:
-            print('test')
-            for h in h5_file.keys():print(h)
-            Jfull = np.asarray(h5_file['J0001'])
-            #return Jfull
-            scale = (np.linalg.norm(Jfull,axis=1))
-            print(scale.max())
-    celltypes = np.array([pyvista.CellType.TRIANGLE for _ in range(lc.shape[0])], dtype=np.int8)
-    cells = np.insert(lc, [0,], 3, axis=1)
-    grid = pyvista.UnstructuredGrid(cells, celltypes, r_)
+    # New ThinCurr way of getting mesh
+    plot_data = tw_mesh.build_XDMF()
+    grid = plot_data['ThinCurr']['smesh'].get_pyvista_grid()
+    if plot_B_surf: Jfull = plot_data['ThinCurr']['smesh'].get_field('J_v',timestep=0)
+    if debug:print('Built Pyvista grid from ThinCurr mesh')
+
 
     pyvista.global_theme.allow_empty_mesh = True
     p = pyvista.Plotter()  
     if debug:print('Launched Plotter')
+
     # Plot Mesh
     if plot_B_surf: 
         p.add_mesh(grid,color="white",opacity=1,show_edges=True, \
-                   scalars=Jfull,clim=[0,150],smooth_shading=True,\
+                   scalars=Jfull,clim=[0,100],smooth_shading=True,\
                        scalar_bar_args={'title':'Eddy Current [A/m]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
     
@@ -295,7 +288,6 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     ###############################################
     # Plot Filaments
     colors=['red','green','blue']
-    #theta_,phi_=gen_filament_coords(m,n,n_pts,m_pts)
     # Modify to accept filament_coords as a list
     cumulative_filament_coords = np.cumsum([len(filament) for filament in filament_coords])
     cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
@@ -308,17 +300,11 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
                          color='k',label='Launch Point' if ind == 0 else None)
             
             spl=pyvista.Spline(pts,len(pts))
-            #p.add_(spline,render_lines_as_tubes=True,line_width=5,show_scalar_bar=False)
-            #p.add_mesh(spl,opacity=1,line_width=6,color=plt.get_cmap('viridis')(theta*m/(2*np.pi)))
-            #slices_spl=spl.slice_along_line(slice_line)#spl.slice_orthogonal()
-           
-            #if coil_currs[t_pt,1+ind+cumulative_filament_coords[ind_mn]] == 0: continue
 
             p.add_mesh(spl,color=plt.get_cmap('plasma')((coil_currs[t_pt,1+ind+cumulative_filament_coords[ind_mn]]/np.max(coil_currs[t_pt,:]) + 1) /2),
                     line_width=10,render_points_as_spheres=True,
                     label='Filament %d/%d'%(m[ind_mn],n[ind_mn]) if ind==0 else None, opacity=1-.5*ind_mn/len(filament_coords))
            
-            #p.add_points(pts,render_points_as_spheres=True,opaity=1,point_size=20,color=colors[ind])
             tmp.append(pts)
     if debug:print('Plotted Fillaments')
     
@@ -338,13 +324,12 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     #               sensor_set=sensor_set)
           
     plt.show()
-    #return slices, #slices_spl
-    return []#scale
+    return []
 ########################
 
-        
-    
-#####################################
+################################################################################################
+################################################################################################
+################################################################################################
   
 if __name__=='__main__':
    
@@ -421,6 +406,6 @@ if __name__=='__main__':
 
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
-         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk, plotOnly=True)
+         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk, plotOnly=False)
     
     print('Run complete')

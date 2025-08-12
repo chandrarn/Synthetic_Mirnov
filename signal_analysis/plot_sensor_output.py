@@ -154,6 +154,7 @@ def __LCFS_Compute(file_geqdsk='geqdsk',trim=[1,1.5]):
         z_lcfs=np.insert(z_lcfs,break_ind,np.nan)
     plt.figure();plt.plot(r_lcfs,z_lcfs);plt.show()
     return r_lcfs,z_lcfs 
+
 ######################################################
 ################# Currents 1D Plot
 def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
@@ -204,6 +205,8 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
        fig.savefig(fName,transparent=True) 
        print('Saved: %s'%fName)
 
+######################################################
+######################################################
 # Simplified single sensor plotting
 def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None,params=None,doSave=True):
     hist_file = histfile(hist_file_name)
@@ -238,6 +241,7 @@ def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None
         fig.savefig('../output_plots/'+save_name+'_Single_Sensor.pdf',transparent=True)
     plt.show()
 
+######################################################
 #####################################
 def gen_label(sensor_set,sensor_name,sensor_params,file_geqdsk,params):
     if file_geqdsk is None:zmagx=0;rmagx=params['R']

@@ -24,8 +24,9 @@ plt.ion()
 def gen_filament_coords(params, wind_in='phi'):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
     # generate theta,phi coordinates for fillaments
-    # The points launch in a fractional sector of the poloidal plane, and
-    # wrap toroidally enough times to return to their starting point
+    # The points launch in a fractional sector of the poloidal or toroidal plane
+    # (depending on 'wind_in' parameter), and
+    # wrap enough times to return to their starting point
 
     starting_angle=[]; winding_angle=[]
     if type(m_pts) is int: m_pts = [m_pts]*len(m)
@@ -222,16 +223,6 @@ def conv_theta_wind_to_coords(filament_points,phi_start):
         coords.append([X,Y,Z])
     
     return np.array(coords).T
-
-#################################################
-# def debug_filament_currents(coords,phi_start,n):
-#     plt.close('Filament_New_Way_Test')
-#     fig,ax=plt.subplots(1,1,num='Filament_New_Way_Test',tight_layout=True,subplot_kw={'projection':'3d'})
-#     for ind,filament in enumerate(coords):
-#         color = plt.get_cmap('plasma')((np.cos(phi_start[ind]*n)+1)/2)
-#         ax.plot(filament[0,:],filament[1,:],filament[2,:],c=color,lw=2)
-    
-#     plt.show()
 
 ##########################################
 def calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False):
