@@ -26,7 +26,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
-                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi'):
+                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=True):
     
     
     # Get mode amplitudes, indexed to filament positions
@@ -40,17 +40,18 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     if wind_in == 'phi':
         filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
     else: 
-        filament_coords = calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False)
+        filament_coords = calc_filament_coords_field_lines(params,file_geqdsk,doDebug=debug)
 
-
-    # Generate sensors, filamanets in OFT file format
+    # Put filamanets in OFT file format
     gen_filaments(xml_filename,params,filament_coords, eta)
-    sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot, skipBP= True, debug=True)
+    
+    # Generate sensors in OFT format
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot, skipBP= True, debug=debug)
 
     
     # Get finite element Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
-        get_mesh(mesh_file,xml_filename,params,sensor_set)
+        get_mesh(mesh_file,xml_filename,params,sensor_set, debug=debug)
 
 
 
@@ -60,6 +61,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                             save_ext,mesh_file,archiveExt)
     if not doPlot: return coil_currs,filament_coords,sensors
     
+    # Plot mesh, filaments, sensors, and currents
     scale= makePlots(tw_mesh,params,coil_currs,sensors,doSave,
                                 save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
     
@@ -250,7 +252,8 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
 ################################################################################################
 ################################################################################################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, sensor_set,t_pt=100,plot_B_surf=True,debug=True):
+              filament_coords,file_geqdsk, sensor_set,t_pt=0,plot_B_surf=True,debug=True,
+              clim_J=[0,50]):
     # Generate plots of mesh, filaments, sensors, and currents
     # Will plot induced current on the mesh if plot_B_surf is True
 
@@ -277,7 +280,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # Plot Mesh
     if plot_B_surf: 
         p.add_mesh(grid,color="white",opacity=1,show_edges=True, \
-                   scalars=Jfull,clim=[0,100],smooth_shading=True,\
+                   scalars=Jfull,clim=clim_J,smooth_shading=True,\
                        scalar_bar_args={'title':'Eddy Current [A/m]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
     
