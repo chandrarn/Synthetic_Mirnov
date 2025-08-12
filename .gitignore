@@ -11,3 +11,4 @@
 *.npz
 *.pt
 *.pth
+*.json

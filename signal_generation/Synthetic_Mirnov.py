@@ -60,7 +60,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     # Run time dependent simulation
     if not plotOnly:coil_currs, plot_data =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
                             save_ext,mesh_file,archiveExt)
-    if not doPlot: return
+    if not doPlot: return coil_currs,filament_coords,sensors
     # return tw_mesh,params,coil_currs,sensors,doSave,\
     #                             save_ext,Mc, L_inv,filament_coords,file_geqdsk, plot_data
     scale= makePlots(tw_mesh,params,coil_currs,sensors,doSave,
@@ -236,11 +236,12 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
     for key in hist_file.keys():data_out[key]=hist_file[key].tolist()
     with open(f_save+'.json','w', encoding='utf-8') as f:
         json.dump(data_out,f,ensure_ascii=False, indent=4)
+   
     # Save coil currents
     #with open(f_save+'.json','w', encoding='utf-8') as f:
     # plot 
-    plot_single_sensor(f_save+'.hist',['BP1T_ABK','BP01_ABK'],coil_currs=coil_currs,\
-                       coil_inds=[1,30,55],params=params)
+    if doPlot:plot_single_sensor(f_save+'.hist',['BP1T_ABK','BP01_ABK'],coil_currs=coil_currs,\
+                       coil_inds=[1,30,55],params=param)
     print('Saved: %s'%f_save)
                     
     return coil_currs, plot_data
@@ -350,8 +351,8 @@ if __name__=='__main__':
     # params={'m':3,'n':1,'r':.3,'R':2,'n_pts':100,'m_pts':70,\
     #     'f':1e4,'dt':1e-5,'T':3e-4,'periods':3,'n_threads':64,'I':30}
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
-    params={'m':[3],'n':[1],'r':.3,'R':2,'n_pts':[60],'m_pts':[60],\
-        'f':1e4,'dt':1e-6,'T':10e-3,'periods':3,'n_threads':12,'I':30,'noise_envelope':0.00}
+    params={'m':[4],'n':[2],'r':.3,'R':2,'n_pts':[100],'m_pts':[60],\
+        'f':1e4,'dt':1e-6,'T':1e-3,'periods':2,'n_threads':12,'I':30,'noise_envelope':0.00}
     
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
@@ -369,18 +370,18 @@ if __name__=='__main__':
     #mesh_file = 'SPARC_mirnov_plugwest_v2-homology.h5'
     #sensor_set='MRNV'
     #eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' 
-    
+    {'dt':1e-6,'T':10e-3,'periods':3}
     # Misc
-    # mesh_file='thincurr_ex-torus.h5'
+    # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
     save_ext=''
     doSave='../output_plots/'
 
-    # Frequency, amplitude modulation
-    # Note: If the amplitude and frequency are not set correctly for LF signals, 
-    # the modulation frequency will dominate the spectrogram
-    # Separately, if the noise envelope is too high, it induces some odd integration noise
+    # # Frequency, amplitude modulation
+    # # Note: If the amplitude and frequency are not set correctly for LF signals, 
+    # # the modulation frequency will dominate the spectrogram
+    # # Separately, if the noise envelope is too high, it induces some odd integration noise
     # time = np.linspace(0,params['T'],int(params['T']/params['dt']))
     # periods = 5
     # dead_fraction = 0.4

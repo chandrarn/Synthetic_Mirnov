@@ -12,7 +12,7 @@ from get_signal_data import get_signal_data
 
 import get_Cmod_Data as gC
 
-from spectrogram_Cmod import plot_spectrogram
+from spectrogram_Cmod import plot_spectrogram, signal_spectrogram_C_Mod
 
 from header_Cmod import __doFilter
 
@@ -126,12 +126,12 @@ def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 ################################################################################
 if __name__ == '__main__':
     # Example usage
-    params={'m':[1,4,8],'n':[1,3,4],'f':[]}
+    params={'m':[1, 6, 10],'n':[1, 2, 9],'f':[],'T':1e-3}
     #params={'m':[1,3,12],'n':[1,2,9],'f':[]}
     filament = True
-    save_Ext = '_Synth_1'#'_Multimode'
+    save_Ext = ''#'_Multimode'
     sensor_set='C_MOD_LIM'
-    sensor_set = 'C_MOD_ALL'
+    #sensor_set = 'C_MOD_ALL'
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     #mesh_file='vacuum_mesh.h5'
@@ -142,13 +142,32 @@ if __name__ == '__main__':
     f_lim= [0,220]
     cLim = [0,.2]
     doSave_data = True
+    spectrogram_params = {'pad':pad,'fft_window':fft_window,'block_reduce':(fft_window,0)}
+
 
     gen_single_spect_multimode(params=params,sensor_set=sensor_set,fft_window=fft_window,
                                mesh_file=mesh_file,save_Ext=save_Ext,pad=pad,f_lim=f_lim,
                                doSave=doSave,filament=filament,sensor_names=sensor_names,
                                cLim=cLim,doSave_data=doSave_data)
         
-        
+    
+    diag,signals,time,out_spect,out_spect_all_cplx, freq, sensor_name = signal_spectrogram_C_Mod(
+            shotno=None,  # No shot number for synthetic data
+            params=params,
+            sensor_name=sensor_names,
+            sensor_set=sensor_set,
+            pad=spectrogram_params['pad'],
+            fft_window=spectrogram_params['fft_window'],
+            doSave=doSave,
+            save_Ext='_New',
+            doPlot=True,
+            mesh_file = mesh_file,
+            archiveExt='',
+            tLim=[0,params['T']],
+            block_reduce=spectrogram_params['block_reduce'],
+            filament=True,
+            plot_reduce=(1,1)
+        )
     print('Done generating spectrograms')
         
         

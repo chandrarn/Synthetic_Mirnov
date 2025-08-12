@@ -9,9 +9,9 @@ Created on Wed Mar  5 16:21:32 2025
 
 from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter, \
     gaussianHighPassFilter, rolling_spectrogram_improved, grouped_average, \
-        gaussian_filter, downscale_local_mean, xr
-
-
+        gaussian_filter, downscale_local_mean, xr, sys
+sys.path.append('../signal_generation/')
+from header_signal_generation import histfile
 import get_Cmod_Data as gC
 
 ###############################################################################
@@ -21,10 +21,11 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
                             signal_reduce=2,f_lim=None,sensor_name='BP2T_GHK',
                             debug=True,plot_reduce=(4,1),doColorbar=True,
                             clabel='',HP_Freq=100,cLim=None,
-                            doSave_Extractor=True,block_reduce=[200,40000],
+                            doSave_Extractor=False,block_reduce=[200,40000],
                             data_archive='',cmap='viridis',figsize=(6,6),
                             params={},save_Ext='',batch=False,sigma_plot_reduce=(3,5),
-                            doSave_data=False):
+                            doSave_data=False,doPlot=True,mesh_file=None,archiveExt=None,
+                            filament=False,use_rolling_fft=False,tScale=1):
     '''
     
 
@@ -84,11 +85,9 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
             ' large to plot, consider increasing signal or plot reduction term')
     
     # Pull and select data
-    signals, time, clabel,diag = get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim)
-    
-    # # Desired time range to operate on
-    # t_inds = np.arange((tLim[0]-time[0])/(time[1]-time[0]),\
-    #           (tLim[1]-time[0])/(time[1]-time[0]),dtype=int)[::signal_reduce]
+    signals, time, clabel,diag, sensor_name = get_data(shotno,diag,sensor_name,sensor_set,\
+                    data_archive,debug,tLim, params,mesh_file,archiveExt)
+    if debug: print('Loaded Signals, Size ',signals.shape)
         
     t_inds = np.arange(*[np.argmin((time-t)**2) for t in tLim],dtype=int)
     
@@ -98,69 +97,48 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
     n_samples = block_reduce[0]
     m_skip = block_reduce[1]
     nfft = n_samples + pad
-    freq, time, out_spect = compute_averaged_spectrogram_from_blocks(\
-        signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=nfft)
+    freq, time, out_spect, out_spect_all_cplx = compute_averaged_spectrogram_from_blocks(\
+        signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=nfft,\
+            use_rolling_fft=use_rolling_fft)
     time += tLim[0] # Correction for block sampling 
 
-    #return out_spect, time, freq
-    '''
-    if block_reduce:
-        del_inds=np.array([],dtype=int)
-        for ind in np.arange(0,len(t_inds)-block_reduce[0],np.sum(block_reduce)):
-            del_inds = np.append(del_inds,np.arange(ind,ind+block_reduce[0],dtype=int))
-        #return t_inds,del_inds
-        t_inds = np.delete(t_inds,del_inds)
-    
-    # Run filtering 
-    signals = downscale_local_mean(signals[:,t_inds],signal_reduce)
-    time = downscale_local_mean(time[t_inds], signal_reduce)
-    
-    signals = __doFilter(signals, time, HP_Freq, None)
-    if debug: print('Finished Filter')
-    
-    #return t_inds,time, signals
-    # Run spectrogram
-    # TODO: issue: performing the spectrogram all at once fails due to memory limitations
-    # # Could change to running on chunks
-    # time_=[];out_spect=[]
-    # for t_Start in np.arange(0,len(t_inds),1e5,dtype=int):
-    #return t_inds, time, signals, pad, fft_window
-    # time, freq, out_spect = rolling_spectrogram(time, signals,pad=pad,
-    #                                             fft_window=fft_window)
-    t_0 = time[0]
-    time, freq, out_spect = rolling_spectrogram_improved(time, signals,pad=pad,
-                                                fft_window=fft_window)
-    time += t_0
-    
-    #return time, freq, out_spect
-    # Average across channels
-    out_spect=np.mean(out_spect,axis=0)
-    '''
+
     if debug: print('Computed Spectrogram, Size ',out_spect.shape)    
         
-    # Plot Spectrogram
-    # Reduce plot resolution:
-    # if plot_reduce > 1:
-    #     time = grouped_average(time,plot_reduce)
-    #     out_spect = grouped_average(out_spect,plot_reduce)
-    #return out_spect,freq,time
+
     if plot_reduce != (1,1): 
         out_spect,time, freq = smooth_and_downsample_spectrogram(out_spect,time,\
                          freq,sigma=sigma_plot_reduce,factors=plot_reduce)
         
-    plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,
-                 save_Ext,'',f_lim,shotno,doSave_Extractor=doSave_Extractor,tScale=1,
+    if doPlot: plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
+                 save_Ext,f_lim,shotno,doSave_Extractor=doSave_Extractor,tScale=tScale,
                  doColorbar=doColorbar,clabel=clabel,cLim=cLim,cmap=cmap,
                  figsize=figsize,batch=batch,doSave_data=doSave_data)
     
     if debug: print('Finished Plot')
     
-    return diag,signals,time,out_spect, freq
+    return diag,signals,time,out_spect,out_spect_all_cplx, freq, sensor_name
 
 ###############################################################################
-def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim):
+def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim,params,mesh_file,\
+             archiveExt='',save_Ext=''):
+    # Setting up parameters to work with synthetic data as well
+    if shotno is None:
+        # Synthetic dataget_data
+        filename = __gen_filename(params,sensor_set,mesh_file,save_Ext=save_Ext,archiveExt=archiveExt)
+        hist = histfile(filename+'.hist')
+        time = hist['time'][:-1]
+        sensor_name = list(hist.keys())[1:] if sensor_name is None else sensor_name
+        
+        # Extract signals from hist
+        signals = np.array([hist[name] for name in sensor_name])
+        signals = np.diff(signals,axis=1)/(time[1]-time[0]) # Remove DC offset
+
+        diag = hist  # No diagnostic object for synthetic data
+        clabel = r'$\frac{d}{dt}\mathrm{B}_\theta$ [T/s]'
+    ##############################################################################
     # Pull C-Mod data from server for a given diagnostic
-    if sensor_set == 'BP_T':
+    elif sensor_set == 'BP_T':
         if diag is None: diag = gC.__loadData(shotno,pullData=['bp_t'],
                                    data_archive=data_archive)['bp_t']
             
@@ -225,7 +203,7 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim):
     
     if debug: print('Loaded: %s'%sensor_set)
     
-    return signals, time, clabel,diag
+    return signals, time, clabel,diag,sensor_name
 
 ###############################################################################
 def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
@@ -405,10 +383,10 @@ def extract_and_window_blocks(signal, n_samples, m_skip, window_type='hanning'):
 
     return windowed_blocks
 
-def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=None):
+def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=None, use_rolling_fft=True, rolling_window='hanning'):
     """
-    Computes spectrograms for multiple signals by extracting windowed blocks and performing FFT on each.
-    Returns the average of the individual spectrogram magnitudes.
+    Computes spectrograms for multiple signals, either by extracting windowed blocks and performing FFT on each,
+    or by using a standard rolling FFT. Returns the average of the individual spectrogram magnitudes.
 
     Args:
         signals (np.ndarray): A 1D or 2D array of signals. If 2D, each row is a signal.
@@ -418,6 +396,8 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
         window_type (str): The type of window to apply ('hanning', 'hamming', 'blackman').
         nfft (int, optional): The number of FFT points. If None, defaults to n_samples.
                                Should be >= n_samples. Padding with zeros if nfft > n_samples.
+        use_rolling_fft (bool, optional): If True, use a standard rolling FFT instead of block reduction. Defaults to False.
+        rolling_window (str, optional): The type of window to apply for rolling FFT ('hanning', 'hamming', 'blackman'). Defaults to None.
 
     Returns:
         tuple: A tuple containing:
@@ -442,38 +422,61 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
     block_time_centers = None
 
     for i, signal in enumerate(signals_to_process):
-        # 1. Extract and window blocks for the current signal
-        windowed_blocks = extract_and_window_blocks(signal, n_samples, m_skip, window_type)
+        if use_rolling_fft:
+            # Use standard rolling FFT
+            if rolling_window is None:
+                raise ValueError("rolling_window must be specified when use_rolling_fft is True.")
+            window_func = None
+            if rolling_window == 'hanning':
+                window_func = hann
+            elif rolling_window == 'hamming':
+                window_func = hamming
+            elif rolling_window == 'blackman':
+                window_func = blackman
+            else:
+                raise ValueError("Unsupported rolling_window. Choose from 'hanning', 'hamming', 'blackman'.")
 
-        if not windowed_blocks:
-            print(f"Warning: No blocks extracted for signal {i}. Skipping this signal.")
-            continue
-
-        # Calculate frequencies and time centers only once (they are the same for all signals)
-        if frequencies is None:
+            window = window_func(n_samples)
             frequencies = np.fft.rfftfreq(nfft, d=1/sampling_rate)
+            f, t, current_spectrogram = stft(signal, fs=sampling_rate, window=window, nperseg=n_samples, noverlap=n_samples - m_skip, nfft=nfft, return_onesided=True)
+            averaged_spectrogram_magnitude = np.abs(current_spectrogram)
+            block_time_centers = t
+            all_individual_spectrograms.append(current_spectrogram)
 
-        if block_time_centers is None:
-            current_index = 0
-            block_time_centers_list = []
-            for _ in range(len(windowed_blocks)):
-                time_center = (current_index + n_samples / 2.0) / sampling_rate
-                block_time_centers_list.append(time_center)
-                current_index += n_samples + m_skip
-            block_time_centers = np.array(block_time_centers_list)
+        else:
+            # 1. Extract and window blocks for the current signal
+            windowed_blocks = extract_and_window_blocks(signal, n_samples, m_skip, window_type)
 
-        # Initialize a list to store the FFT results for current signal's blocks
-        current_signal_ffts = []
+            if not windowed_blocks:
+                print(f"Warning: No blocks extracted for signal {i}. Skipping this signal.")
+                continue
 
-        # 2. Perform FFT on each windowed block for the current signal
-        for block in windowed_blocks:
-            padded_block = np.pad(block, (0, nfft - n_samples), 'constant')
-            fft_result = np.abs(np.fft.rfft(padded_block))
-            current_signal_ffts.append(fft_result)
+            # Calculate frequencies and time centers only once (they are the same for all signals)
+            if frequencies is None:
+                frequencies = np.fft.rfftfreq(nfft, d=1/sampling_rate)
 
-        # 3. Stack the FFT results to form the spectrogram for the current signal
-        current_spectrogram = np.column_stack(current_signal_ffts)
-        all_individual_spectrograms.append(current_spectrogram)
+            if block_time_centers is None:
+                current_index = 0
+                block_time_centers_list = []
+                for _ in range(len(windowed_blocks)):
+                    time_center = (current_index + n_samples / 2.0) / sampling_rate
+                    block_time_centers_list.append(time_center)
+                    current_index += n_samples + m_skip
+                block_time_centers = np.array(block_time_centers_list)
+
+            # Initialize a list to store the FFT results for current signal's blocks
+            current_signal_ffts = []
+
+            # 2. Perform FFT on each windowed block for the current signal
+            for block in windowed_blocks:
+                padded_block = np.pad(block, (0, nfft - n_samples), 'constant')
+                fft_result = np.fft.rfft(padded_block) # Keep result complex untill plotting stage
+                current_signal_ffts.append(fft_result)
+
+            # 3. Stack the FFT results to form the spectrogram for the current signal
+            current_spectrogram = np.column_stack(current_signal_ffts)
+            all_individual_spectrograms.append(current_spectrogram)
+            averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
 
     if not all_individual_spectrograms:
         return np.array([]), np.array([]), np.array([]) # Return empty if no spectrograms were computed
@@ -481,10 +484,27 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
     # 4. Average the individual spectrograms
     # Stack all individual spectrograms along a new axis (axis=0)
     # Then take the mean along that new axis
-    averaged_spectrogram_magnitude = np.mean(np.array(all_individual_spectrograms), axis=0)
+    averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
 
-    return frequencies, block_time_centers, averaged_spectrogram_magnitude
+    return frequencies, block_time_centers, averaged_spectrogram_magnitude, all_individual_spectrograms
+#########################################################################################
+# File name generator for synthetic data loading
+def __gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
+    f=param['f'];m=param['m'];
+    n=param['n']
 
+    # Rename output 
+    if type(f) is float: f_out = '%d'%f*1e-3 
+    else: f_out = 'custom'
+    if type(m) is not list: mn_out = '%d-%d'%(m,n)
+    else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
+        '-'.join([str(n_) for n_ in n])
+    f_save = '../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
+                    (archiveExt,sensor_set,mn_out,f_out,mesh_file,save_Ext)
+
+    
+    return f_save
+        
 ###############################################################################
 def gen_lf_signals():
     file = 'cmod_logbook_ntm.csv'
@@ -554,8 +574,27 @@ def fix_xarray(directory_path='../data_output/Spectrogram_Xarrays/',pattern='*.n
             attrs = {'sampling_frequency':1/(time[1]-time[0])}
         )
         # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
-        #                         coords={'time':time,'frequency':freq[f_inds]})
+        #coords={'time':time,'frequency':freq[f_inds]})
         spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/temp/'+f.split('/')[-1])
+
+######################################################################
+# File name generator for .hist ThinCurr output files        
+def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
+    f=param['f'];m=param['m'];
+    n=param['n']
+
+    if type(f) is float: f_out = '%d'%f*1e-3 
+    else: f_out = 'custom'
+    if type(m) is not list: mn_out = '%d-%d'%(m,n)
+    else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
+        '-'.join([str(n_) for n_ in n])
+        
+    
+
+    f_save = '../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
+                (archiveExt,sensor_set,mn_out,f_out,mesh_file,save_Ext)
+    
+    return f_save
 
 #############################################################################
 # Batch launch

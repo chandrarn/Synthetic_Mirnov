@@ -29,7 +29,10 @@ def gen_filament_coords(params, wind_in='phi'):
 
     starting_angle=[]; winding_angle=[]
     if type(m_pts) is int: m_pts = [m_pts]*len(m)
+    if len(m_pts) != len(m): m_pts = m_pts*len(m)
     if type(n_pts) is int: n_pts = [n_pts]*len(m_pts)
+    if len(n_pts) != len(m): n_pts = n_pts*len(m)
+    
     for ind_m, m_ in enumerate(m if type(m) is list else [m]):
         
         n_ = n[ind_m] if type(n) is list else n
