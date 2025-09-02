@@ -29,7 +29,7 @@ try:import MDSplus
 except:MDSplus=False# Doesn't exist on all systems, needed for one get_Cmod_data function
 try:from mirnov_ted import Mirnov
 except:Mirnov=False # same issue
-from socket import getfqdn
+#from socket import getfqdnheader_Cmod
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize

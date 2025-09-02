@@ -154,7 +154,8 @@ def debug_mode_frequency_plot(time,f_out_1,I_out_1,f_out_plot_1,f_out_2,\
     f_out_plot_2[I_out_2==0] = np.nan
     f_out_plot_3[I_out_3==0] = np.nan
 
-    norm = colors.Normalize(1,7)
+    norm = colors.Normalize(vmin=np.nanmin(np.concatenate((I_out_1,I_out_2,I_out_3))),
+                            vmax=np.nanmax(np.concatenate((I_out_1,I_out_2,I_out_3))))
     #norm_ae = colors.Normalize(min(I_ae),max(I_ae))
     ax = fig.add_subplot(1,2,1)
     for i,t in enumerate(time):

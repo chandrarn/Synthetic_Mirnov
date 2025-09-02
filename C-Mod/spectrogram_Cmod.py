@@ -225,7 +225,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     
     if doLog: out_spect= 10*np.log(out_spect)
     vmin,vmax = cLim if cLim else [0,5*np.std(out_spect[f_inds])]
-    if not cLim and vmax < 1: vmax = 1 # protect against noise dominated signals
+    #if not cLim and vmax < 1: vmax = 1 # protect against noise dominated signals
     ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],
                   shading='auto',rasterized=True,vmin=vmin,vmax=vmax,cmap=cmap)
     
@@ -266,7 +266,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         )
         # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
         #                         coords={'time':time,'frequency':freq[f_inds]})
-        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'Spectrogram_%s.nc'%fName)
+        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName)
 
     if batch: 
         plt.close(fName) # terminal blocks untill plot is closed for some reason    

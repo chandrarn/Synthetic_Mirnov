@@ -10,7 +10,7 @@ sys.path.append('../C-Mod/')
 from Synthetic_Mirnov import gen_synthetic_Mirnov
 from spectrogram_Cmod import signal_spectrogram_C_Mod
 
-from gen_mode_evolutions import gen_mode_params
+from gen_mode_evolutions import gen_mode_params, gen_mode_params_for_training
 
 
 #######################################################################3
@@ -44,8 +44,10 @@ def batch_run_synthetic_spectrogram(output_directory='',
     """
 
     # Generate frequencies and mode numbers
-    per_shot_mode_params = gen_mode_params(training_shots=training_shots,params=Mode_params)
+    #per_shot_mode_params = gen_mode_params(training_shots=training_shots,params=Mode_params)
 
+    per_shot_mode_params =  gen_mode_params_for_training(training_shots=1,params=Mode_params,\
+                                doPlot=True,save_ext=save_Ext+'_',max_modes=5)
 
     # For each mode, run the simulation
     for mode_param in per_shot_mode_params:
@@ -53,20 +55,20 @@ def batch_run_synthetic_spectrogram(output_directory='',
         
         # Generate synthetic Mirnov signals
         # # Need sensor list output for sensor names
-        # gen_synthetic_Mirnov(
-        #     mesh_file=ThinCurr_params['mesh_file'],
-        #     sensor_set=ThinCurr_params['sensor_set'],
-        #     params=mode_param,
-        #     save_ext=ThinCurr_params['save_ext'],
-        #     doSave=doSave,
-        #     archiveExt='training_data/',
-        #     doPlot=doPlot,
-        #     plotOnly=False,
-        #     wind_in=ThinCurr_params['wind_in'],
-        #     eta = ThinCurr_params['eta'],
-        #     file_geqdsk=ThinCurr_params['file_geqdsk'],
-        #     cmod_shot=ThinCurr_params['cmod_shot']
-        # )
+        gen_synthetic_Mirnov(
+            mesh_file=ThinCurr_params['mesh_file'],
+            sensor_set=ThinCurr_params['sensor_set'],
+            params=mode_param,
+            save_ext=ThinCurr_params['save_ext'],
+            doSave=doSave,
+            archiveExt='training_data/',
+            doPlot=doPlot,
+            plotOnly=False,
+            wind_in=ThinCurr_params['wind_in'],
+            eta = ThinCurr_params['eta'],
+            file_geqdsk=mode_param['file_geqdsk'],
+            cmod_shot=ThinCurr_params['cmod_shot']
+        )
         
         # Calculate spectrogram
         # Needs to return complex valued spectrogram for each sensor, shape (n_sensors, n_freq, n_time)
@@ -85,7 +87,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
             tLim=[0,Mode_params['T']],
             block_reduce=spectrogram_params['block_reduce'],
             plot_reduce=(1,1),filament=True, use_rolling_fft=True,
-            f_lim=(0,225),cLim=(0,.2),tScale=1e3, # Set frequency limits and color limits
+            f_lim=None,cLim=None,tScale=1e3,doSave_data=True # Set frequency limits and color limits
         )
         
         # Save results in an xarray dataset
@@ -161,7 +163,7 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
 #####################################################################################
 # Function to convert spectrogram output into training data format
 def convert_spectrogram_to_training_data(xarray_f_name, timepoint_index=20,\
-                cLim=(0,.2),ylim=[0,225], doSave='',doPlot=True):
+                cLim=None,ylim=[0,500], doSave='',doPlot=True):
     """
     Convert spectrogram output into training data format.
     
@@ -250,7 +252,7 @@ if __name__ == '__main__':
         'eta' : '1.8E-5, 1.8E-5, 3.6E-5'
     }
 
-    Mode_params = {'dt':1e-6,'T':1e-3,'periods':2,'n_pts':100,'m_pts':60,'R':None,'r':None,\
+    Mode_params = {'dt':5e-7,'T':1e-3,'periods':2,'n_pts':100,'m_pts':60,'R':None,'r':None,\
                    'noise_envelope':0.00,'n_threads':12} 
 
     spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}

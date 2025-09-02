@@ -26,12 +26,13 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
-                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=True):
+                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=True,
+                                scan_in_freq=False,clim_J=None):
     
     
     # Get mode amplitudes, indexed to filament positions
     # Generate coil currents (for artificial mode)
-    coil_currs = gen_coil_currs(params,wind_in=wind_in)
+    coil_currs = gen_coil_currs(params,wind_in=wind_in,scan_in_freq=scan_in_freq)
 
     
     # Get starting coorindates for fillaments
@@ -57,13 +58,22 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 
     
     # Run time dependent simulation
-    if not plotOnly:coil_currs =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
+    if not plotOnly:
+        if scan_in_freq:
+            sensors_bode = run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,\
+                                              doSave_Bode=True)
+            #make_plots_bode(sensors_bode, sensors,params,doSave,save_ext)
+        else:
+            coil_currs =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
                             save_ext,mesh_file,archiveExt)
+        
     if not doPlot: return coil_currs,filament_coords,sensors
     
     # Plot mesh, filaments, sensors, and currents
     scale= makePlots(tw_mesh,params,coil_currs,sensors,doSave,
-                                save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set)
+                                save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set,
+                                plot_B_surf= not plotOnly,debug=debug,scan_in_freq=scan_in_freq,
+                                clim_J=clim_J,)
     
     
     return tw_mesh,params,coil_currs,sensors,doSave,\
@@ -96,7 +106,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,debug=True):
     tw_mesh.compute_Rmat()
     
     # Get eigenvectors of inductance for low rank reconstruction [Not used presently]
-    eig_vals, eig_vecs =(None,None)# tw_mesh.get_eigs(100,False)
+    eig_vals, eig_vecs = tw_mesh.get_eigs(10,False)
     L_inv = None#np.linalg.pinv(np.dot(np.dot(eig_vecs.T,np.diag(eig_vals)),np.linalg.pinv(eig_vecs.T)))
 
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
@@ -110,15 +120,15 @@ def gen_filaments(filament_file,params,filament_coords,\
     # Each filament is a list of points, each point is a list of [x,y,z] points
     # This holds even if there's only one m/n pair
 
-    m=params['m'];n=params['n'];r=params['r'];R=params['R'];
+    m=params['m'];n=params['n'];r=params['r'];R=params['R']
     n_pts=params['n_pts'];m_pts=params['m_pts']
 
     with open('input_data/'+filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
-       
+        print('File open for writing: %s'%filament_file)
+
         for filament_ in filament_coords:
-            
             
             for filament in filament_:
                 f.write('\t<coil_set>\n')
@@ -136,7 +146,7 @@ def gen_filaments(filament_file,params,filament_coords,\
    
 ################################################################################################
 ################################################################################################
-def gen_coil_currs(param,debug=True,doSave=False,wind_in='theta'):
+def gen_coil_currs(param,debug=True,doSave=False,wind_in='theta',scan_in_freq=False):
     # Assign currents to existing fillaments for time dependent calculation
     # The ordering of the filaments and currents must match for the field topology to be correct
 
@@ -157,38 +167,43 @@ def gen_coil_currs(param,debug=True,doSave=False,wind_in='theta'):
     if debug:print('Number of filaments: %d'%num_filaments)
     coil_currs = np.zeros((time.size,num_filaments+1))
 
-    # Loop through each set of starting angle values for each m/n pair
-    # and assign the current to each filament
-
-    # Necessary step for dealing with uneven number of filaments for different m/n pairs
-    cumulative_filament_coords = np.cumsum([len(starting_angle_) for starting_angle_ in starting_angle]) 
-    cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
-    for ind_filament, starting_angle_list in enumerate(starting_angle):
-        if debug: print('Assigning currents to filaments for m/n = %d/%d'%(m[ind_filament],n[ind_filament]))
-
-        # Get (potentially time dependent) mode amplitude 
-        if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
-        elif type(param['I']) == list: mode_amp = param['I'][ind_filament]
-        else: mode_amp = param['I']
-
-        # Potentially time dependent frequency
-        if type(param['f']) == float: mode_freq = param['f']*2*np.pi*time # always just return f
-        # assume frequency is a function taken [0,1] as the argument
-        elif type(param['f']) == list: mode_freq = param['f'][ind_filament]
-        else:mode_freq = param['f'] #  
-        
-        # set initial mode phase based on starting angle position for a given filament
-        initial_mode_phase = m[ind_filament] if wind_in == 'phi' else n[ind_filament]
-
-        for ind,t in enumerate(time):
-            np.random.seed(ind) # Set seed for reproducibility
-            coil_currs[ind,cumulative_filament_coords[ind_filament]+1:cumulative_filament_coords[ind_filament+1]+1] = \
-                np.random.normal(1, noise_envelope, len(starting_angle_list)) * \
-                    [mode_amp[ind]*np.cos(initial_mode_phase*initial_angle+mode_freq[ind]) for initial_angle in starting_angle_list] 
-                 
-            
     # Time vector in first column
     coil_currs[:,0]=time
+    if debug:print('Initialized coil currents array with shape (%d,%d)'%coil_currs.shape)
+
+
+    if not scan_in_freq:
+        # Loop through each set of starting angle values for each m/n pair
+        # and assign the current to each filament
+
+        # Necessary step for dealing with uneven number of filaments for different m/n pairs
+        cumulative_filament_coords = np.cumsum([len(starting_angle_) for starting_angle_ in starting_angle]) 
+        cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
+        for ind_filament, starting_angle_list in enumerate(starting_angle):
+            if debug: print('Assigning currents to filaments for m/n = %d/%d'%(m[ind_filament],n[ind_filament]))
+
+            # Get (potentially time dependent) mode amplitude 
+            if type(param['I']) == int: mode_amp = param['I']*np.ones((nsteps+1,))
+            elif type(param['I']) == list: mode_amp = param['I'][ind_filament]
+            else: mode_amp = param['I']
+
+            # Potentially time dependent frequency
+            if type(param['f']) == float: mode_freq = param['f']*2*np.pi*time # always just return f
+            # assume frequency is a function taken [0,1] as the argument
+            elif type(param['f']) == list: mode_freq = param['f'][ind_filament]
+            else:mode_freq = param['f'] #  
+            
+            # set initial mode phase based on starting angle position for a given filament
+            initial_mode_phase = m[ind_filament] if wind_in == 'phi' else n[ind_filament]
+
+            for ind,t in enumerate(time):
+                np.random.seed(ind) # Set seed for reproducibility
+                coil_currs[ind,cumulative_filament_coords[ind_filament]+1:cumulative_filament_coords[ind_filament+1]+1] = \
+                    np.random.normal(1, noise_envelope, len(starting_angle_list)) * \
+                        [mode_amp[ind]*np.cos(initial_mode_phase*initial_angle+mode_freq[ind]) for initial_angle in starting_angle_list] 
+                    
+                
+
     # Save coil currents to .npy for manual inspection later
     if doSave: np.savez('../data_output/coil_currs.npz', coil_currs=coil_currs,m=m,n=n,n_pts=n_pts,m_pts=m_pts)
 
@@ -223,7 +238,17 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
         print('Ran time dependent simulation for the following sensors:')
         for h in hist_file:print(h)
 
-    # Rename output 
+    f_save = __do_save_output(f,m,n,archiveExt,sensor_set,mesh_file,save_Ext, debug, hist_file)
+   
+    # Test plot for a few single sensors
+    if doPlot:plot_single_sensor(f_save+'.hist',['BP1T_ABK','BP01_ABK'],coil_currs=coil_currs,\
+                       coil_inds=[1],params=param)
+    print('Saved: %s'%f_save)
+                    
+    return coil_currs
+################################################################################################
+def __do_save_output(f,m,n,archiveExt,sensor_set,mesh_file,save_Ext, debug, hist_file):
+        # Rename output 
     if type(f) is float: f_out = '%d'%(f*1e-3) 
     else: f_out = 'custom'
     if type(m) is not list: mn_out = '%d-%d'%(m,n)
@@ -241,19 +266,55 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
     for key in hist_file.keys():data_out[key]=hist_file[key].tolist()
     with open(f_save+'.json','w', encoding='utf-8') as f:
         json.dump(data_out,f,ensure_ascii=False, indent=4)
-   
-    # Test plot for a few single sensors
-    if doPlot:plot_single_sensor(f_save+'.hist',['BP1T_ABK','BP01_ABK'],coil_currs=coil_currs,\
-                       coil_inds=[1],params=param)
-    print('Saved: %s'%f_save)
-                    
-    return coil_currs
 
+    return f_save
+################################################################################################
+################################################################################################
+def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bode):
+
+    coil_current_magnitude = params['I'] # Current magnitude for the coil
+    freqs = params['f'] # Frequency range for the scan
+
+    Mcoil = tw_mesh.compute_Mcoil()
+    driver = np.zeros((2,tw_mesh.nelems))
+    driver[0,:] = Mcoil[0,:]*coil_current_magnitude
+
+    # Mutual between the mesh and sensors, and coil and sensors
+    Msensor, Msc, _ = tw_mesh.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
+
+    # Data vector storage
+    sensors_bode = []
+    # Loop through frequencies to test
+    for freq in freqs if np.ndim(freqs) > 0 else [0, freqs]:
+        result = tw_mesh.compute_freq_response(fdriver=driver,freq=freq)
+
+        probe_signals = np.dot(result,Msensor)
+        probe_signals[0,:] += np.dot(np.r_[coil_current_magnitude],Msc)
+
+        # for i in range(probe_signals.shape[1]):
+        #     print('Real: {0:13.5E}, Imaginary: {1:13.5E}'.format(*probe_signals[:,i]))
+        probe_signals = probe_signals[0,:] + 1j*probe_signals[1,:] # Combine real and imaginary parts   
+        sensors_bode.append(probe_signals)
+    
+    # Only compute the mesh induced currents once
+    tw_mesh.save_current(result[0,:],'Jr_coil')
+    tw_mesh.save_current(result[1,:],'Ji_coil')
+    _ = tw_mesh.build_XDMF()
+
+    # Save the probe signals to a file
+    if doSave_Bode: 
+        fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1])
+        np.savez('../data_output/'+fName, probe_signals=sensors_bode, freqs=freqs,\
+                 sensor_names=sensor_obj['names']) 
+    
+    # Plot the probe signals
+    print('halt')
+    return np.array(sensors_bode)
 ################################################################################################
 ################################################################################################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
               filament_coords,file_geqdsk, sensor_set,t_pt=0,plot_B_surf=True,debug=True,
-              clim_J=[0,50]):
+              clim_J=None,scan_in_freq=False):
     # Generate plots of mesh, filaments, sensors, and currents
     # Will plot induced current on the mesh if plot_B_surf is True
 
@@ -269,7 +330,11 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # New ThinCurr way of getting mesh
     plot_data = tw_mesh.build_XDMF()
     grid = plot_data['ThinCurr']['smesh'].get_pyvista_grid()
-    if plot_B_surf: Jfull = plot_data['ThinCurr']['smesh'].get_field('J_v',timestep=0)
+    if plot_B_surf: 
+        if scan_in_freq:
+            Jfull = plot_data['ThinCurr']['smesh'].get_field('Jr_coil')
+        else:
+            Jfull = plot_data['ThinCurr']['smesh'].get_field('J_v',timestep=0)
     if debug:print('Built Pyvista grid from ThinCurr mesh')
 
 
@@ -344,7 +409,7 @@ if __name__=='__main__':
     
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
     eta = '1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
@@ -352,13 +417,24 @@ if __name__=='__main__':
     # sensor_set = 'C_MOD_ALL'
     wind_in = 'theta'
     
+    # C-Mod Frequency Scan
+    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
+        'f':np.logspace(1,6,60),'dt':1e-3,'T':1e-3,'periods':1,'n_threads':12,'I':6.325,'noise_envelope':0.00}
+    sensor_set = 'C_MOD_ALL'
+    file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
+    cmod_shot = 1151208900 	
+    wind_in = 'phi'
+    scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
+    clim_J = [0,2]
+
     # SPARC Side
     #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
     #mesh_file='SPARC_Sept2023_noPR.h5'
     #mesh_file = 'SPARC_mirnov_plugwest_v2-homology.h5'
     #sensor_set='MRNV'
     #eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' 
-    {'dt':1e-6,'T':10e-3,'periods':3}
+    # {'dt':1e-6,'T':10e-3,'periods':3}
     # Misc
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
@@ -409,6 +485,7 @@ if __name__=='__main__':
 
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
-         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk, plotOnly=False)
+         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
+           plotOnly=False, scan_in_freq= scan_in_freq, clim_J=clim_J)
     
     print('Run complete')

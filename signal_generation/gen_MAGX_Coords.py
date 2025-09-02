@@ -290,7 +290,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
     except: # Manually calculate sensor locations
         
         # Unified function for SPARC, C-Mod 
-        if'C_MOD' not in select_sensor:
+        if 'C_MOD' not in select_sensor: # SPARC side
             coords = json.load(open(coord_file,'r'))
             
             sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
