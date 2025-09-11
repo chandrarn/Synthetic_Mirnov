@@ -499,9 +499,9 @@ def __clean_up_plot(ax_mag,ax_phase,sensors,i,yLim_mag,yLim_phase,B0_normalize):
 # Load calibration signal
 def __load_calib_signal(shot, tLim=[0,1],input_channel=16, ACQ_board=3):
         conn=gC.openTree(shot,treeName='MAGNETICS')
-        time=conn.get(f'dim_of(\MAGNETICS::TOP.ACTIVE_MHD.DATA_ACQ.CPCI.ACQ_216_{ACQ_board}.INPUT_{input_channel:02d})').data()
+        time=conn.get(f'dim_of(\\MAGNETICS::TOP.ACTIVE_MHD.DATA_ACQ.CPCI.ACQ_216_{ACQ_board}.INPUT_{input_channel:02d})').data()
       
-        calib=conn.get(f'\MAGNETICS::TOP.ACTIVE_MHD.DATA_ACQ.CPCI.ACQ_216_{ACQ_board}.INPUT_{input_channel:02d}').data()
+        calib=conn.get(f'\\MAGNETICS::TOP.ACTIVE_MHD.DATA_ACQ.CPCI.ACQ_216_{ACQ_board}.INPUT_{input_channel:02d}').data()
         # Trim signal
         t_inds = np.where((time >= tLim[0]) & (time <= tLim[1]))[0]
         time = time[t_inds]

@@ -34,7 +34,7 @@ phase = np.angle(H, deg=True)
 
 # Plot
 fig, ax = plt.subplots(2, 1, figsize=(4, 8), sharex=True)
-ax[0].plot(f*1e-6, mag,label='R=%d $\Omega$, L=%.1f $\mu$H, C=%.1f pF'%(R,L*1e6,C*1e12))
+ax[0].plot(f*1e-6, mag,label=r'R=%d $\Omega$, L=%.1f $\mu$H, C=%.1f pF'%(R,L*1e6,C*1e12))
 ax[0].plot(f*1e-6, mag_dynam,label='Dynamic skin depth R')
 ax[0].set_ylabel('Magnitude')
 ax[0].set_title('RLC Circuit Frequency Response')

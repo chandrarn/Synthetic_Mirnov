@@ -9,6 +9,10 @@ import os
 import glob
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 import matplotlib
@@ -131,7 +135,7 @@ def extract_features_from_regions(real_matrices, imag_matrices, regions,normaliz
         features.append(mode_features)
     return np.array(features)
 
-def prepare_training_data(datasets, num_timepoints=10):
+def prepare_training_data(datasets, num_timepoints=22):
     """
     Prepare training data from all datasets.
     Instead of padding, loop across time_indices and extract relevant elements only if frequency != 0.
@@ -166,7 +170,7 @@ def prepare_training_data(datasets, num_timepoints=10):
         # Loop across time_indices
         for time_idx in range(len(time_indices)):
             for mode_idx in range(len(F_mode_vars)):
-                
+
                 freq_idx, sensor_idx = regions[mode_idx][time_idx]
 
                 if len(freq_idx) > 0:  # Only if frequency != 0 (i.e., valid region)
@@ -197,7 +201,7 @@ def prepare_training_data(datasets, num_timepoints=10):
     
     return X, y_m, y_n
 
-def train_regression_model(X, y_m, y_n, datasets, doPlot=True):
+def train_regression_model(X, y_m, y_n):
     """
     Train regression models for m and n.
     """
@@ -205,16 +209,24 @@ def train_regression_model(X, y_m, y_n, datasets, doPlot=True):
     X_train, X_test, y_m_train, y_m_test, y_n_train, y_n_test = train_test_split(
         X, y_m, y_n, test_size=0.2, random_state=42)
     
-    # Train models
-    model_m = RandomForestRegressor(n_estimators=10000, random_state=42, n_jobs=-1)
-    model_n = RandomForestRegressor(n_estimators=10000, random_state=42, n_jobs=-1)
+    # # Train models
+    # model_m = RandomForestRegressor(n_estimators=10000, random_state=42, n_jobs=-1)
+    # model_n = RandomForestRegressor(n_estimators=10000, random_state=42, n_jobs=-1)
     
+    # Train models with XGBoost
+    model_m = XGBRegressor(n_estimators=10000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=10)
+    model_n = XGBRegressor(n_estimators=10000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=10)
+    
+
     model_m.fit(X_train, y_m_train)
     model_n.fit(X_train, y_n_train)
     
     # Evaluate
     pred_m = model_m.predict(X_test)
     pred_n = model_n.predict(X_test)
+
+    pred_m_train = model_m.predict(X_train)
+    pred_n_train = model_n.predict(X_train)
     
     rms_m = np.sqrt(mean_squared_error(y_m_test, pred_m))
     rms_n = np.sqrt(mean_squared_error(y_n_test, pred_n))
@@ -222,55 +234,173 @@ def train_regression_model(X, y_m, y_n, datasets, doPlot=True):
     print(f"MSE for m: {rms_m}")
     print(f"MSE for n: {rms_n}")
 
+    rms_m = f'RMS = {rms_m:.2f}'
+    rms_n = f'RMS = {rms_n:.2f}'
+    
+    return model_m, model_n, pred_m, pred_n, \
+        pred_m_train, pred_n_train, rms_m, rms_n,  y_m_train, y_m_test, y_n_train, y_n_test
+
+
+
+
+##################################################################3
+##########################################################################
+# Classification attempt, instead of regression
+def train_classification_model(X, y_m, y_n, doPlot=True):
+    """
+    Train classification models for m and n using XGBoost.
+    Assumes y_m and y_n are categorical (will be encoded if not).
+    """
+    # Encode targets if they are not integers (e.g., strings or floats)
+    le_m = LabelEncoder()
+    le_n = LabelEncoder()
+    y_m_encoded = le_m.fit_transform(y_m)
+    y_n_encoded = le_n.fit_transform(y_n)
+    
+    # Split data
+    X_train, X_test, y_m_train, y_m_test, y_n_train, y_n_test = train_test_split(
+        X, y_m_encoded, y_n_encoded, test_size=0.2, random_state=42, stratify=y_n_encoded)  # Stratify for balance
+    
+    # Train models with XGBoost Classifier
+    model_m = XGBClassifier(n_estimators=10000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=6,
+                            objective='multi:softprob', num_class=len(le_m.classes_))
+    model_n = XGBClassifier(n_estimators=10000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=6,
+                            objective='multi:softprob', num_class=len(le_n.classes_))
+    
+    model_m.fit(X_train, y_m_train)
+    model_n.fit(X_train, y_n_train)
+    
+    # Predict probabilities and classes
+    pred_m_prob = model_m.predict_proba(X_test)
+    pred_n_prob = model_n.predict_proba(X_test)
+    pred_m_class = model_m.predict(X_test)
+    pred_n_class = model_n.predict(X_test)
+    train_m_class = model_m.predict(X_train)
+    train_n_class = model_n.predict(X_train)
+    
+    # Evaluate
+    acc_m = accuracy_score(y_m_test, pred_m_class)
+    acc_n = accuracy_score(y_n_test, pred_n_class)
+    auc_m = roc_auc_score(y_m_test, pred_m_prob, multi_class='ovr', average='macro')
+    auc_n = roc_auc_score(y_n_test, pred_n_prob, multi_class='ovr', average='macro')
+    
+    print(f"Accuracy for m: {acc_m:.3f}")
+    print(f"Accuracy for n: {acc_n:.3f}")
+    print(f"AUC for m: {auc_m:.3f}")
+    print(f"AUC for n: {auc_n:.3f}")
+    
     if doPlot:
-        f_name = f'Regression_results_N_{len(datasets)}_TP_{X.shape[0]}_FT_{X.shape[1]}_'+\
-            f'Sensor_Set_{datasets[0].attrs['sensor_set']}_Mesh_file_{datasets[0].attrs['mesh_file']}'
-        plt.close('regression_results')
-        fig, ax = plt.subplots(2,1,num='regression_results',figsize=(5, 4),tight_layout=True)
-        ax[0].scatter(y_m_test, pred_m, alpha=0.5,label=f'RMS={rms_m:.2f}')
-        ax[0].scatter(y_m_train, model_m.predict(X_train), alpha=0.1,color='gray',\
-                      label=f'Train data, RMS = {np.sqrt(mean_squared_error(y_m_train, model_m.predict(X_train))):.2f}')
-        ax[0].plot([min(y_m_test), max(y_m_test)], [min(y_m_test), max(y_m_test)], 'r--')
-        ax[0].set_xlabel('True m')
-        ax[0].set_ylabel('Predicted m')
-        ax[0].legend(fontsize=8)
-        #ax[0].title('Mode Number m Prediction')
-
-        ax[1].scatter(y_n_test, pred_n, alpha=0.5,label=f'RMS={rms_n:.2f}')
-        ax[1].scatter(y_n_train, model_n.predict(X_train), alpha=0.1,color='gray', \
-                      label=f'Train data, RMS = {np.sqrt(mean_squared_error(y_n_train, model_n.predict(X_train))):.2f}')
-        ax[1].plot([min(y_n_test), max(y_n_test)], [min(y_n_test), max(y_n_test)], 'r--')
+        # Plot confusion matrices or AUC curves (example for n)
+        from sklearn.metrics import ConfusionMatrixDisplay
+        fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+        ConfusionMatrixDisplay.from_predictions(y_n_test, pred_n_class, ax=ax[0])
+        ConfusionMatrixDisplay.from_predictions(y_m_test, pred_m_class, ax=ax[1])
+        ax[0].set_title(f'$n$ Classification (Acc={acc_n:.3f}, AUC={auc_n:.3f})')
+        ax[1].set_title(f'$m$ Classification (Acc={acc_n:.3f}, AUC={auc_n:.3f})')
         
-        ax[1].set_xlabel('True n')
-        ax[1].set_ylabel('Predicted n')
-        ax[1].legend(fontsize=8)
-        #ax[1].title('Toroidal Mode Number n Prediction')
-
-        for i in range(2):
-            ax[i].grid()
-
-        fig.savefig('../output_plots/'+f_name+'.pdf',transparent=True)
-
+        # For AUC, you could plot ROC curves per class
+        # (Omitted for brevity; use sklearn's plot_roc_curve or manual plotting)
+        
         plt.show()
     
-    return model_m, model_n
+    predicted_n = le_n.inverse_transform(pred_n_class)
+    predicted_m = le_n.inverse_transform(pred_m_class)
+    predicted_n_train = le_n.inverse_transform(train_n_class)
+    predicted_m_train = le_n.inverse_transform(train_m_class)
 
+    return model_m, model_n, predicted_m, predicted_n, \
+        predicted_m_train, predicted_n_train, f'AUC = {auc_m:0.2f}', f'AUC = {auc_n:0.2f}',\
+                y_m_train, y_m_test,  y_n_train, y_n_test
+
+############################################################################
+############################################################################
+def plot_regression_results(y_m_train, y_m_test, y_n_train, y_n_test,X,pred_m,pred_m_train,\
+                             pred_n,pred_n_train,error_m,error_n, fName_params,saveExt=''):
+    f_name = f'Regression_results_XGB_N_{fName_params['N']}_TP_{X.shape[0]}_FT_{X.shape[1]}_'+\
+        f'Sensor_Set_{fName_params['sensor_set']}_Mesh_file_{fName_params['mesh_file']}{saveExt}'
+    
+    plt.close('regression_results')
+    fig, ax = plt.subplots(2,1,num='regression_results',figsize=(5, 4),tight_layout=True)
+
+    ax[0].scatter(y_m_test, pred_m, alpha=0.5,label=f'Prediction, {error_m}')
+    ax[0].scatter(y_m_train, pred_m_train, alpha=0.1,color='gray',\
+                    label=f'Train data, RMS = {np.sqrt(mean_squared_error(y_m_train, pred_m_train )):.2f}')
+    ax[0].plot([min(y_m_test), max(y_m_test)], [min(y_m_test), max(y_m_test)], 'r--')
+    ax[0].set_xlabel('True m')
+    ax[0].set_ylabel('Predicted m')
+    ax[0].legend(fontsize=8)
+    #ax[0].title('Mode Number m Prediction')
+
+    ax[1].scatter(y_n_test, pred_n, alpha=0.5,label=f'Prediction, {error_n}')
+    ax[1].scatter(y_n_train,pred_n_train, alpha=0.1,color='gray', \
+                    label=f'Train data, RMS = {np.sqrt(mean_squared_error(y_n_train, pred_n_train )):.2f}')
+    ax[1].plot([min(y_n_test), max(y_n_test)], [min(y_n_test), max(y_n_test)], 'r--')
+    
+    ax[1].set_xlabel('True n')
+    ax[1].set_ylabel('Predicted n')
+    ax[1].legend(fontsize=8)
+    #ax[1].title('Toroidal Mode Number n Prediction')
+
+    for i in range(2):
+        ax[i].grid()
+
+    fig.savefig('../output_plots/'+f_name+'.pdf',transparent=True)
+
+    plt.show()
+
+#############################################################################
+def save_training_data(X, y_m, y_n, filename=None):
+    """
+    Save the training data to a .npz file.
+    """
+    np.savez(filename, X=X, y_m=y_m, y_n=y_n)
+    print(f"Training data saved to {filename}")
+
+####################################################################
 if __name__ == "__main__":
     # Directory containing the saved xarray files
-    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/test/"  # Replace with actual path
     
-    # Load datasets
-    datasets = load_xarray_datasets(data_dir)
-    
-    # Prepare training data
-    X, y_m, y_n = prepare_training_data(datasets, num_timepoints=10)
-    
+    sensor_set = 'C_MOD_LIM'
+    mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
+   
+
+    try: 
+        dat = np.load(f'training_data_Sensor_Set_{sensor_set}_Mesh_file_{mesh_file}.npz')
+        X, y_m, y_n = dat['X'], dat['y_m'], dat['y_n']
+        print(f"Loaded existing training data with {X.shape[0]} samples and {X.shape[1]} features")
+    except:
+        print("No existing training data found, generating new data...")
+        data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/"  # Replace with actual path
+        
+        # Load datasets
+        datasets = load_xarray_datasets(data_dir)
+        
+        # Prepare training data
+        X, y_m, y_n = prepare_training_data(datasets, num_timepoints=10)
+        
+        save_training_data(X, y_m, y_n, \
+                           filename=f'training_data_Sensor_Set_{sensor_set}_Mesh_file_{mesh_file}.npz')
+
+        print(f"Generated training data with {X.shape[0]} samples and {X.shape[1]} features")
+
     # Train models
-    model_m, model_n = train_regression_model(X, y_m, y_n, datasets)
-    
+    fName_params = {'N': len(X), 'sensor_set': sensor_set, 'mesh_file': mesh_file}
+
+    # model_m, model_n, pred_m, pred_n, \
+    #     pred_m_train, pred_n_train,err_m, err_n,  y_m_train, y_m_test, y_n_train, y_n_test = \
+    #         train_regression_model(X, y_m, y_n   )
+
+    model_m, model_n, pred_m, pred_n,  pred_m_train, pred_n_train,\
+          err_m, err_n,  y_m_train, y_m_test, y_n_train, y_n_test = \
+              train_classification_model(X, y_m, y_n)
+
+
+    plot_regression_results(y_m_train, y_m_test, y_n_train, y_n_test,X,pred_m,pred_m_train,\
+                             pred_n,pred_n_train,err_m,err_n, fName_params,'_Classifier')
     # Save models if needed
     # import joblib
     # joblib.dump(model_m, 'model_m.pkl')
     # joblib.dump(model_n, 'model_n.pkl')
 
+    print('Done')
 

@@ -256,7 +256,7 @@ if __name__ == '__main__':
     save_Ext = '_Synth_1'
     doSave = '../output_plots/'
     doPlot = False
-    training_shots = 20
+    training_shots = 40
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,
