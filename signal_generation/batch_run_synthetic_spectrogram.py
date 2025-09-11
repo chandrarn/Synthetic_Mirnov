@@ -44,10 +44,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
     """
 
     # Generate frequencies and mode numbers
-    #per_shot_mode_params = gen_mode_params(training_shots=training_shots,params=Mode_params)
-
-    per_shot_mode_params =  gen_mode_params_for_training(training_shots=1,params=Mode_params,\
-                                doPlot=True,save_ext=save_Ext+'_',max_modes=5)
+    per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
+                                doPlot=doPlot,save_ext=save_Ext+'_',max_modes=5)
 
     # For each mode, run the simulation
     for mode_param in per_shot_mode_params:
@@ -81,7 +79,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
             fft_window=spectrogram_params['fft_window'],
             doSave=doSave,
             save_Ext=save_Ext,
-            doPlot=True,
+            doPlot=doPlot,
             mesh_file = ThinCurr_params['mesh_file'],
             archiveExt='training_data/',
             tLim=[0,Mode_params['T']],
@@ -94,7 +92,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
         if doSave:
             xarray_file = save_xarray_results(output_directory, mode_param, time, freq, out_spect_all_cplx,ThinCurr_params,save_Ext,sensor_name)
 
-            convert_spectrogram_to_training_data(xarray_file, timepoint_index=20,doSave=doSave)
+            convert_spectrogram_to_training_data(xarray_file, timepoint_index=20,doSave=doSave,doPlot=doPlot)
 #######################################################################################
 ######################################################################################
 def save_xarray_results(output_directory, mode_param, time, freq, out_spect,ThinCurr_params,save_Ext,sensor_names):
@@ -106,7 +104,7 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
     # In general, these are all lists 
     m = mode_param['m']
     n = mode_param['n']
-    f = mode_param['f']
+    f = mode_param['f_Hz'] # Need frequency in Hz, instead of phase advance
     I = mode_param['I'] 
     if type(f) is float: f_out = '%d'%f*1e-3
     else: f_out = '_f-Custom'
@@ -140,10 +138,8 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
         data_vars=data_vars,
         coords=coords,
         attrs={'sampling_frequency': 1 / (time[1] - time[0]),
-               'mode_m': m, # This can be a list
+               'mode_m': m, # This can be a list, contains information on number of modes
                'mode_n': n,
-               #'mode_f': f, # This also can be a list
-               #'mode_i': I,
                'sensor_set': ThinCurr_params['sensor_set'],
                'mesh_file': ThinCurr_params['mesh_file'],}
     )
@@ -260,7 +256,7 @@ if __name__ == '__main__':
     save_Ext = '_Synth_1'
     doSave = '../output_plots/'
     doPlot = False
-    training_shots = 1
+    training_shots = 20
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,

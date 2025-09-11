@@ -10,7 +10,7 @@ Created on Wed Mar  5 16:22:03 2025
 import numpy as np
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
 from scipy.io import loadmat 
-from scipy.signal import lombscargle, hilbert
+from scipy.signal import lombscargle, hilbert, ShortTimeFFT, csd
 from scipy.optimize import minimize
 
 from skimage.transform import downscale_local_mean

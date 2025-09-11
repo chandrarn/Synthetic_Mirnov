@@ -353,7 +353,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 try:BP_Data = BP(cmod_shot);skipBP=False # Pull data for Low freq sensors
                 except:skipBP=True
             dx = 4e-3 # True at minimum for BP probes, from 'Magnetic diagnostics in Alcator C‐MOD', R. Granetz 1990
-           
+            N = 140 # number of tirns, from J. Sears' thesis
             sensor_Mirnov_T = []
             sensor_Mirnov = []
             sensor_BP = []
@@ -372,7 +372,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                     #print(name)
                     pt, norm = __cords_xyz_C_Mod(phi[name], \
                              R[name], Z[name], theta_pol[name], 0)
-                    sens = Mirnov(pt, norm, name,dx)
+                    sens = Mirnov(pt, norm, name,dx)#scale=N
                     if 'O' in name: sensor_all.append(sens)
                     else: 
                         sensor_Lim.append(sens)

@@ -23,11 +23,31 @@ def make_plots_bode(mesh_file, sensor_set, calibration_magnitude, \
     fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz.npz'%\
         (mesh_file,sensor_set, *calibration_frequency_limits)
     mirnov_Bode = np.load('../data_output/'+fName)
-    probe_signals = mirnov_Bode['probe_signals']
+    probe_signals = mirnov_Bode['probe_signals'] # Comes in as scaled flux: V = -N*A * B
     freqs = mirnov_Bode['freqs']
+    probe_signals *= 1j*freqs[:,np.newaxis] # convert to Voltage
     sensor_names = mirnov_Bode['sensor_names']
 
-    # Must load in sensors in same order as as the
+    # RLC Circuit transfer function:
+    # Transfer function H(w) for series RLC (output across the capacitor)
+    # RLC circuit parameters (eventually, correct for individual sensors)
+    R = 6      # Ohms 
+    L = 60e-6      # Henry
+    C = 1.2e-9     # Farads
+    def Z_R(w):
+        out = R * np.ones_like(w)
+        out[w/(2*np.pi)>=220e3] *= 1+(np.sqrt( w[w/(2*np.pi)>=220e3]/(2*np.pi))-np.sqrt(220e3))*0.0043 # Skin depth correction
+        return out
+    Z_L =  lambda w: (1j * w * L)
+    Z_C =  lambda w:1 / (1j * w * C)
+    Z_total =  lambda w: Z_R(w) + Z_L(w) + Z_C(w)
+
+    H =  lambda w: Z_C(w) / Z_total(w)  # Voltage across capacitor / input voltage
+
+    # Magnitude and phase response
+    mag_RLC =  lambda w: np.abs(H(w))
+    phase_RLC =  lambda w: np.angle(H(w), deg=True)
+
     
     # Initialize lists to store transfer function data
     transfer_mag = []
@@ -51,16 +71,15 @@ def make_plots_bode(mesh_file, sensor_set, calibration_magnitude, \
         try: # All sensors should exist, but just in case
             sensor_ind = np.char.lower(sensor_names).tolist().index(name)
         except: continue
-
         # Magnitude signal needs to be in T/s, not just T
-        transfer_mag.append(np.abs(probe_signals[:,sensor_ind]) / calibration_magnitude * freqs)
-        transfer_phase.append(np.angle(probe_signals[:,sensor_ind],deg=True))
+        transfer_mag.append(np.abs(probe_signals[:,sensor_ind]) / calibration_magnitude * mag_RLC(2*np.pi*freqs))
+        transfer_phase.append(np.angle(probe_signals[:,sensor_ind],deg=True) + phase_RLC(2*np.pi*freqs)+360)
 
         # Plot the transfer function
         ax[ind].plot(freqs*1e-6, transfer_mag[ind], label=name)
         ax_ = ax[ind].twinx()
         ax_.plot(freqs*1e-6, transfer_phase[ind], label='Phase', color='orange', alpha=.6)
-
+        ax_.set_ylim([0,360])
         ax[ind].grid()
         ax[ind].legend(fontsize=8,handlelength=0.5,loc='upper left')
 
@@ -84,4 +103,4 @@ if __name__ == '__main__':
 
     make_plots_bode(mesh_file, sensor_set, calibration_magnitude,\
                      calibration_frequency_limits, comparison_shot,doSave)
-        print('Bode plots generated and saved to %sCmod_Transfer_Function_Synthetic.pdf'%doSave)
+    print('Bode plots generated and saved to %sCmod_Transfer_Function_Synthetic.pdf'%doSave)

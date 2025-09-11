@@ -96,6 +96,7 @@ def gen_mode_params_for_training(training_shots=1,\
      
         params['f'] = []
         params['I'] = []
+        params['f_Hz'] = []
         time = np.linspace(0,params['T'],int(params['T']/params['dt']))
         f_plot = []
         for n in params['n']:
@@ -111,21 +112,21 @@ def gen_mode_params_for_training(training_shots=1,\
 
             params['f'].append(f_local)  # Append frequency evolution
             params['I'].append(I_local)  # Append amplitude evolution
-            f_plot.append(f_plot_local)
+            params['f_Hz'].append(f_plot_local) # f in Hz for plotting and training comparison
         
         params_per_shot.append(params.copy())  # Append the current shot's parameters
 
         if doPlot:
             # Plot the frequency modulation
             if len(params['f']) == 1:
-                debug_mode_frequency_plot(time,params['f'][0],params['I'][0],f_plot[0],[],[],[],[],[],[],save_ext)
+                debug_mode_frequency_plot(time,params['f'][0],params['I'][0],params['f_Hz'][0],[],[],[],[],[],[],save_ext)
             elif len(params['f']) == 2:
-                debug_mode_frequency_plot(time,params['f'][0],params['I'][0],f_plot[0],\
-                                         params['f'][1],params['I'][1],f_plot[1],[],[],[],save_ext)
+                debug_mode_frequency_plot(time,params['f'][0],params['I'][0],params['f_Hz'][0],\
+                                         params['f'][1],params['I'][1],params['f_Hz'][1],[],[],[],save_ext)
             elif len(params['f']) >= 3:
-                debug_mode_frequency_plot(time,params['f'][0],params['I'][0],f_plot[0],\
-                                         params['f'][1],params['I'][1],f_plot[1],\
-                                         params['f'][2],params['I'][2],f_plot[2],save_ext)
+                debug_mode_frequency_plot(time,params['f'][0],params['I'][0],params['f_Hz'][0],\
+                                         params['f'][1],params['I'][1],params['f_Hz'][1],\
+                                         params['f'][2],params['I'][2],params['f_Hz'][2],save_ext)
     return params_per_shot # Params now include frequency bands, structured as list of dicts for each shot
 ######################################################################################################
 def gen_frequency_evolutions(n, m, v_phi_0=[5, 20], v_a=[200, 400]):
@@ -284,7 +285,9 @@ def __build_geqdsks(n_equilibria,shot_list_file='../C-Mod/C_Mod_Shot_List_with_T
     for ind,g_file in enumerate(g_files):
         if debug: print(f"Processing shot {shots[ind]} at time {times[ind]}: {g_file}")
         # Check if the gEQDSK file already exists
-        if os.path.exists(output_file+g_file):continue
+        if os.path.exists(output_file+g_file):
+            g_files_out.append(g_file)
+            continue
 
        
         try:
@@ -294,6 +297,7 @@ def __build_geqdsks(n_equilibria,shot_list_file='../C-Mod/C_Mod_Shot_List_with_T
         except Exception as e:
             if debug:
                 print(f"Failed to generate gEQDSK for shot {shots[ind]} at time {times[ind]}: {e}")
+            g_files_out.append(g_files_out[-1]) # Add previous file if fail to generate
             continue
     
     if len(g_files_out) < n_equilibria:

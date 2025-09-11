@@ -32,6 +32,7 @@ rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
 import matplotlib;matplotlib.use('TkAgg') # Use TkAgg backend for plotting
+plt.ion()
 
 #sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
 #sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one

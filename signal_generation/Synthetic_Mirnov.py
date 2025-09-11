@@ -65,7 +65,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
             #make_plots_bode(sensors_bode, sensors,params,doSave,save_ext)
         else:
             coil_currs =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
-                            save_ext,mesh_file,archiveExt)
+                            save_ext,mesh_file,archiveExt,doPlot=doPlot,doPlot_Currents=doPlot,)
         
     if not doPlot: return coil_currs,filament_coords,sensors
     
@@ -84,7 +84,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
 def get_mesh(mesh_file,filament_file,params,sensor_set,debug=True):
     # Load mesh, compute inductance matrices   
     if debug: print('Loading mesh from %s'%mesh_file)
-    oft_env = OFT_env(nthreads=params['n_threads'])
+    oft_env = OFT_env(nthreads=params['n_threads'],abort_callback=True)
     tw_mesh = ThinCurr(oft_env)
     tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename='input_data/'+filament_file)
     tw_mesh.setup_io()
@@ -106,7 +106,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,debug=True):
     tw_mesh.compute_Rmat()
     
     # Get eigenvectors of inductance for low rank reconstruction [Not used presently]
-    eig_vals, eig_vecs = tw_mesh.get_eigs(10,False)
+    eig_vals, eig_vecs = None,None#tw_mesh.get_eigs(10,False)
     L_inv = None#np.linalg.pinv(np.dot(np.dot(eig_vecs.T,np.diag(eig_vals)),np.linalg.pinv(eig_vecs.T)))
 
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
@@ -241,7 +241,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
     f_save = __do_save_output(f,m,n,archiveExt,sensor_set,mesh_file,save_Ext, debug, hist_file)
    
     # Test plot for a few single sensors
-    if doPlot:plot_single_sensor(f_save+'.hist',['BP1T_ABK','BP01_ABK'],coil_currs=coil_currs,\
+    if doPlot_Currents:plot_single_sensor(f_save+'.hist',['BP_EF_TOP', 'BP_EF_BOT'],coil_currs=coil_currs,\
                        coil_inds=[1],params=param)
     print('Saved: %s'%f_save)
                     
@@ -308,7 +308,7 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
                  sensor_names=sensor_obj['names']) 
     
     # Plot the probe signals
-    print('halt')
+    print('Saved frequency scan data to %s'%fName)
     return np.array(sensors_bode)
 ################################################################################################
 ################################################################################################
@@ -380,7 +380,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # Plot Sensors
     for ind,s in enumerate(sensors):
         p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
-                     render_points_as_spheres=True,
+                     render_points_as_spheres=True, 
                      label='Mirnov' if ind==0 else None)
     p.add_legend()
     if debug:print('Plotted Sensors')
@@ -411,16 +411,19 @@ if __name__=='__main__':
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
-    eta = '1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
+     #'1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
+    eta = '5.3E-6, 5.2E-6, 2.3E-5' # Assume that limiters are 1cm thick Mo, VV is 3cm thick SS 
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     sensor_set='C_MOD_LIM';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
     wind_in = 'theta'
     
     # C-Mod Frequency Scan
-    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    #mesh_file='C_Mod_ThinCurr_VV-homology.h5'#'vacuum_mesh.h5'
     params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
-        'f':np.logspace(1,6,60),'dt':1e-3,'T':1e-3,'periods':1,'n_threads':12,'I':6.325,'noise_envelope':0.00}
+        'f':np.logspace(1,6,100),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
     cmod_shot = 1151208900 	
@@ -439,14 +442,26 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext=''
+    save_ext='_f-sweep'
     doSave='../output_plots/'
 
     # # Frequency, amplitude modulation
     # # Note: If the amplitude and frequency are not set correctly for LF signals, 
     # # the modulation frequency will dominate the spectrogram
     # # Separately, if the noise envelope is too high, it induces some odd integration noise
-    # time = np.linspace(0,params['T'],int(params['T']/params['dt']))
+    
+    time = np.linspace(0,params['T'],int(params['T']/params['dt']))
+
+    # Frequency sweep
+    periods = 1
+    dead_fraction = 0.0
+    f_mod = lambda t: 100e3 + 2e3*t
+    I_mod = lambda t: params['I']*np.ones_like(t)
+    f_out_1, I_out_1, f_out_plot_1 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,I_chirp_smooth_percent=0.001)
+    # params['f'] = f_out_1
+    # params['I'] = I_out_1
+    print('Generated frequency sweep from %1.1f kHz to %1.1f kHz'%(f_out_1[0]*1e-3,f_out_1[-1]*1e-3))
+
     # periods = 5
     # dead_fraction = 0.4
     # f_mod = lambda t: 7e3 + 3e3*t
@@ -485,7 +500,7 @@ if __name__=='__main__':
 
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
-         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
+         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = False, file_geqdsk = file_geqdsk,
            plotOnly=False, scan_in_freq= scan_in_freq, clim_J=clim_J)
     
     print('Run complete')
