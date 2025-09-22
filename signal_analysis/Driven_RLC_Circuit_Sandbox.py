@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 # RLC circuit parameters
-R = 20      # Ohms
+R = 7      # Ohms
 L = 60e-6      # Henry
 C = 700e-12     # Farads
 
@@ -47,8 +47,9 @@ ax[1].set_ylabel('Phase (degrees)')
 ax[1].set_xlabel('Frequency (MHz)')
 ax[1].grid(True)
 
+fig.savefig('../output_plots/RLC_Circuit_Response.pdf',dpi=300,transparent=True)
+
 plt.tight_layout()
 plt.show()
-fig.savefig('../output_plots/RLC_Circuit_Response.pdf',dpi=300,transparent=True)
 
 print('Done')

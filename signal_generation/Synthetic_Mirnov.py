@@ -27,7 +27,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
                                 eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=True,
-                                scan_in_freq=False,clim_J=None):
+                                scan_in_freq=False,clim_J=None,doSave_Bode=False,):
     
     
     # Get mode amplitudes, indexed to filament positions
@@ -61,7 +61,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     if not plotOnly:
         if scan_in_freq:
             sensors_bode = run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,\
-                                              doSave_Bode=True)
+                                              doSave_Bode=doSave_Bode)
             #make_plots_bode(sensors_bode, sensors,params,doSave,save_ext)
         else:
             coil_currs =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
@@ -408,7 +408,7 @@ if __name__=='__main__':
         'f':1e4,'dt':1e-6,'T':1e-3,'periods':2,'n_threads':12,'I':30,'noise_envelope':0.00}
     
     # C-Mod Side
-    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
      #'1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
@@ -419,17 +419,18 @@ if __name__=='__main__':
     wind_in = 'theta'
     
     # C-Mod Frequency Scan
-    # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     #mesh_file='C_Mod_ThinCurr_VV-homology.h5'#'vacuum_mesh.h5'
     params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
-        'f':np.logspace(1,6,100),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
+        'f':np.linspace(1e1,1e6,50),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
     cmod_shot = 1151208900 	
     wind_in = 'phi'
     scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
-    clim_J = [0,2]
+    clim_J = [0,1]
+    doSave_Bode = True
 
     # SPARC Side
     #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
@@ -443,7 +444,7 @@ if __name__=='__main__':
     #mesh_file='vacuum_mesh.h5'
 
     save_ext='_f-sweep'
-    doSave='../output_plots/'
+    doSave='../output_plots/'*False
 
     # # Frequency, amplitude modulation
     # # Note: If the amplitude and frequency are not set correctly for LF signals, 
@@ -500,7 +501,7 @@ if __name__=='__main__':
 
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
-         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = False, file_geqdsk = file_geqdsk,
-           plotOnly=False, scan_in_freq= scan_in_freq, clim_J=clim_J)
+         save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
+           plotOnly=False, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode)
     
     print('Run complete')

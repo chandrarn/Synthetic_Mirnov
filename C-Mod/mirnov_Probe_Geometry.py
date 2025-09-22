@@ -317,11 +317,9 @@ def Mirnov_Geometry(shotno,debug=True):
     # Correction for theta_pol: Currently, it's the _geometric_ theta, e.g. arctan(z,r)
     # This is redundant information, switching to theta_pol = sensor orientation
     # Node locations as per Magnetics page on Cmod wiki
-    theta_pol_AB = [-50.6,-55.6,-61.5,-67.3,-72.7,-77.9,-102.1,-107.1,-112.9,-118.6,-124.3,\
-                    -129.5,-50.6,-55.6,-61.5,-67.3,-72.7,-77.9,-102.1,-107.1,-112.9,-118.6,\
-                        -124.3,-129.5,-71.1,-71.1,-71.1,-108.9,-108.9,-108.9]
     #
     try:
+        # raise Exception('Force use of hardcoded values')
         conn = mds.Connection('alcdata')
         conn.openTree('cmod',shotno)
         theta_pol_ab = conn.get(r'\MAGNETICS::TOP.PROCESSED.RF_LIM_DATA:THETA_POL_AB').data()
@@ -355,11 +353,14 @@ def Mirnov_Geometry(shotno,debug=True):
     # Corrections to put limiter sensors inside of limiter
     for node_name in R:
         # Correction for _T sensors to be under tile face
-        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.01 
+        continue
+        # The below code is depreciated: flat surface limiters underpredicts the signal
+        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.01*0 
         ###############
          # Correction for limiter side sensors to be inside of limiter
         elif 'T' not in node_name:
-            
+            continue 
+            # The below code is depreciated: The sensors are actually attached to the side of the limiter
             if 'AB' in node_name:
                 # print('Check', int(node_name[2:4]))
                 if int(node_name[2:4]) <=12: 
@@ -405,4 +406,5 @@ def hardcodedVals(shotno):
                 'BP2T_GHK', 'BP3T_GHK', 'BP4T_GHK', 'BP5T_GHK', 'BP6T_GHK',
                 'BP01_K', 'BP02_K', 'BP03_K', 'BP04_K', 'BP05_K', 'BP06_K']
     
+    nodenames = np.array(nodenames)
     return theta_pol_ab, theta_pol_gh, nodenames

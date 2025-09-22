@@ -262,9 +262,9 @@ def train_classification_model(X, y_m, y_n, doPlot=True):
         X, y_m_encoded, y_n_encoded, test_size=0.2, random_state=42, stratify=y_n_encoded)  # Stratify for balance
     
     # Train models with XGBoost Classifier
-    model_m = XGBClassifier(n_estimators=10000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=6,
+    model_m = XGBClassifier(n_estimators=1000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=10,
                             objective='multi:softprob', num_class=len(le_m.classes_))
-    model_n = XGBClassifier(n_estimators=10000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=6,
+    model_n = XGBClassifier(n_estimators=1000, random_state=42, n_jobs=-1, learning_rate=0.1, max_depth=10,
                             objective='multi:softprob', num_class=len(le_n.classes_))
     
     model_m.fit(X_train, y_m_train)
@@ -296,7 +296,7 @@ def train_classification_model(X, y_m, y_n, doPlot=True):
         ConfusionMatrixDisplay.from_predictions(y_n_test, pred_n_class, ax=ax[0])
         ConfusionMatrixDisplay.from_predictions(y_m_test, pred_m_class, ax=ax[1])
         ax[0].set_title(f'$n$ Classification (Acc={acc_n:.3f}, AUC={auc_n:.3f})')
-        ax[1].set_title(f'$m$ Classification (Acc={acc_n:.3f}, AUC={auc_n:.3f})')
+        ax[1].set_title(f'$m$ Classification (Acc={acc_m:.3f}, AUC={auc_m:.3f})')
         
         # For AUC, you could plot ROC curves per class
         # (Omitted for brevity; use sklearn's plot_roc_curve or manual plotting)
@@ -387,7 +387,7 @@ if __name__ == "__main__":
     fName_params = {'N': len(X), 'sensor_set': sensor_set, 'mesh_file': mesh_file}
 
     # model_m, model_n, pred_m, pred_n, \
-    #     pred_m_train, pred_n_train,err_m, err_n,  y_m_train, y_m_test, y_n_train, y_n_test = \
+    #     pred_m_train, pred_n_train,err_m, err_n,  y_m_train, y_m_test, y_n_train, y_n_tepth=6,est = \
     #         train_regression_model(X, y_m, y_n   )
 
     model_m, model_n, pred_m, pred_n,  pred_m_train, pred_n_train,\

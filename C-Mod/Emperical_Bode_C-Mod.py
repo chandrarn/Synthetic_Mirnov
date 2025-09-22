@@ -32,7 +32,8 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
                                         'sensor_set':'C_MOD_ALL',
                                         'calibration_frequency_limits':(10,1e6)},
                  plot_sensors='all',input_channel=16, ACQ_board=3, B0_normalize=False,
-                 freq_domain_calculation=False,save_Ext='_f-sweep'):
+                 freq_domain_calculation=False,save_Ext='_f-sweep',R=6,L=60e-6,C=760e-12,
+                 yLim_mag=[0,10],yLim_phase=[60,460],save_Ext_plot=''):
     # Get driver signal
     calib, time = __load_calib_signal(shotno, tLim, input_channel, ACQ_board)
 
@@ -50,8 +51,8 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
         # return __gen_Synthetic_Transfer_Time_Domain(synthDataFileNameInfo,sensors,save_Ext)
         synthetic_transfer_mag,synthetic_transfer_phase,f_synth = \
             __get_Synthetic_Transfer_Function(synthDataFileNameInfo,sensors,\
-                        calibration_magnitude, B0_normalize) if freq_domain_calculation else \
-            __gen_Synthetic_Transfer_Time_Domain(synthDataFileNameInfo,sensors,save_Ext)
+                        calibration_magnitude,R,L,C, B0_normalize) if freq_domain_calculation else \
+            __gen_Synthetic_Transfer_Time_Domain(synthDataFileNameInfo,sensors,save_Ext,R,L,C)
         
     else: synthetic_transfer_mag,synthetic_transfer_phase,f_synth = None,None,None
 
@@ -59,10 +60,12 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
     # Plot data
     if doPlot: plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSave,\
                                       bad_sensor, synthetic_transfer_mag,synthetic_transfer_phase,f_synth,
-                                      synthDataFileNameInfo, B0_normalize)
+                                      synthDataFileNameInfo, B0_normalize,yLim_mag=yLim_mag,
+                                      yLim_phase=yLim_phase,save_ext=save_Ext_plot)
 
     print('Finished')
-    return transfer_mag, transfer_phase, f, sensors
+    return transfer_mag, transfer_phase, f, sensors, synthetic_transfer_mag, \
+        synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds
 
 
 
@@ -140,7 +143,7 @@ def __manual_Phase_Correction(phase,name,needs_correction,shotno):
 
 #####################################################################
 #####################################################################3
-def __get_Synthetic_Transfer_Function(synthDataFileNameInfo,mirnov_names,calibration_magnitude,\
+def __get_Synthetic_Transfer_Function(synthDataFileNameInfo,mirnov_names,calibration_magnitude,R,L,C,\
                                        B0_normalize=False):
         # Load the Mirnov Bode data
     fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz.npz'%\
@@ -158,7 +161,7 @@ def __get_Synthetic_Transfer_Function(synthDataFileNameInfo,mirnov_names,calibra
     transfer_phase = []
 
     # Get RLC circuit correction
-    mag_RLC, phase_RLC = __prep_RLC_Transfer_Function()
+    mag_RLC, phase_RLC = __prep_RLC_Transfer_Function(R,L,C)
 
     # Normalize into [T/T]
     if B0_normalize: calibration_magnitude *= freqs * 1.28e-6
@@ -186,7 +189,7 @@ def __get_Synthetic_Transfer_Function(synthDataFileNameInfo,mirnov_names,calibra
 
 ################################################################################################
 ################################################################################################
-def __gen_Synthetic_Transfer_Time_Domain(synthDataFileNameInfo,mirnov_names,save_Ext,doPlot=True):
+def __gen_Synthetic_Transfer_Time_Domain(synthDataFileNameInfo,mirnov_names,save_Ext,R,L,C,doPlot=True):
     
     
     # Generate ThinCurr driver coil signal, identically to simulation
@@ -196,7 +199,7 @@ def __gen_Synthetic_Transfer_Time_Domain(synthDataFileNameInfo,mirnov_names,save
     signals, time, sensor_names = __load_in_ThinCurr_data(synthDataFileNameInfo,mirnov_names,save_Ext,archiveExt='')
 
     # Get RLC circuit correction
-    mag_RLC, phase_RLC = __prep_RLC_Transfer_Function()
+    mag_RLC, phase_RLC = __prep_RLC_Transfer_Function(R,L,C)
 
     # Spectral parameters
     fs = 1 / (time[1] - time[0])
@@ -374,14 +377,14 @@ def __gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
         
 
 ################################################################################################
-def __prep_RLC_Transfer_Function():
+def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12):
 
     # RLC Circuit transfer function:
     # Transfer function H(w) for series RLC (output across the capacitor)
     # RLC circuit parameters (eventually, correct for individual sensors)
-    R = 6     # Ohms 
-    L = 60e-6      # Henry
-    C = 780e-12#780e-12     # Farads
+    # R = 28     # Ohms 
+    # L = 60e-6      # Henry
+    # C = 760e-12#780e-12     # Farads
 
     def Z_R(w):
         out = R * np.ones_like(w)
@@ -409,8 +412,8 @@ def __prep_RLC_Transfer_Function():
 ################################################################################################
 def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSave,bad_sensor,\
                            transfer_mag_synth=None,transfer_phase_synth=None,f_synth=None,
-                           synthDataFileNameInfo=None,B0_normalize=False,yLim_mag=[0,25],\
-                            yLim_phase=[60,460]):
+                           synthDataFileNameInfo=None,B0_normalize=False,yLim_mag=[0,10],\
+                            yLim_phase=[60,460],save_ext=''):
     # Plot transfer function
 
 
@@ -458,7 +461,7 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSa
 
     # Save plots
     if doSave:
-        synth=f'_{synthDataFileNameInfo["mesh_file"].replace(".h5","")}_{synthDataFileNameInfo["sensor_set"]}'\
+        synth=f'_{synthDataFileNameInfo["mesh_file"].replace(".h5","")}_{synthDataFileNameInfo["sensor_set"]}_{save_ext}'\
             if synthDataFileNameInfo is not None else ''
         synth += '_B0norm' if B0_normalize else ''
         if len(sensors) == 1:
@@ -620,7 +623,7 @@ if __name__ == '__main__':
                                         'sensor_set':'C_MOD_ALL',
                                         'calibration_frequency_limits':(10,1e6),
                                         'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1]}
-    plot_sensors = ['bp_ef_top']
+    plot_sensors = 'all'
     needs_correction = ['12_abk', '1t_ghk', '3t_ghk', '_ef_bot', '_ef_top']
     input_channel = 16 # Channel for calibration signal
     ACQ_board = 2 # ACQ board for calibration signal
@@ -628,13 +631,26 @@ if __name__ == '__main__':
     B0_normalize = False
     compareSynthetic = True
     fLim = [0,1e6]
+    yLim_mag = [0,6]
+    yLim_phase = [60,460]
     freq_domain_calculation = True # If True, use synthetic frequency domain data, otherwise time domain
+    doSave='../output_plots/'*True
+    save_Ext_plot='_newCoords'
 
-    compareBode(shotno=comparison_shot,doSave='../output_plots/',doPlot=True,
+    R = 6     # Ohms 
+    L = 60e-6      # Henry
+    C = 780e-12#780e-12     # Farads
+
+    out = compareBode(shotno=comparison_shot,doSave=doSave,doPlot=True,
                 synthDataFileNameInfo=synthDataFileNameInfo,plot_sensors=plot_sensors,
                 input_channel=input_channel,tLim=tLim, ACQ_board=ACQ_board,
                 needs_correction=needs_correction, B0_normalize=B0_normalize,
-                compareSynthetic=compareSynthetic,fLim=fLim, freq_domain_calculation=freq_domain_calculation)
+                compareSynthetic=compareSynthetic,fLim=fLim, R=R, L=L, C=C,
+                freq_domain_calculation=freq_domain_calculation,yLim_mag=yLim_mag,
+                yLim_phase=yLim_phase,save_Ext_plot=save_Ext_plot) 
+    
+    transfer_mag, transfer_phase, f, sensors, synthetic_transfer_mag, \
+        synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds = out
     #compareBode(shotno=1051202011,doSave='../output_plots/Cmod_1051202011',doPlot=True)
     
     # transfer_mag = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Mag_1151208900.nc')

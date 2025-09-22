@@ -372,7 +372,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                     #print(name)
                     pt, norm = __cords_xyz_C_Mod(phi[name], \
                              R[name], Z[name], theta_pol[name], 0)
-                    sens = Mirnov(pt, norm, name,dx)#scale=N
+                    sens = Mirnov(pt, norm, name,dx)#scale=gen_Sensors_UpdatedN
                     if 'O' in name: sensor_all.append(sens)
                     else: 
                         sensor_Lim.append(sens)
@@ -419,7 +419,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             # Save (x,y,z) coordinates for BP sensor for CAD comparison
             if select_sensor == 'Synth-C_MOD_BP':
                 __save_C_Mod_BP_xyz(sensor_BP)
-                return sensor_BP
+                return sensor_all
             if select_sensor == 'Synth-C_MOD_BP_T': return sensor_Mirnov
             if select_sensor == 'C_MOD_LIM': print('Returning limiter sensors');return sensor_Lim
             if select_sensor == 'C_MOD_BP': return sensor_BP
@@ -484,4 +484,5 @@ def debug_plots(set_='BP',tor=0,coord_file='input_data/MAGX_Coordinates_CFS.json
     
     plt.grid();plt.show()
 ####################################
-if __name__ == '__main__':gen_Sensors()
+if __name__ == '__main__':
+    out=gen_Sensors_Updated(select_sensor='Synth-C_MOD_BP',cmod_shot=1151208900,debug=True)

@@ -16,7 +16,7 @@ import get_Cmod_Data as gC
 
 ###############################################################################
 
-def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP',diag=None,
+def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
                             doSave='',pad=800,fft_window=400,tLim=[.75,1.1],
                             signal_reduce=2,f_lim=None,sensor_name='BP2T_GHK',
                             debug=True,plot_reduce=(4,1),doColorbar=True,
@@ -512,7 +512,7 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos = [1050615011]
+    shotnos = [1051202011]#[1050615011]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
@@ -521,10 +521,10 @@ def gen_lf_signals():
     # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
     #               'f_lim':[[0,100],[100,600]]}
     
-    dataRanges = {'tLim':[[.3,1.8]], 'signal_reduce':2,\
-                  'block_reduce':[1000,1000],'sigma':(3,5),'plot_reduce':(2,1)}
+    dataRanges = {'tLim':[[.65,1.4]], 'signal_reduce':2,\
+                  'block_reduce':[1000,10],'sigma':(2,3),'plot_reduce':(1,1)}
     f_lim=[0,800]; c_lim=None
-    pad = 14000;fft_window=1000;HP_Freq=2e3
+    pad = 14000;fft_window=100;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
 
@@ -599,6 +599,8 @@ def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 #############################################################################
 # Batch launch
 if __name__ == '__main__':
-    fix_xarray()
-    # gen_lf_signals()
+    # signal_spectrogram_C_Mod()
+    # fix_xarray()
+    gen_lf_signals()
+    print('Finished All')
 
