@@ -409,21 +409,26 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 #sensor_Lim.extend(sensor_Mirnov_T)
                 #sensor_Lim.extend(sensor_Mirnov)
                 
-                # Save in ThinCurr readable format
-                # Mirnov object itself is directly readable: can extract location
+        
+            # # Save (x,y,z) coordinates for BP sensor for CAD comparison
+            # if select_sensor == 'Synth-C_MOD_BP':
+            #     __save_C_Mod_BP_xyz(sensor_BP)
+            #     return sensor_all
+
+            # Save in ThinCurr readable format
+            # Mirnov object itself is directly readable: can extract location
+            if select_sensor == 'Synth-C_MOD_BP_T': 
                 save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
+                return sensor_Mirnov
+            if select_sensor == 'C_MOD_LIM':
                 save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
+                return sensor_Lim
+            if select_sensor == 'C_MOD_BP': 
                 save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
+                return sensor_BP
+            if select_sensor == 'C_MOD_ALL': 
                 save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
-            
-            # Save (x,y,z) coordinates for BP sensor for CAD comparison
-            if select_sensor == 'Synth-C_MOD_BP':
-                __save_C_Mod_BP_xyz(sensor_BP)
                 return sensor_all
-            if select_sensor == 'Synth-C_MOD_BP_T': return sensor_Mirnov
-            if select_sensor == 'C_MOD_LIM': print('Returning limiter sensors');return sensor_Lim
-            if select_sensor == 'C_MOD_BP': return sensor_BP
-            if select_sensor == 'C_MOD_ALL': return sensor_all
         
 ################################################################################
 def __save_C_Mod_BP_xyz(sensor_BP):

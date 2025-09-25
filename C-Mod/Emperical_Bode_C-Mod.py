@@ -30,7 +30,8 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
                  compareSynthetic=True,calibration_magnitude=6.325,
                  synthDataFileNameInfo={'mesh_file':'C_Mod_ThinCurr_Limiters-homology.h5',
                                         'sensor_set':'C_MOD_ALL',
-                                        'calibration_frequency_limits':(10,1e6)},
+                                        'calibration_frequency_limits':(10,1e6),
+                                        'save_ext_input':''},
                  plot_sensors='all',input_channel=16, ACQ_board=3, B0_normalize=False,
                  freq_domain_calculation=False,save_Ext='_f-sweep',R=6,L=60e-6,C=760e-12,
                  yLim_mag=[0,10],yLim_phase=[60,460],save_Ext_plot=''):
@@ -146,10 +147,12 @@ def __manual_Phase_Correction(phase,name,needs_correction,shotno):
 def __get_Synthetic_Transfer_Function(synthDataFileNameInfo,mirnov_names,calibration_magnitude,R,L,C,\
                                        B0_normalize=False):
         # Load the Mirnov Bode data
-    fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz.npz'%\
+    fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s.npz'%\
         (synthDataFileNameInfo['mesh_file'],synthDataFileNameInfo['sensor_set'],\
-          *synthDataFileNameInfo['calibration_frequency_limits'])
+          *synthDataFileNameInfo['calibration_frequency_limits'],\
+            synthDataFileNameInfo['save_ext_input'])
     mirnov_Bode = np.load('../data_output/'+fName)
+    print('Loaded Synthetic Bode data from ../data_output/%s'%fName)
     probe_signals = mirnov_Bode['probe_signals'] # Comes in as scaled flux: V = -N*A * B
     freqs = mirnov_Bode['freqs']
     probe_signals *= freqs[:,np.newaxis] * 2*np.pi * 1j # convert T/s (divide out A, switch current to voltage source)
@@ -377,7 +380,7 @@ def __gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
         
 
 ################################################################################################
-def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12):
+def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0=0.7):
 
     # RLC Circuit transfer function:
     # Transfer function H(w) for series RLC (output across the capacitor)
@@ -388,7 +391,9 @@ def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12):
 
     def Z_R(w):
         out = R * np.ones_like(w)
+        # Final factor is sqrt[resistivity/permeability]
         out[w/(2*np.pi)>=220e3] *= 1+(np.sqrt( w[w/(2*np.pi)>=220e3]/(2*np.pi))-np.sqrt(220e3))*0.0043 # Skin depth correction
+        #out += R # 
         return out
     Z_L =  lambda w: (1j * w * L)
     Z_C =  lambda w:1 / (1j * w * C)
@@ -399,6 +404,22 @@ def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12):
     # Magnitude and phase response
     mag_RLC =  lambda w: np.abs(H(w))
     phase_RLC =  lambda w: np.angle(H(w), deg=True)
+
+    if plot_R: 
+        plt.close('R_Function')
+        fig,ax = plt.subplots(1,1,num='R_Function', figsize=(6,4), tight_layout=True)
+        f=np.linspace(10,1e6,100)
+        ax.plot(f*1e-6,Z_R(2*np.pi*f),label='$|R|$, left',color='C0')
+        ax1= ax.twinx()
+        ax1.plot(f*1e-6,mag_RLC(2*np.pi*f),label='$|H|$, right',color='C1')
+        ax.grid()
+        ax.set_xlabel('Frequency [MHz]')
+        ax.set_ylabel('Resistance [Ohms]')
+        ax1.set_ylabel('Transfer RLC [$V_{out}/V_{in}$]')
+        fig.savefig('../output_plots/R_function.pdf',dpi=300,transparent=True)
+        ax.legend(loc='upper left',fontsize=8)
+        ax1.legend(loc='upper right',fontsize=8)
+        plt.show()
     return mag_RLC, phase_RLC
 
 
@@ -419,15 +440,15 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSa
 
 
     if len(sensors) == 1:
-        plt.close('Transfer_Function_%d_%s'%(shotno,sensors[0]))
-        fig_mag,ax_mag = plt.subplots(1,1, num='Transfer_Function_%d_%s'%(shotno,sensors[0]), tight_layout=True, sharex=True,sharey=True, figsize=(6,4))
+        plt.close('Transfer_Function_%d_%s%s'%(shotno,sensors[0],save_ext))
+        fig_mag,ax_mag = plt.subplots(1,1, num='Transfer_Function_%d_%s%s'%(shotno,sensors[0],save_ext), tight_layout=True, sharex=True,sharey=True, figsize=(6,4))
         ax_phase=ax_mag.twinx()
         fig_phase = fig_mag
     else:
-        plt.close('Transfer_Function_Magnitude_%d' % shotno)
-        plt.close('Transfer_Function_Phase_%d' % shotno)
-        fig_mag, ax_mag = plt.subplots(7,7, num='Transfer_Function_Magnitude_%d' % shotno, tight_layout=True, sharex=True,sharey=True, figsize=(9,8))
-        fig_phase, ax_phase = plt.subplots(7,7, num='Transfer_Function_Phase_%d' % shotno, tight_layout=True, sharex=True,sharey=True, figsize=(9,8))
+        plt.close('Transfer_Function_Magnitude_%d%s' % (shotno,save_ext))
+        plt.close('Transfer_Function_Phase_%d%s' % (shotno,save_ext))
+        fig_mag, ax_mag = plt.subplots(7,7, num='Transfer_Function_Magnitude_%d%s' % (shotno,save_ext), tight_layout=True, sharex=True,sharey=True, figsize=(9,8))
+        fig_phase, ax_phase = plt.subplots(7,7, num='Transfer_Function_Phase_%d%s' % (shotno,save_ext), tight_layout=True, sharex=True,sharey=True, figsize=(9,8))
         ax_mag = ax_mag.flatten()
         ax_phase = ax_phase.flatten()
         fig_mag.delaxes(ax_mag[-2]);fig_mag.delaxes(ax_mag[-1])
@@ -618,12 +639,13 @@ if __name__ == '__main__':
     sensor_set = 'C_MOD_ALL' # Example sensor names
     calibration_magnitude = 6.325 # Replace with actual calibration magnitude
     calibration_frequency_limits = (10, 1e6)  # Frequency range in Hz
-    comparison_shot = 1150319903#1151208901 # Example shot number for comparison
+    comparison_shot = 1150319902 # Example shot number for comparison
     synthDataFileNameInfo={'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',
                                         'sensor_set':'C_MOD_ALL',
                                         'calibration_frequency_limits':(10,1e6),
-                                        'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1]}
-    plot_sensors = 'all'
+                                        'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1],
+                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected'*True}
+    plot_sensors = 'all'#['bp01_abk']
     needs_correction = ['12_abk', '1t_ghk', '3t_ghk', '_ef_bot', '_ef_top']
     input_channel = 16 # Channel for calibration signal
     ACQ_board = 2 # ACQ board for calibration signal
@@ -631,13 +653,13 @@ if __name__ == '__main__':
     B0_normalize = False
     compareSynthetic = True
     fLim = [0,1e6]
-    yLim_mag = [0,6]
+    yLim_mag = [0,21]
     yLim_phase = [60,460]
     freq_domain_calculation = True # If True, use synthetic frequency domain data, otherwise time domain
     doSave='../output_plots/'*True
-    save_Ext_plot='_newCoords'
+    save_Ext_plot='_newCoords_Tiles_Mirnov_Shields'*True
 
-    R = 6     # Ohms 
+    R = 20     # Ohms 
     L = 60e-6      # Henry
     C = 780e-12#780e-12     # Farads
 
@@ -647,7 +669,7 @@ if __name__ == '__main__':
                 needs_correction=needs_correction, B0_normalize=B0_normalize,
                 compareSynthetic=compareSynthetic,fLim=fLim, R=R, L=L, C=C,
                 freq_domain_calculation=freq_domain_calculation,yLim_mag=yLim_mag,
-                yLim_phase=yLim_phase,save_Ext_plot=save_Ext_plot) 
+                yLim_phase=yLim_phase,save_Ext_plot=save_Ext_plot,) 
     
     transfer_mag, transfer_phase, f, sensors, synthetic_transfer_mag, \
         synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds = out
@@ -657,7 +679,6 @@ if __name__ == '__main__':
     # transfer_phase = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Phase_1151208900.nc')
     # transfer_complex = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Complex_1151208900.nc')
     # plot_transfer_function(transfer_mag, transfer_phase,transfer_complex, shotno=1151208900)
-    
     print('Done')
 
 

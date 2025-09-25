@@ -331,7 +331,7 @@ def Mirnov_Geometry(shotno,debug=True):
         theta_pol_ab, theta_pol_gh, nodenames = hardcodedVals(shotno)
         if debug:
             print(f'Using hardcoded values for shot {shotno}')
-
+    print('checkpoint')
     for sensor_name in theta_pol:
         
         try: sensor_index = int(np.argwhere(nodenames==sensor_name)[0,0])
@@ -342,32 +342,41 @@ def Mirnov_Geometry(shotno,debug=True):
         
         theta_pol[sensor_name] = theta_pol_ab[sensor_index] if 'AB' in \
             sensor_name else theta_pol_gh[sensor_index-30]
-    
+        
+        theta_pol[sensor_name] = float(theta_pol[sensor_name]) # necessary conversion for .json serialization
     ###############
     # Correction for phi: rotate to match CAD: Overall shift of ~60deg, rel shift of 7
     for node_name in phi:
-            if 'AB' in node_name: phase_offset= (149.489-88)
-            else: phase_offset= (149.489-88-7.2) # This shift is not verified for the TOP/BOT sensors
+            if 'AB' in node_name and 'O' not in node_name: phase_offset= (149.489-88)
+            elif 'GH' in node_name and 'O' not in node_name: phase_offset= (149.489-88-7.2) # This shift is not verified for the TOP/BOT sensors
+            else: phase_offset= (149.489-88) # Use AB shift for TOP/BOT sensors
             phi[node_name] += phase_offset
     ###############
     # Corrections to put limiter sensors inside of limiter
     for node_name in R:
+         # Skipping these corrections for now
         # Correction for _T sensors to be under tile face
-        continue
+       
         # The below code is depreciated: flat surface limiters underpredicts the signal
-        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.01*0 
+        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.0075
+        if 'T' in node_name and 'O' in node_name: R[node_name] += 0.00 # move tile Mirnovs slightly backward
         ###############
          # Correction for limiter side sensors to be inside of limiter
-        elif 'T' not in node_name:
-            continue 
+        
+        elif 'T' not in node_name and ('06_ABK' in node_name or '06_GHK' in node_name):
+            continue
             # The below code is depreciated: The sensors are actually attached to the side of the limiter
             if 'AB' in node_name:
                 # print('Check', int(node_name[2:4]))
                 if int(node_name[2:4]) <=12: 
-                    phi[node_name] +=  1
-                else: phi[node_name] -= 1
+                    phi[node_name] +=  -10
+                    print('Checkpoint')
+                else: phi[node_name] -= -4
             else: 
-                if int(node_name[2:4]) <=15: phi[node_name] +=  1
+                if int(node_name[2:4]) <=15:
+                    phi[node_name] =   phi['BP06_ABK'] 
+                    R[node_name] =   R['BP06_ABK'] 
+                    Z[node_name] =   Z['BP06_ABK'] 
                 else: phi[node_name] -= 1
     ####################################
     with open('../C-Mod/C_Mod_Mirnov_Geometry_R.json','w', encoding='utf-8') as f: 
@@ -376,6 +385,8 @@ def Mirnov_Geometry(shotno,debug=True):
         json.dump(Z,f, ensure_ascii=False, indent=4)
     with open('../C-Mod/C_Mod_Mirnov_Geometry_Phi.json','w', encoding='utf-8') as f: 
         json.dump(phi,f, ensure_ascii=False, indent=4)
+    with open('../C-Mod/C_Mod_Mirnov_Geometry_Theta_Pol.json','w', encoding='utf-8') as f: 
+        json.dump(theta_pol,f, ensure_ascii=False, indent=4)
     ####################################
     return phi, theta_pol, R, Z
 
@@ -408,3 +419,8 @@ def hardcodedVals(shotno):
     
     nodenames = np.array(nodenames)
     return theta_pol_ab, theta_pol_gh, nodenames
+
+
+################################################33
+if __name__ == '__main__':
+    Mirnov_Geometry( 1151208900 )

@@ -61,7 +61,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     if not plotOnly:
         if scan_in_freq:
             sensors_bode = run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,\
-                                              doSave_Bode=doSave_Bode)
+                                              doSave_Bode=doSave_Bode,save_ext=save_ext)
             #make_plots_bode(sensors_bode, sensors,params,doSave,save_ext)
         else:
             coil_currs =  run_td(sensor_obj,tw_mesh,params, coil_currs,sensor_set,
@@ -270,7 +270,7 @@ def __do_save_output(f,m,n,archiveExt,sensor_set,mesh_file,save_Ext, debug, hist
     return f_save
 ################################################################################################
 ################################################################################################
-def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bode):
+def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bode,save_ext):
 
     coil_current_magnitude = params['I'] # Current magnitude for the coil
     freqs = params['f'] # Frequency range for the scan
@@ -288,7 +288,9 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
     for freq in freqs if np.ndim(freqs) > 0 else [0, freqs]:
         result = tw_mesh.compute_freq_response(fdriver=driver,freq=freq)
 
+        # contribution from the mesh current to the sensor, with the mesh current at a given frequency
         probe_signals = np.dot(result,Msensor)
+        # Contribuio from the coil current directly to the sensor
         probe_signals[0,:] += np.dot(np.r_[coil_current_magnitude],Msc)
 
         # for i in range(probe_signals.shape[1]):
@@ -303,12 +305,12 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
 
     # Save the probe signals to a file
     if doSave_Bode: 
-        fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1])
+        fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)
         np.savez('../data_output/'+fName, probe_signals=sensors_bode, freqs=freqs,\
                  sensor_names=sensor_obj['names']) 
     
-    # Plot the probe signals
-    print('Saved frequency scan data to %s'%fName)
+        # Plot the probe signals
+        print('Saved frequency scan data to %s'%fName)
     return np.array(sensors_bode)
 ################################################################################################
 ################################################################################################
@@ -404,15 +406,28 @@ if __name__=='__main__':
     # params={'m':3,'n':1,'r':.3,'R':2,'n_pts':100,'m_pts':70,\
     #     'f':1e4,'dt':1e-5,'T':3e-4,'periods':3,'n_threads':64,'I':30}
     #params={'m':18,'n':16,'r':.25,'R':1,'n_pts':70,'m_pts':60,'f':500e3,'dt':1e-7,'periods':3,'n_threads':64,'I':10}
-    params={'m':[4],'n':[2],'r':.3,'R':2,'n_pts':[100],'m_pts':[60],\
-        'f':1e4,'dt':1e-6,'T':1e-3,'periods':2,'n_threads':12,'I':30,'noise_envelope':0.00}
+    # params={'m':[4],'n':[2],'r':.3,'R':2,'n_pts':[100],'m_pts':[60],\
+    #     'f':1e4,'dt':1e-6,'T':1e-3,'periods':2,'n_threads':12,'I':30,'noise_envelope':0.00}
     
     # C-Mod Side
     # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
-     #'1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
-    eta = '5.3E-6, 5.2E-6, 2.3E-5' # Assume that limiters are 1cm thick Mo, VV is 3cm thick SS 
+
+     #'1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' ) #3.5
+    # Bulk resistivities
+    Mo = 53.4e-9 # Ohm * m at 20c
+    SS = 690e-9 # Ohm * m at 20c
+    w_tile = 1.5e-2 # Tile thickness
+    w_vv = 3e-2 # Vacuum vessel thickness
+    w_ss = 1e-2 # Support structure thickness
+    w_shield = 0.43e-3
+    # Surface resistivity: eta/thickness
+    # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
+    # For more accuracy, could break up filaments into different eta values based on position
+    #
+    eta = f'{SS/w_ss}, {Mo/w_tile}, {SS/w_ss}, {Mo/w_tile}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile}, {SS/w_shield}' 
+
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     sensor_set='C_MOD_LIM';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
@@ -421,9 +436,10 @@ if __name__=='__main__':
     # C-Mod Frequency Scan
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    #mesh_file='C_Mod_ThinCurr_VV-homology.h5'#'vacuum_mesh.h5'
+    # mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
+    # mesh_file = 'vacuum_mesh.h5'
     params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
-        'f':np.linspace(1e1,1e6,50),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
+        'f':np.linspace(1e1,1e6,20),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
     cmod_shot = 1151208900 	
@@ -443,7 +459,7 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext='_f-sweep'
+    save_ext='_f-sweep_All-Mirnovs-Corrected'
     doSave='../output_plots/'*False
 
     # # Frequency, amplitude modulation
