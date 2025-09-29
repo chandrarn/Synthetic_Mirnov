@@ -24,17 +24,17 @@ plt.rcParams['lines.markeredgewidth']=2
 matplotlib.rc('font',**{'family':'serif','serif':['Palatino']})
 matplotlib.rc('font',**{'size':11})
 matplotlib.rc('text', usetex=True)
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 plt.ion()
 
-def load_xarray_datasets(data_directory):
+def load_xarray_datasets(data_directory, n_files=1):
     """
     Load all xarray datasets from NetCDF files in the specified directory.
     """
     file_pattern = os.path.join(data_directory, "*.nc")
     files = glob.glob(file_pattern)
     datasets = []
-    for file in files:
+    for file in files[:n_files]:
         ds = xr.open_dataset(file)
         datasets.append(ds)
     return datasets
