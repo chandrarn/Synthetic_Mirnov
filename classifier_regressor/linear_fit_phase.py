@@ -21,16 +21,17 @@ from regression_phase import extract_spectrogram_matrices, load_xarray_datasets,
 def linear_phase_fit():
     
     # Load in one dataset
-    data_directory = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/" 
+    data_directory = "../data_output/synthetic_spectrograms/" 
     ds = load_xarray_datasets(data_directory)
     
     # Load sensor locations (necessary for n# determination)
     R_sensors, Z_sensors, phi_sensors = get_sensors()
-    Z_grouping_names = gen_sensor_groupings_by_Z(Z_sensors)
+    Z_level_sensor_names, Z_level_sensor_inds = gen_sensor_groupings_by_Z(Z_sensors)
     
+    Z_phi_map(Z_sensors,phi_sensors)
     return Z_grouping_names, Z_sensors
     # Get component matrix 
-    X, y_m, y_n = prepare_training_data(ds,10)
+    X, y_m, y_n = prepare_training_data(ds,Z_level_sensor_names,10)
     
 ################################################################################
 def get_sensors():
@@ -43,18 +44,20 @@ def get_sensors():
     
     return R, Z, phi
 ###############################################################################
-def gen_sensor_groupings_by_Z(Z,Z_levels=[10,13,20],tol=.75):
+def gen_sensor_groupings_by_Z(Z,Z_levels=[10,13,20],tol=1):
     # Generate the correct level groupings by sensor name, for later extraction
     Z_level_sensor_names = []
+    Z_level_sensor_inds = []
     
     Z_list = np.array([Z[z_] for z_ in Z]) * 1e2
     names_list = list(Z.keys())
     for z in Z_levels:
         for s in [-1,1]:
             z_inds = np.argwhere((z*s-tol < Z_list) & (Z_list < z*s+tol) )
-            Z_level_sensor_names.append(z_inds)
+            Z_level_sensor_names.append(names_list[z_inds])
+            Z_level_sensor_inds.append(z_inds)
     
-    return Z_level_sensor_names
+    return Z_level_sensor_names, Z_level_sensor_inds
 ###############################################################################
     
 def prepare_training_data(datasets, num_timepoints=22):
@@ -150,7 +153,17 @@ def __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,sa
 
 
 def Z_phi_map(Z,phi):
+    plt.close('Z_Map_Phi')
+    fig,ax=plt.subplots(1,1,num='Z_Map_Phi',tight_layout=True)
+    Z_ = np.array([Z[z_] for z_ in Z])
+    phi_ = [phi[p_] for p_ in phi]
     
+    ax.plot(phi_,Z_*1e3,'*')
+    ax.set_xlabel(r'$\Phi$ [deg]')
+    ax.set_ylabel(r'Z [cm]')
+    ax.grid()
+    
+    plt.show()
     
     
     
