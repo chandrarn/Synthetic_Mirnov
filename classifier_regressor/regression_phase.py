@@ -316,8 +316,8 @@ def train_classification_model(X, y_m, y_n, doPlot=True):
 ############################################################################
 def plot_regression_results(y_m_train, y_m_test, y_n_train, y_n_test,X,pred_m,pred_m_train,\
                              pred_n,pred_n_train,error_m,error_n, fName_params,saveExt=''):
-    f_name = f'Regression_results_XGB_N_{fName_params['N']}_TP_{X.shape[0]}_FT_{X.shape[1]}_'+\
-        f'Sensor_Set_{fName_params['sensor_set']}_Mesh_file_{fName_params['mesh_file']}{saveExt}'
+    f_name = f'Regression_results_XGB_N_{fName_params[N]}_TP_{X.shape[0]}_FT_{X.shape[1]}_'+\
+        f'Sensor_Set_{fName_params[sensor_set]}_Mesh_file_{fName_params[mesh_file]}{saveExt}'
     
     plt.close('regression_results')
     fig, ax = plt.subplots(2,1,num='regression_results',figsize=(5, 4),tight_layout=True)
