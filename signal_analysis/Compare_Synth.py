@@ -5,24 +5,34 @@
 # Actual measured signals
 # Should be able to handle time and frequency domain signals
 
-from header_signal_analysis import np, plt, sys
+from header_signal_analysis import np, plt, sys, histfile
 sys.path.append('../C-Mod/')
 from get_Cmod_Data import BP_K
 
 
 
 ##########################################################################
-def compare_time_domain(synthDataFileNameInfo, C_mod_shot, C_mod_time, doSave, time_window=1e-3):
+def compare_time_domain(synthDataFileNameInfo, C_mod_shot, C_mod_time, comparison_sensor_names,\
+                        doSave, time_window=1e-3,saveExt=''):
     # Load in synthetic signals from a time-dependent run
     # Load real signals, window in time
     # Plot
 
     # Load synthetic signals
-    probe_signals, sensor_names, time = \
-        __load_synth_signals_(synthDataFileNameInfo)
-
+    data_synth, time_synth, sensor_names_synth = \
+        __load_synth_signals_time(synthDataFileNameInfo,R=6,L=60e-6,C=760e-12)
+    
+    # Load real signals 
+    fft_magnitude, sensor_names, fft_freq, signals_window, time = \
+        __load_real_data(C_mod_shot,C_mod_time,time_window=1e-3,target_freq=target_freq,doPlot=True)
+    
+    # Plot Comparison
+    plot_comparison_time(data_synth,time_synth, sensor_names_synth, \
+                         signals_window, time, sensor_names, comparison_sensor_names, doSave, saveExt)
+    
 ########################################
-def compare_frequency_domanin(synthDataFileNameInfo, C_mod_shot, C_mod_time, doSave,target_freq ):
+def compare_frequency_domanin(synthDataFileNameInfo, C_mod_shot, C_mod_time, doSave,target_freq,\
+                              saveExt ):
     # Load in synthetic signals from frequency scan
     # Load in real signals, compute filtered magnitude
     # Plot
@@ -37,8 +47,30 @@ def compare_frequency_domanin(synthDataFileNameInfo, C_mod_shot, C_mod_time, doS
     
     # Plot cooresponding sensors
     plot_comparison(probe_magnitude, sensor_names, freqs,
-                    fft_magnitude, sensor_names_real, fft_freq)
+                    fft_magnitude, sensor_names_real, fft_freq,doSave=doSave,save_ext=saveExt)
 
+##################################################################################
+def plot_comparison_time(data_synth,time_synth, sensor_names_synth, \
+                         signals_window, time, sensor_names, comparison_sensor_names,\
+                              doSave,save_ext):
+    plt.close('Time Domain Comparison')
+    fig, ax = plt.subplots(len(comparison_sensor_names),1,tight_layout=True,sharex=True,
+                           num='Time Domain Comparison',squeeze=False)
+    time_synth += time[0]
+    for ind, comp_sensor in enumerate(comparison_sensor_names):
+        arg_ind_real = np.argwhere(sensor_names==comp_sensor)
+        ax[ind,0].plot(time,signals_window[arg_ind_real],label=comp_sensor)
+
+        arg_ind_synth = np.argwhere(sensor_names_synth==comp_sensor)
+        ax[ind,0].plot(time_synth,data_synth[arg_ind_real],label='Synth.' if ind==0 else '',alpha=.6)
+
+    ax[-1,0].set_xlabel('Time [s]')
+    for ax_ in ax:
+        ax_.set_ylabel('Signal [T/s]')
+        ax_.grid()
+
+    if doSave:
+        fig.savefig('../output_plots/Time_Domain_Comparison_%s%s.pdf'%(doSave,save_ext), transparent=True)
 ################################################################################
 def plot_comparison(probe_magnitude, sensor_names, freqs,
                     fft_magnitude, sensor_names_real, fft_freq,
@@ -59,13 +91,13 @@ def plot_comparison(probe_magnitude, sensor_names, freqs,
     ax.legend(fontsize=8)
 
     if doSave:
-        fig.savefig('Frequency_Domain_Comparison_%s%s.pdf'%(doSave,save_ext), transparent=True)
+        fig.savefig('../output_plots/Frequency_Domain_Comparison_%s%s.pdf'%(doSave,save_ext), transparent=True)
 
 #################################################################################
 def __load_real_data(C_mod_shot,C_mod_time,time_window=1e-3,target_freq=650e3,doPlot=False):
 
     # Get raw data object
-    bp_k = BP_K(C_mod_shot)
+    bp_k = BP_K(C_mod_shot)doSave
     time = bp_k.time
     signals = bp_k.data
     sensor_names = bp_k.names
@@ -131,6 +163,25 @@ def __load_synth_signals(synthDataFileNameInfo,R,L,C):
 
     return probe_magnitude, sensor_names, freqs
 
+#################################################################################
+def __load_synth_signals_time(synthDataFileNameInfo,R,L,C):
+    f_save = '../data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (synthDataFileNameInfo['sensor_set'],synthDataFileNameInfo['m'][0],\
+                     synthDataFileNameInfo['n'],synthDataFileNameInfo['f']*1e-3,\
+                        synthDataFileNameInfo['save_Ext'])
+     
+    hist_data = histfile(f_save)
+
+    time = hist_data['time']
+    sensor_names = [k for k in hist_data.keys()]
+    data = np.array([hist_data[sig] for sig in sensor_names])
+
+    mag_RLC, _ = __prep_RLC_Transfer_Function(R,L,C)
+
+    data *= mag_RLC(np.array([synthDataFileNameInfo['f']*2*np.pi]))
+
+    return data, time, sensor_names
+
 ####################################################################################3
 def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0=0.7):
 
@@ -166,12 +217,25 @@ if __name__ == '__main__':
         'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',
         'sensor_set':'C_MOD_ALL',
         'calibration_frequency_limits':(650e3,650e3),
-        'save_ext_input':'_FAR3D_NonLinear_Surface_Current'
+        'save_ext_input':'_FAR3D_NonLinear_Surface_Current',
+        'm': [14,13,12,11,10,9,8],
+        'n': 11,
+        'f': 650e3,
     }
     cmod_shot=1051202011
     time_point=1
 
     target_freq=560e3
 
-    compare_frequency_domanin(synthDataFileNameInfo, cmod_shot, time_point, doSave='C-Mod_1051202011_t1ms',\
+    comparison_sensor_names =['BP01_ABK', 'BP1T_ABK', 'BP_TOP_AB']
+
+    doSave=True
+
+    compare_frequency_domanin(synthDataFileNameInfo, cmod_shot, time_point, doSave=doSave,\
                               target_freq=target_freq)
+    
+
+    compare_time_domain(synthDataFileNameInfo, cmod_shot, time_point, comparison_sensor_names,\
+                        doSave, time_window=1e-3,saveExt='')
+
+    print('Done')
