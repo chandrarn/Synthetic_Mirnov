@@ -41,10 +41,12 @@ def convert_to_Bnorm(C1file_name,n,npts):
     
     B2_norm=calculate_normal_vector(psi,R,Z,B2,rmagx,zmagx,PsiLCFS)[0]
     
+
+
     #return psi, B1,B2, B1_norm, B2_norm, R_contour, Z_contour
     # Save in ThinCurr format
     save_Bnorm('C1' if (gethostname()[:4]=='orcd' or gethostname()[:4]=='node') \
-               else '',  R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
+               else 'input_data/',  R_contour,Z_contour,B1_norm,B2_norm,n,len(R_contour))
     
 def get_fields_from_C1(filename,n,saveNetCDF=True):
     # Get psi grid, B grid, R,Z coords
@@ -252,13 +254,13 @@ def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200):
 
 ##########################################
 def save_Bnorm(C1file_name,contour_R,contour_Z,B1_norm,B2_norm,n,npts):
-    with open((C1file_name+'_tCurr_mode.dat') if C1file_name else 'tCurr_mode.dat','w+') as f:
+    with open((C1file_name+'_tCurr_mode.dat') if C1file_name else 'input_data/tCurr_mode.dat','w+') as f:
         f.write('{0} {1}\n'.format(npts,n))
         for ind,r in enumerate(contour_R):
             f.write('{0} {1} {2} {3}\n'.format(r,contour_Z[ind],
                          B1_norm[ind],B2_norm[ind]) )  
     print('Saving B-Norm: %s'%((C1file_name+'_tCurr_mode.dat') if \
-                               C1file_name else 'tCurr_mode.dat'))
+                               C1file_name else 'input_data/tCurr_mode.dat'))
 ##########################################
 def __plot_time_series(t_points=5):
     fig,ax=plt.subplots(2,2,tight_layout=True)

@@ -63,8 +63,7 @@ def gen_mode_params(training_shots=1,params={'T': 10, 'dt': 0.01},doPlot=False,s
 ######################################################################################################
 def gen_mode_params_for_training(training_shots=1,\
         params={'T': 1e-3, 'dt': 1e-7,'m_pts':60,'n_pts':60,'periods':1,'R':None,'r':None,\
-                   'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext='',
-                                 max_modes=5):
+                   'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext=''):
     """
     Generate mode parameters for training.
     :param training_shots: Number of training shots
@@ -85,14 +84,16 @@ def gen_mode_params_for_training(training_shots=1,\
         params = {'T':params['T'], 'dt':params['dt'],'m_pts':params['m_pts'],\
                   'n_pts':params['n_pts'],'periods':params['periods'],'R':params['R'],\
                     'r':params['r'],'noise_envelope':params['noise_envelope'],\
-                        'n_threads':params['n_threads']} 
+                        'n_threads':params['n_threads'],\
+                            'max_m':params['max_m'],'max_n':params['max_n'],\
+                                'max_modes':params['max_modes']} 
 
         # Randomly select a gEQDSK file, to determind minimum, maximum m/n
         params['file_geqdsk'] = 'gEQDSK_files/'+gEQDSK_files[shot]
 
          # Generate up to 5 modes per shot
         params['m'],params['n'] = __get_plausible_mn_values(\
-            gEQDSK_file=params['file_geqdsk'],max_modes=max_modes)
+            gEQDSK_file=params['file_geqdsk'],max_modes=params['max_modes'],max_n=params['max_n'],max_m=params['max_m'])
      
         params['f'] = []
         params['I'] = []

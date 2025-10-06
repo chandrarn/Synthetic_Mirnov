@@ -145,6 +145,18 @@ def debug_mode_frequency_plot(time,f_out_1,I_out_1,f_out_plot_1,f_out_2,\
     f_out_3, I_out_3, f_out_plot_3 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,\
                                                         random_seed=42)
     '''
+    # Check for empty frequency evolutions
+    if len(f_out_plot_1)==0: 
+        f_out_plot_1 = np.zeros_like(time)
+        I_out_1 = np.zeros_like(time)
+    if len(f_out_plot_2)==0: 
+        f_out_plot_2 = np.zeros_like(time)
+        I_out_2 = np.zeros_like(time)
+        f_out_2 = np.zeros_like(time)
+    if len(f_out_plot_3)==0: 
+        f_out_plot_3 = np.zeros_like(time)
+        I_out_3 = np.zeros_like(time)
+        f_out_3 = np.zeros_like(time)
 
     f_out_plot_1[f_out_plot_1==0] = np.nan
     f_out_plot_2[f_out_plot_2==0] = np.nan

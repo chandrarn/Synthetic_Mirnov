@@ -356,16 +356,17 @@ def Mirnov_Geometry(shotno,debug=True):
     for node_name in R:
          # Skipping these corrections for now
         # Correction for _T sensors to be under tile face
-       
+        
         # The below code is depreciated: flat surface limiters underpredicts the signal
-        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.0075
+        if 'T' in node_name and 'O' not in node_name: R[node_name] += 0.005
         if 'T' in node_name and 'O' in node_name: R[node_name] += 0.00 # move tile Mirnovs slightly backward
         ###############
          # Correction for limiter side sensors to be inside of limiter
         
         elif 'T' not in node_name and ('06_ABK' in node_name or '06_GHK' in node_name):
-            continue
+            
             # The below code is depreciated: The sensors are actually attached to the side of the limiter
+            continue
             if 'AB' in node_name:
                 # print('Check', int(node_name[2:4]))
                 if int(node_name[2:4]) <=12: 

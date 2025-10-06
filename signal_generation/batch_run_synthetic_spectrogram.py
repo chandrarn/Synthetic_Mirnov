@@ -21,7 +21,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
                                         'save_ext':'','doNoise':False},
                                     Mode_params={'dt':1e-6,'T':10e-3,'periods':3},
                                     spectrogram_params={'pad':230,'fft_window':230,'block_reduce':(230,0)},
-                                    save_Ext='',
+                                    save_Ext='',max_modes=5,max_m=15,max_n=5,
                                     doSave=False,doPlot=False,training_shots=1):
     """
     Batch run synthetic spectrogram generation for given parameters.
@@ -45,7 +45,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
 
     # Generate frequencies and mode numbers
     per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
-                                doPlot=doPlot,save_ext=save_Ext+'_',max_modes=5)
+                                doPlot=doPlot,save_ext=save_Ext+'_')
 
     # For each mode, run the simulation
     for mode_param in per_shot_mode_params:
@@ -237,26 +237,40 @@ if __name__ == '__main__':
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
+    # ThinCurr Eta calculation
+    # Bulk resistivities
+    Mo = 53.4e-9 # Ohm * m at 20c
+    SS = 690e-9 # Ohm * m at 20c
+    w_tile_lim = 1.5e-2  # Tile limiter thickness
+    w_tile_arm = 1.5e-2 *1 # Tile extention thickness
+    w_vv = 3e-2 # Vacuum vessel thickness
+    w_ss = 1e-2  # Support structure thickness
+    w_shield = 0.43e-3 
+    # Surface resistivity: eta/thickness
+    # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
+    # For more accuracy, could break up filaments into different eta values based on position
+    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+
     ThinCurr_params = {
         'mesh_file': 'C_Mod_ThinCurr_Combined-homology.h5',
-        'sensor_set': 'C_MOD_LIM',
+        'sensor_set': 'C_MOD_ALL',
         'cmod_shot' : 1051202011,
         'save_ext': '',
         'doNoise': False,
         'wind_in' : 'phi',
         'file_geqdsk' : 'g1051202011.1000',
-        'eta' : '1.8E-5, 1.8E-5, 3.6E-5'
+        'eta' : eta
     }
 
-    Mode_params = {'dt':5e-7,'T':1e-3,'periods':2,'n_pts':100,'m_pts':60,'R':None,'r':None,\
-                   'noise_envelope':0.00,'n_threads':12} 
+    Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':100,'m_pts':60,'R':None,'r':None,\
+                   'noise_envelope':0.00,'n_threads':12,'max_modes':1,'max_m':1,'max_n':1} 
 
     spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 
-    save_Ext = '_Synth_1'
+    save_Ext = '_Synth_low-n'
     doSave = '../output_plots/'
-    doPlot = False
-    training_shots = 40
+    doPlot = True
+    training_shots = 1
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,

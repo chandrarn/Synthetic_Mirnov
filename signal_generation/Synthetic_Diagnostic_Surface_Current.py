@@ -14,39 +14,59 @@ Created on Tue Feb  4 14:23:27 2025
 """
 
 from header_signal_generation import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
-    h5py, build_torus_bnorm_grid, build_periodic_mesh,write_periodic_mesh, pyvista, subprocess,\
-        gethostname, server, I_KM, F_KM, F_KM_plot
+    h5py, build_torus_bnorm_grid, OFT_env,ThinCurr_periodic_toroid, pyvista, subprocess,\
+        gethostname, server, I_KM, F_KM, F_KM_plot, build_periodic_mesh,write_periodic_mesh
 from M3DC1_to_Bnorm import convert_to_Bnorm
-from FAR3D_to_Bnorm import convert_FAR3D_to_Bnorm
+from FAR3D_to_Bnorm import convert_FAR3D_to_Bnorm, __gen_b_norm_manual
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 ########################################################
 def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_ext='',file_geqdsk=None,
     sensor_set='BP',xml_filename='oft_in.xml',params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
     'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5',\
-    FAR3D_br_file='',FAR3D_bth_file='',plotOnly=False):
+    FAR3D_br_file='',FAR3D_bth_file='',plotOnly=False,eta='1.8E-5, 3.6E-5, 2.4E-5',doSave_Bode=False,\
+        scan_in_freq=False):
     
+   
+ # Initialize OFT environment
+    oft_env = OFT_env(nthreads=params['n_threads'])
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
     elif FAR3D_br_file: convert_FAR3D_to_Bnorm(FAR3D_br_file,FAR3D_bth_file,m=params['m'],n=params['n'],\
                                                eqdsk_file=file_geqdsk,debug=False)
     else: __gen_b_norm_manual(file_geqdsk,params)
-    
-    
-    #return 
-    # Build linked inductances and mode/current drivers
-    mode_driver, sensor_mode, sensor_obj, tw_torus = \
-        __gen_linked_inductances(mesh_file, params['n_threads'], sensor_set)
-    
-    # Build mode mesh
+    # __gen_b_norm_manual(file_geqdsk,params)
+
+    # Build mode mesh [creates inputdata/thincurr_mode.h5]
     prefix = ('C1' if C1_file else 'FAR3D') if server else ''
-    __gen_b_norm_mesh(prefix,params['m_pts'],params['n_pts'],params['n_threads'],
-                      sensor_set,doSave,save_ext,params,doPlot,tw_mesh=tw_torus)
+    __gen_b_norm_mesh(prefix,params['m_pts'],params['n_pts'],oft_env,
+                      sensor_set,doSave,save_ext,params,doPlot)
+    
+    # Gen sensors location file
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
+
+    # Generate oft .xml file with resistivity values for mesh (no filament necessary here)
+    gen_OFT_filemant_and_eta_file(xml_filename, eta)
+    
+    # Build linked inductances and mode/current drivers 
+    mode_driver_flux,mode_drive_currents, sensor_mode, sensor_obj, tw_mesh, tw_mode,\
+          Msensor, Msensor_plasma = \
+        get_mesh_and_driver(mesh_file, oft_env, sensor_set)
     
     # Run time dependent calculation
-    if not plotOnly: __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj, params,sensor_set,save_ext)
+    if not plotOnly:
+            # pt, norm = (0,0,0), (0,0,1)
+            # sensor_all.append(Mirnov(pt, norm, 'C_MOD_CENTER_CONTROL', dx))
+        if scan_in_freq:
+            run_frequency_scan(tw_mesh, tw_mode, mode_driver_flux, mode_drive_currents, Msensor, \
+                               Msensor_plasma, sensor_obj, doSave_Bode, save_ext)
+        else:
+            __run_td(mode_driver_flux, sensor_mode, tw_mesh, sensor_obj, \
+                      params, sensor_set, save_ext)
+
+    print('Done')
 ########################################################
-def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
+def __run_td(mode_driver_flux,sensor_mode,tw_mesh,sensor_obj,params,\
              sensor_set,save_Ext):
     
     mode_growth = 2.E3
@@ -76,7 +96,7 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
     sin_current[:5] *= np.linspace(0,1,5)
     sin_voltage = np.diff(sin_current)/np.diff(timebase_current)
     
-    volt_full = np.zeros((nsteps+2,tw_torus.nelems+1))
+    volt_full = np.zeros((nsteps+2,tw_mesh.nelems+1))
     sensor_signals = np.zeros((nsteps+2,sensor_mode.shape[1]+1))
     
     # Unclear 
@@ -84,18 +104,18 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
         volt_full[i,0] = dt*i
         sensor_signals[i,0] = dt*i
         if i > 0: # Leave 0-th step voltage, current, as zero
-            volt_full[i,1:] = mode_driver[0,:]*np.interp(volt_full[i,0],timebase_voltage,cos_voltage) \
-              + mode_driver[1,:]*np.interp(volt_full[i,0],timebase_voltage,sin_voltage)
+            volt_full[i,1:] = mode_driver_flux[0,:]*np.interp(volt_full[i,0],timebase_voltage,cos_voltage) \
+              + mode_driver_flux[1,:]*np.interp(volt_full[i,0],timebase_voltage,sin_voltage)
               
             sensor_signals[i,1:] = sensor_mode[0,:]*np.interp(volt_full[i,0],timebase_current,cos_current) \
               + sensor_mode[1,:]*np.interp(volt_full[i,0],timebase_current,sin_current)
               
-    tw_torus.run_td(dt,nsteps,status_freq=10,full_volts=volt_full,\
+    tw_mesh.run_td(dt,nsteps,status_freq=10,full_volts=volt_full,\
                     sensor_obj=sensor_obj,direct=True,sensor_values=sensor_signals)
     
     # Rename output 
-    f_save = 'data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
-                    (sensor_set,m,n,F_KM_plot(0)*1e-3,save_Ext)
+    f_save = '../data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
+                    (sensor_set,m if type(m) is int else m[0],n,F_KM_plot(0)*1e-3,save_Ext)
     subprocess.run(['cp','floops.hist',f_save])
     print('Saved: %s'%f_save)
     '''
@@ -103,166 +123,220 @@ def __run_td(mode_driver,sensor_mode,tw_torus,sensor_obj,params,\
                          (sensor_set,params['m'],params['n'],\
                           params['f']*1e-3,save_Ext))    
     '''
-#########################################################
-def __gen_linked_inductances(mesh_file,n_threads,sensor_set):
-    
-    # Prep mesh resistances 
-    eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5'
-    with open('oft_in.xml','w+') as f:
-        f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
+################################################################################################
+################################################################################################
+def run_frequency_scan(tw_mesh,tw_mode, mode_driver_flux, mode_drive_currents,Msensor,\
+                        Msensor_plasma, sensor_obj,doSave_Bode,save_ext):
+
+    # Run frequency dependent scan using conducting mesh, mode surface mesh/currents
+
+    freqs = params['f'] # Frequency range for the scan
+
+    # Data vector storage
+    sensors_bode = []
+    # Loop through frequencies to test
+    for freq in freqs if np.ndim(freqs) > 0 else [freqs]:
         
-    tw_torus = ThinCurr(nthreads=n_threads)
-    tw_torus.setup_model(mesh_file='input_data/'+mesh_file,
-                         xml_filename='input_data/oft_in.xml')
-    tw_torus.setup_io()
+        result = tw_mesh.compute_freq_response(fdriver=mode_driver_flux,freq=freq)
+
+        # contribution from the mesh current to the sensor, with the mesh current at a given frequency
+        probe_signals = np.dot(result,Msensor) + np.dot(mode_drive_currents,Msensor_plasma)
+        # Contribuio from the coil current directly to the sensor
+
+        # probe_signals[0,:] += np.dot(np.r_[coil_current_magnitude],Msc)
+
+        for i in range(probe_signals.shape[1]):
+            print('Real: {0:13.5E}, Imaginary: {1:13.5E}'.format(*probe_signals[:,i]))
+        probe_signals = probe_signals[0,:] + 1j*probe_signals[1,:] # Combine real and imaginary parts   
+        sensors_bode.append(probe_signals)
     
-    # Gen sensors
-    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
-    Msensor, Msc, sensor_obj = tw_torus.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
+    # Only compute the mesh induced currents once
+    tw_mesh.save_current(result[0,:],'Jr_mode')
+    tw_mesh.save_current(result[1,:],'Ji_mode')
+    _ = tw_mesh.build_XDMF()
 
-    Mc = tw_torus.compute_Mcoil()
-    tw_torus.compute_Lmat()
-    tw_torus.compute_Rmat()
+    # Save the probe signals to a file
+    if doSave_Bode: 
+        freqs = [freqs] if np.ndim(freqs) == 0 else freqs
+        fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s_Surface_Current.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)
+        np.savez('../data_output/'+fName, probe_signals=sensors_bode, freqs=freqs,\
+                 sensor_names=sensor_obj['names']) 
+    
+        # Plot the probe signals
+        print('Saved frequency scan data to %s'%fName)
+    return np.array(sensors_bode)
 
-    tw_mode = ThinCurr(nthreads=n_threads)
+################################################################################################
+#########################################################
+def gen_OFT_filemant_and_eta_file(xml_filename, eta):
+    # Prep mesh resistances in OFT file format
+    # No filament is necessary for the case of just surface currents
+
+    with open('input_data/'+xml_filename,'w+') as f:
+        print('File open for writing: %s'%xml_filename)
+        f.write(f'<oft>\n\t<thincurr>\n\t\t<eta>{eta}</eta>\n\t\t<icoils>\n\t\t</icoils>\n\t</thincurr>\n</oft>')
+################################################################################################
+#########################################################
+def get_mesh_and_driver(mesh_file,oft_env,sensor_set):
+    
+    # Pull in the conducting structure mesh
+    tw_mesh = ThinCurr(oft_env)
+    
+    tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,
+                         xml_filename='input_data/oft_in.xml')
+    tw_mesh.setup_io()
+    
+    # Link the conducting structures to the sensors
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
+
+
+    # Build self inductance and resistances
+    Mc = tw_mesh.compute_Mcoil() # Inductance to the coils not necessary for surface current case
+    tw_mesh.compute_Lmat()
+    tw_mesh.compute_Rmat()
+
+    # Load in the surface current mode driver
+    tw_mode = ThinCurr(oft_env)
     tw_mode.setup_model(mesh_file='input_data/thincurr_mode.h5')
     with h5py.File('input_data/thincurr_mode.h5', 'r+') as h5_file:
-        mode_drive = np.asarray(h5_file['thincurr/driver'])
+        mode_drive_currents = np.asarray(h5_file['thincurr/driver'])
 
+    # Link the inductance the mode and the sensors
     Msensor_plasma, _, _ = tw_mode.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
-    # Significance? 
-    mode_driver = tw_mode.cross_eval(tw_torus,mode_drive)
-    sensor_mode = np.dot(mode_drive,Msensor_plasma)
+
+    # link the mode to the conducting structure mesh
+    mode_driver_flux = tw_mode.cross_eval(tw_mesh,mode_drive_currents)
+    sensor_mode = np.dot(mode_drive_currents,Msensor_plasma)
     
-    return mode_driver, sensor_mode, sensor_obj, tw_torus
+    return mode_driver_flux,mode_drive_currents, sensor_mode, sensor_obj, tw_mesh, tw_mode, Msensor, Msensor_plasma
 #########################################################
-def __gen_b_norm_mesh(C1_file,n_theta,n_phi,n_threads,sensor_set,
-                      doSave,save_Ext,params,doPlot,tw_mesh):
-    # Convert B-normal from C1 file LCFS to equivalent suface current via self inductance
+def __gen_b_norm_mesh(C1_file,n_theta,n_phi,oft_env,sensor_set,
+                      doSave,save_Ext,params,doPlot):
+    # Convert B-normal from C1 or FAR3D file LCFS to equivalent suface current via self inductance
     
-    # Build mesh on which the surface current lives?
-    fname = (C1_file+'_tCurr_mode.dat') if C1_file else 'tCurr_mode.dat'
+
+    # Build mesh on which the surface current lives
+    fname = (C1_file+'_tCurr_mode.dat') if C1_file else 'input_data/tCurr_mode.dat'
     # Extend 2D mode slice to toroidal grid of points
+    # Generate Mesh
     r_grid, bnorm, nfp = build_torus_bnorm_grid(fname,n_theta,n_phi,
                             resample_type='theta',use_spline=False)
-    # Build a mesh supporting the above grid
-    lc_mesh, r_mesh, tnodeset, pnodesets, r_map = build_periodic_mesh(r_grid,nfp)
     
-    write_periodic_mesh('input_data/thincurr_mode.h5', r_mesh, lc_mesh+1, np.ones((lc_mesh.shape[0],)),
-                        tnodeset, pnodesets, pmap=r_map, nfp=nfp, include_closures=True)
+    __b_norm_surf_plot(r_grid,bnorm,nfp,n_theta,n_phi,params=params,doSave=doSave,
+                       save_Ext=save_Ext)
+    
+    # Upgraded method
+    plasma_mode = ThinCurr_periodic_toroid(r_grid,nfp,n_theta,n_phi)
+    plasma_mode.write_to_file('input_data/thincurr_mode.h5')
 
-    #return r_grid, bnorm, nfp,lc_mesh,r_mesh,tnodeset,pnodesets,r_map
-    # Plasma vs Driver? 
-    # Convert from B-norm to J(theta) using self inductance
-    tw_mode = ThinCurr(nthreads= n_threads)
+    # # Plot Mesh
+    # fig = plt.figure(figsize=(12,5))
+    # plasma_mode.plot_mesh(fig)
+    # plt.show()
+  
+    # Convert from toroidal grid of periodic B-norm to J(theta) using self inductance
+    tw_mode = ThinCurr(oft_env)
     tw_mode.setup_model(mesh_file='input_data/thincurr_mode.h5')
     tw_mode.setup_io(basepath='plasma/')
 
     tw_mode.compute_Lmat()
-    # Condense self inductance model to single mode period [necessary for mesh periodicity reasons]
-    if nfp > 1:
-        nelems_new = tw_mode.Lmat.shape[0]-nfp+1
-        Lmat_new = np.zeros((nelems_new,nelems_new))
-        Lmat_new[:-1,:-1] = tw_mode.Lmat[:-nfp,:-nfp]
-        Lmat_new[:-1,-1] = tw_mode.Lmat[:-nfp,-nfp:].sum(axis=1)
-        Lmat_new[-1,:-1] = tw_mode.Lmat[-nfp:,:-nfp].sum(axis=0)
-        Lmat_new[-1,-1] = tw_mode.Lmat[-nfp:,-nfp:].sum(axis=None)
-    else:
-        Lmat_new = tw_mode.Lmat
+    # Collapse periodic copies into final inductance matrix for DoF of periodic system (?)
+    Lmat_new = plasma_mode.condense_matrix(tw_mode.Lmat)
+
     # Get inverse
     Linv = np.linalg.inv(Lmat_new)
 
+    # Compute currents and fluxes and save
     bnorm_flat = bnorm.reshape((2,bnorm.shape[1]*bnorm.shape[2]))
     # Get surface flux from normal field
     flux_flat = bnorm_flat.copy()
     
-    if nfp > 1:
-        flux_flat[0,r_map] = tw_mode.scale_va(bnorm_flat[0,r_map])
-        flux_flat[1,r_map] = tw_mode.scale_va(bnorm_flat[1,r_map])
-        tw_mode.save_scalar(bnorm_flat[0,r_map],'Bn_c')
-        tw_mode.save_scalar(bnorm_flat[1,r_map],'Bn_s')
-        output = np.zeros((2,nelems_new+nfp-1))
-        for j in range(2):
-            output[j,:nelems_new] = np.dot(Linv,np.r_[flux_flat[j,1:-bnorm.shape[2]],0.0,0.0])
-            output[j,-nfp+1:] = output[j,-nfp]
-    else:
-        flux_flat[0,:] = tw_mode.scale_va(bnorm_flat[0,:])
-        flux_flat[1,:] = tw_mode.scale_va(bnorm_flat[1,:])
-        tw_mode.save_scalar(bnorm_flat[0,:],'Bn_c')
-        tw_mode.save_scalar(bnorm_flat[1,:],'Bn_s')
-        output = np.zeros((2,tw_mode.Lmat.shape[0]))
-        for j in range(2):
-            output[j,:] = np.dot(Linv,np.r_[flux_flat[j,1:],0.0,0.0])
-            
-    tw_mode.save_current(output[0,:],'Jc')
-    tw_mode.save_current(output[1,:],'Js')
-    tw_mode.build_XDMF()
+    flux_flat[0,plasma_mode.r_map] = tw_mode.scale_va(bnorm_flat[0,plasma_mode.r_map])
+    flux_flat[1,plasma_mode.r_map] = tw_mode.scale_va(bnorm_flat[1,plasma_mode.r_map])
+    tw_mode.save_scalar(bnorm_flat[0,plasma_mode.r_map],'Bn_c')
+    tw_mode.save_scalar(bnorm_flat[1,plasma_mode.r_map],'Bn_s')
+    output_full = np.zeros((2,tw_mode.nelems))
+    output_unique = np.zeros((2,Linv.shape[0]))
+    for j in range(2):
+        output_unique[j,:] = np.dot(Linv,plasma_mode.nodes_to_unique(flux_flat[j,:]))
+        output_full[j,:] = plasma_mode.expand_vector(output_unique[j,:])
     
-    with h5py.File('plasma/mesh.0001.h5','r') as h5_file:
-        r = np.asarray(h5_file['R_surf'])
-        lc = np.asarray(h5_file['LC_surf'])
+    tw_mode.save_current(output_full[0,:],'Jc'),
+    tw_mode.save_current(output_full[1,:],'Js')
+    _ = tw_mode.build_XDMF()
+
+    
+
+    # with h5py.File('plasma/mesh.0001.h5','r') as h5_file:
+    #     r = np.asarray(h5_file['R_surf'])
+    #     lc = np.asarray(h5_file['LC_surf'])
         
     if doPlot:
         plt.close('Mesh_Orig')
         fig = plt.figure(num='Mesh_Orig')
-        ax = fig.add_subplot(1,2,1, projection='3d')
-        ax.plot(r_mesh[tnodeset,0], r_mesh[tnodeset,1], r_mesh[tnodeset,2], c='red')
-        for pnodeset in pnodesets:
-            ax.plot(r_mesh[pnodeset,0], r_mesh[pnodeset,1], r_mesh[pnodeset,2], c='blue')
+        plasma_mode.plot_mesh(fig)
+        # ax = fig.add_subplot(1,2,1, projection='3d')
+        # ax.plot(r_mesh[tnodeset,0], r_mesh[tnodeset,1], r_mesh[tnodeset,2], c='red')
+        # for pnodeset in pnodesets:
+        #     ax.plot(r_mesh[pnodeset,0], r_mesh[pnodeset,1], r_mesh[pnodeset,2], c='blue')
         
-        ax = fig.add_subplot(1,2,2, projection='3d')
-        _ = ax.plot_trisurf(r_mesh[:,0], r_mesh[:,1], r_mesh[:,2], triangles=lc_mesh, cmap='viridis')
-    #return output
-    tw_mode.save_current(output[0,:],'J_c')
-    tw_mode.save_current(output[1,:],'J_s')
-    # Save surface current
+        # ax = fig.add_subplot(1,2,2, projection='3d')
+        # _ = ax.plot_trisurf(r_mesh[:,0], r_mesh[:,1], r_mesh[:,2], triangles=lc_mesh, cmap='viridis')
+    # #return output
+    # tw_mode.save_current(output[0,:],'J_c')
+    # tw_mode.save_current(output[1,:],'J_s')
+    # # Save surface current
     with h5py.File('input_data/thincurr_mode.h5', 'r+') as h5_file:
-        h5_file.create_dataset('thincurr/driver', data=output, dtype='f8')
+        h5_file.create_dataset('thincurr/driver', data=output_full, dtype='f8')
     
     # Plot J(theta,phi)
     #return output,nfp,n_phi,n_theta,bnorm
-    if doPlot:__do_plot_B_J(output,nfp,n_phi,n_theta,bnorm,tw_mode,sensor_set,
-                            doSave,save_Ext,params,tw_mesh)
+    if doPlot:__do_plot_B_J(output_full,nfp,n_phi,n_theta,bnorm,tw_mode,sensor_set,
+                            doSave,save_Ext,params)
         
-#########################################################
-def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
-                  save_Ext,params,tw_mesh):
-    
+###########################################################
+def __b_norm_surf_plot(r_grid,bnorm,nfp,ntheta,nphi,doSave='',save_Ext='',params={}): 
+        
     # 2D Plot of B-norm and J
     theta=np.linspace(-np.pi,np.pi,ntheta,endpoint=False)/np.pi
     phi=np.linspace(0,2*np.pi,(nphi-1) if nfp>1 else nphi,endpoint=False)/np.pi
     phi_bnorm=np.linspace(0,2*np.pi,nphi,endpoint=False)/np.pi
     plt.close('B-norm_J')
-    fig, ax = plt.subplots(2,2,sharex=True,sharey=True,num='B-norm_J')
+    fig, ax = plt.subplots(1,2,sharex=True,sharey=True,num='B-norm_J',\
+                           figsize=(6,3),squeeze=False,tight_layout=True)
     redo_inds = np.concatenate(( np.arange(int(len(theta)/2),len(theta)),
                                 np.arange(0,int(len(theta)/2)) ))
     #theta=theta[redo_inds]
-    if nfp > 1:
-        out_1=np.r_[0.0,output[0,:-nfp-1]].reshape((nphi-1,ntheta)).transpose()
-        out_2=np.r_[0.0,output[1,:-nfp-1]].reshape((nphi-1,ntheta)).transpose()
-    else:
-        out_1=np.r_[0.0,output[0,:-nfp-1]].reshape((nphi,ntheta)).transpose()
-        out_2=np.r_[0.0,output[1,:-nfp-1]].reshape((nphi,ntheta)).transpose()
-    out_1=out_1[redo_inds,:]
-    out_2=out_2[redo_inds,:]
-    ax[0,0].contour(phi,theta,out_1,50)
-    ax[0,1].contour(phi,theta,out_2,50)
-    print(phi_bnorm.shape, theta.shape,bnorm.shape,bnorm[0,:,redo_inds].transpose().shape)
-    out_1=bnorm[0,:,redo_inds].transpose()
-    out_2=bnorm[1,:,redo_inds].transpose()
+    # if nfp > 1:
+    #     out_1=np.r_[0.0,output[0,:-nfp-1]].reshape((nphi-1,ntheta)).transpose()
+    #     out_2=np.r_[0.0,output[1,:-nfp-1]].reshape((nphi-1,ntheta)).transpose()
+    # else:
+    #     out_1=np.r_[0.0,output[0,:-nfp-1]].reshape((nphi,ntheta)).transpose()
+    #     out_2=np.r_[0.0,output[1,:-nfp-1]].reshape((nphi,ntheta)).transpose()
+    # out_1=out_1[redo_inds,:]
+    # out_2=out_2[redo_inds,:]
+    # ax[0,0].contour(phi,theta,out_1,50)
+    # ax[0,1].contour(phi,theta,out_2,50)
+    # print(phi_bnorm.shape, theta.shape,bnorm.shape,bnorm[0,:,redo_inds].transpose().shape)
+    out_1=bnorm[0,:,:].transpose()
+    out_2=bnorm[1,:,:].transpose()
     print(phi_bnorm.shape,theta.shape, out_1.shape)
-    ax[1,0].contour(phi_bnorm,theta,out_1.transpose(),50)
-    _ = ax[1,1].contour(phi_bnorm,theta,out_2.transpose(),50)
+    ax[0,0].contour(phi_bnorm,theta,out_1,50)
+    _ = ax[0,1].contour(phi_bnorm,theta,out_2,50)
     
-    ax[0,0].set_ylabel(r'$\sigma(\theta)$ [$\pi$-rad]')
-    ax[1,0].set_ylabel(r'$B_{\hat{n}}(\theta)$ [$\pi$-rad]')
-    for i in range(2):ax[1,i].set_xlabel(r'$\phi$ [$\pi$-rad]')
+    #ax[0,0].set_ylabel(r'$\sigma(\theta)$ [$\pi$-rad]')
+    ax[0,0].set_ylabel(r'$B_{\hat{n}}(\theta)$ [$\pi$-rad]')
+    for i in range(2):ax[0,i].set_xlabel(r'$\phi$ [$\pi$-rad]')
     ax[0,0].set_title(r'Cosine')
     ax[0,1].set_title('Sine')
     plt.show()
-    m=params['m'];n=params['n'];mode_freq=params['f']
-    if doSave:fig.savefig(doSave+'Surface_Current_2D_%s_m-n_%d-%d_f_%d%s.pdf'%\
-                    (sensor_set,m,n,mode_freq*1e-3,save_Ext))
+    m=params['m'];n=params['n'];
+    if doSave:fig.savefig(doSave+'Surface_Current_2D_%s_m-n_%d-%d_%s.pdf'%\
+                    (sensor_set,m if type(m) is int else m[0],n,save_Ext))
+#########################################################fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s_Surface_Current.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)
+def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
+                  save_Ext,params):
+
     
     ###############################
     # mesh plotting
@@ -305,123 +379,46 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
                      render_points_as_spheres=True,
                      label='Sensor' if ind==0 else None)
     if doSave:p.save_graphic(doSave+'Surface_J_s_%s_m-n_%d-%d_f_%d%s.pdf'%\
-                    (sensor_set,m,n,mode_freq*1e-3,save_Ext))
+                    (sensor_set,params['m'] if type (params['m']) is int else params['m'][0],params['n'],params['f']*1e-3,save_Ext))
     p.show()
 
-#########################################################
-def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=True,doPlot=True):
-    
-    if orig_example_bnorm:
-        def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200,streach=0.05):
-            theta_vals = np.linspace(0.0,2*np.pi,npts,endpoint=False)
-            a_local = lambda theta: a +streach*a*np.abs(np.sin(theta))
-            with open(filename,'w+') as fid:
-                fid.write('{0} {1}\n'.format(npts,n))
-                for theta in theta_vals:
-                    fid.write('{0} {1} {2} {3}\n'.format(
-                        R0+a*np.cos(theta),
-                        Z0+a_local(theta)*np.sin(theta),
-                        np.cos(m*theta),
-                        np.sin(m*theta)
-                    ))
-        # Create n=2, m=3 mode
-        create_circular_bnorm('input_data/tCurr_mode.dat',1.8,0.0,0.4,1,2)
-        
 
-    else:
-        a=params['r'];R=params['R'];m=params['m'];n=params['n']
-        n_pts_theta=params['m_pts'];n_pts_n=params['n_pts']
-        
-        # Get radial vector
-        n_pts_n=200
-        a=0.4;R=1
-        r_theta,Z0,R0 = __gen_r_theta(file_geqdsk, a, R, m, n)
-        theta = np.linspace(0,2*np.pi,n_pts_n,endpoint=False)
-        if doPlot:
-            plt.figure(tight_layout=True);
-            plt.plot(r_theta(theta)*np.cos(theta)+R0,r_theta(theta)*np.sin(theta)+Z0)
-            plt.xlabel('R [m]');plt.ylabel('Z [m]')
-            plt.legend([r'$\psi_{%d/%d}(\vec{r})$'%(m,n)],fontsize=8)
-            plt.grid()
-            plt.show()
-        # Write output
-        with open('input_data/tCurr_mode.dat','w+') as fid:
-            fid.write('{0} {1}\n'.format(n_pts_n,n))
-            for theta in theta:
-                fid.write('{0} {1} {2} {3}\n'.format(
-                    R0+r_theta(theta)*np.cos(theta),
-                    Z0+r_theta(theta)*np.sin(theta),
-                    np.cos(m*theta),
-                    np.sin(m*theta)
-                ))
-
-#########################################################        
-def __gen_r_theta(file_geqdsk,a,R,m,n,):
-    if file_geqdsk is None:
-        #r_theta = lambda theta: a +0.01*np.abs(np.sin(theta)) # running circular approximation
-        r_theta = lambda theta: np.sqrt( (a*np.cos(theta))**2 + ( a*1.05*np.sin(theta))**2)
-        zmagx=0;rmagx=R
-    else: # Using geqdsk equilibrium to locate flux surfaces
-        # Load eqdsk
-        with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
-        
-        # get q(psi(r,z))
-        psi_eqdsk = eqdsk.psi
-        R_eq=np.linspace(eqdsk.rleft,eqdsk.rleft+eqdsk.rdim,len(psi_eqdsk))
-        Z_eq=np.linspace(eqdsk.zmid-eqdsk.zdim/2,eqdsk.zmid+eqdsk.zdim/2,len(psi_eqdsk))
-        psi_lin = np.linspace(eqdsk.simagx,eqdsk.sibdry,eqdsk.nx)
-        p = np.polyfit(psi_lin, eqdsk.qpsi,12)
-        fn_q = lambda psi: np.polyval(p,psi)
-        q_rz = fn_q(psi_eqdsk) # q(r,z)
-        
-        # Contour detectioon
-        contour,hierarchy=cv2.findContours(np.array(q_rz<m/n,dtype=np.uint8),
-                                           cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
-        # Algorithm will find non-closed contours (e.g. around the magnets)
-        try: contour = np.squeeze(contour) # Check if only the main contour was found
-        except:
-            a_avg=[]#track average minor radial distance to contour
-            for s in contour:
-                s=np.squeeze(s) # remove extra dimensions
-                a_avg.append(np.mean( (R_eq[s[1]]-eqdsk.rmagx)**2+(Z_eq[s[0]]-eqdsk.zmagx)**2))
-            # Select contour closested on average to the magnetic center
-            contour = np.squeeze( contour[np.argmin(a_avg)] )
-    
-        # Calculate r(theta) to stay on the surface as we wind around
-        r_norm=np.sqrt((R_eq[contour[:,1]]-eqdsk.rmagx)**2+(Z_eq[contour[:,0]]-eqdsk.zmagx)**2)
-        theta_r=np.arctan2(Z_eq[contour[:,0]]-eqdsk.zmagx,R_eq[contour[:,1]]-eqdsk.rmagx) % (2*np.pi)
-        
-        r_theta_=make_smoothing_spline(theta_r[np.argsort(theta_r)],r_norm[np.argsort(theta_r)],lam=.00001)
-        r_theta = lambda theta: r_theta_(theta%(2*np.pi) ) # Radial coordinate vs theta
-        
-        zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
-    
-    return r_theta, zmagx,rmagx
-    
 #########################################################
 if __name__=='__main__':
     # SPARC Side
-    mesh_file='SPARC_Sept2023_noPR.h5';doSave='';save_ext='';file_geqdsk='g1051202011.1000',
+    mesh_file='SPARC_Sept2023_noPR.h5';doSave='../output_plots/';save_ext='_FAR3D_NonLinear';file_geqdsk='g1051202011.1000',
     sensor_set='BP';xml_filename='oft_in.xml';
     # params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
     # 'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
 
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    #mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     file_geqdsk='g1051202011.1000'
     eta = '1.8E-5, 1.8E-5'#, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
-    sensor_set='C_MOD_LIM';cmod_shot=1051202011
-    sensor_set = 'C_MOD_ALL'
+    sensor_set='C_MOD_ALL';cmod_shot=1051202011
+    # sensor_set = 'C_MOD_ALL'
 
-    params={'m':[9,10,11,12],'n':10,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
-    'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
-    doPlot=True; plotOnly=True
+    # eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5
+    #     # Bulk resistivities
+    Mo = 53.4e-9 # Ohm * m at 20c
+    SS = 690e-9 # Ohm * m at 20c
+    w_tile_lim = 1.5e-2  # Tile limiter thickness
+    w_tile_arm = 1.5e-2 *1 # Tile extention thickness
+    w_vv = 3e-2 # Vacuum vessel thickness
+    w_ss = 1e-2  # Support structure thickness
+    w_shield = 0.43e-3 
+    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+    
+    [9,10,11,12]
+    params={'m':[14,13,12,11,10,9,8],'n':11,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
+    'f':650e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    doPlot=True; plotOnly=False
     C1_file=None#'/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'
-    FAR3D_br_file = 'br_0000';FAR3D_bth_file='bth_0000';
+    FAR3D_br_file = 'br_1103';FAR3D_bth_file='bth_1103'
 
     Synthetic_Mirnov_Surface(mesh_file=mesh_file,doSave=doSave,save_ext=save_ext,file_geqdsk=file_geqdsk,\
                              sensor_set=sensor_set,xml_filename=xml_filename,params=params,doPlot=doPlot,\
                             C1_file=C1_file,FAR3D_br_file=FAR3D_br_file,FAR3D_bth_file=FAR3D_bth_file,\
-                            plotOnly=plotOnly)
+                            plotOnly=plotOnly, eta=eta, doSave_Bode=True, scan_in_freq=True)fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s_Surface_Current.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)

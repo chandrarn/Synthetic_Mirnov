@@ -18,11 +18,6 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from matplotlib import rc,cm
 from matplotlib.colors import Normalize
-# import pyvista
-# MDS load may not work on all machines
-try:import MDSplus as mds
-except:import mdsthin as mds
-#pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
 plt.rcParams['axes.labelweight']='bold'
@@ -31,6 +26,13 @@ plt.rcParams['lines.markeredgewidth']=2
 rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
+
+# import pyvista
+# MDS load may not work on all machines
+try:import MDSplus as mds
+except:import mdsthin as mds
+#pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
+
 
 
 sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')

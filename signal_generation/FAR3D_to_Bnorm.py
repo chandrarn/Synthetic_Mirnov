@@ -26,9 +26,9 @@ from matplotlib import rc,cm
 matplotlib.use('TkAgg')
 
 #####################################################################################
-def convert_FAR3D_to_Bnorm(br_file='br_0000',bth_file='bth_0000',psi_contour_select=0.8,\
-    m=[9,10,11,12],n=10,eqdsk_file='g1051202011.1000',debug=True,lambda_merezhkin=0.4,doSave='../output_plots/'):
-    # Pull in FAR3D output eigenvectors, (sin/cos), convery to equilibrium geometry, convery to B-Norm
+def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_select=0.8,\
+    m=[14,13,12,11,10,9,8],n=11,eqdsk_file='g1051202011.1000',debug=True,lambda_merezhkin=0.0,doSave='../output_plots/', downsample=4):
+    # Pull in FAR3D output eigenvectors, (sin/cos), convert to equilibrium geometry, convery to B-Norm
     
     B_r_RZ_downsamp_cos,B_r_RZ_downsamp_sin, B_th_RZ_downsamp_cos,B_th_RZ_downsamp_sin, R_downsamp ,\
           Z_downsamp,psi_normalized,psi_norm_downsamp  = \
@@ -40,11 +40,16 @@ def convert_FAR3D_to_Bnorm(br_file='br_0000',bth_file='bth_0000',psi_contour_sel
                                         n,psi_norm_downsamp,B_r_RZ_downsamp_cos,psi_contour_select,doSave=doSave)
     b_norm_sin, _, _ = calc_n_hat_b_norm_coords_geqdsk(eqdsk_file,R_downsamp,Z_downsamp,max(m),n,\
                                                        psi_norm_downsamp,B_r_RZ_downsamp_sin,psi_contour_select,doSave=doSave)
-
+    # b_norm_cos *= 1e6; b_norm_sin *= 1e6 # Scale
     # # Save B norm in ThinCurr format
+    if downsample>1: # Downsample for testing [ALERT: build_torus_bnorm_grid will silently fail if the interpolation number is wrong]
+        b_norm_cos = b_norm_cos[::downsample]
+        b_norm_sin = b_norm_sin[::downsample]
+        R_sig = R_sig[::downsample]
+        Z_sig = Z_sig[::downsample]
     save_Bnorm('FAR3D' if (gethostname()[:4]=='orcd' or gethostname()[:4]=='node') \
             else '',  R_sig,Z_sig,b_norm_cos,b_norm_sin,n,len(Z_sig))
-    print('Finished conversion of FAR3D eigenfunctions %s to ThinCurr effective surface current'%br_file)
+    print('Finished conversion of FAR3D eigenfunctions %s, %s to ThinCurr effective surface current'%(br_file, bth_file))
 #####################################################################################
 def calc_n_hat_b_norm_coords_geqdsk(file_geqdsk,R,Z,m,n,psi_norm_downsamp,B_r,\
                                     psi_contour_select,doSave,debug=True,save_ext=''):
@@ -143,6 +148,7 @@ def __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,rmagx,zmagx,q_rz,all_r_hat
 
     extent=[min(R_sig),max(R_sig),min(Z_sig),max(Z_sig)]
     vmin=np.nanmin(B_r);vmax=np.nanmax(B_r)
+    vmin,vmax = -1e-6,1e-6
     #ax.imshow(B_r.T,origin='lower',extent=extent,vmin=vmin,vmax=vmax)
     for i in range(2):ax[i].contourf(R,Z,B_r,zorder=-5)
     ax[0].contour(R,Z,q_rz,cmap='plasma')
@@ -223,6 +229,7 @@ def interpolate_B(theta_inside,R_inside,Z_inside,dat_B,indices,m,psi_norm_inside
         out = np.zeros((len(B_indices),))
         for ind,m_ in enumerate(m): out += B[B_indices,ind]*np.cos(m_*(theta+0*np.pi/2)+phase) + B[B_indices,ind+len(m)]*np.sin(m_*(theta+0*np.pi/2)+phase)
         return out
+    
     B_RZ = eigenfunc(theta_inside,dat_B,indices,m)
 
     # Downsample the grid from the gEQDSK file
@@ -304,7 +311,8 @@ def map_psi_to_equilibrium(br_file='br_0000',bth_file='bth_0000',\
             ax[i].set_xlabel(r'R [m]')
             ax[i].set_rasterization_zorder(-1)
 
-        norm = Normalize(vmin=vmin,vmax=vmax)
+        # norm = Normalize(vmin=vmin,vmax=vmax)
+        norm = Normalize(vmin=-1e-5,vmax=1e-5)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('viridis')),
              label=r'$||\tilde{\mathrm{B}}_{j}||$ [T]',ax=ax[1])
         if plot_directory: fig.savefig(plot_directory+'FAR3D_Eigenfunction_Equilibrium.pdf',transparent=True)
@@ -359,9 +367,119 @@ def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12],\
     plt.show()
 ###############################################################################
 ###############################################################################
+#########################################################
+def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=False,doPlot=True):
+    # Generate a B-norm file manually, either using a circular approximation or
+    # using the geqdsk file to locate the flux surface of interest
+    # Note: this is just for testing purposes, the real B-norm should come from
+    # the FAR3D eigenfunction output
+    #########################################################################################
+    if orig_example_bnorm:
+        def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=30,streach=0.00):
+            theta_vals = np.linspace(0.0,2*np.pi,npts,endpoint=False)
+            a_local = lambda theta: a +streach*a*np.abs(np.sin(theta))
+            with open(filename,'w+') as fid:
+                fid.write('{0} {1}\n'.format(npts,n))
+                for theta in theta_vals:
+                    fid.write('{0} {1} {2} {3}\n'.format(
+                        R0+a*np.cos(theta),
+                        Z0+a_local(theta)*np.sin(theta),#
+                        np.cos(m*theta),
+                        np.sin(m*theta)
+                    ))
+        # Create n=2, m=3 mode
+        create_circular_bnorm('input_data/tCurr_mode.dat',1,0.0,0.4,3,4)
+        
+        #     # Build B-norm
+        # def create_circular_bnorm(filename,R0,Z0,a,n,m,npts=200):
+        #     theta_vals = np.linspace(0.0,2*np.pi,npts,endpoint=False)
+        #     with open(filename,'w+') as fid:
+        #         fid.write('{0} {1}\n'.format(npts,n))
+        #         for theta in theta_vals:
+        #             fid.write('{0} {1} {2} {3}\n'.format(
+        #                 R0+a*np.cos(theta),
+        #                 Z0+a*np.sin(theta),
+        #                 np.cos(m*theta),
+        #                 np.sin(m*theta)
+        #             ))
+        # # Create n=2, m=3 mode
+        # create_circular_bnorm('input_data/tCurr_mode.dat',1.0,0.0,0.4,3,4)
+
+    else:
+        a=params['r'];R=params['R'];m=params['m'];n=params['n']
+        n_pts_theta=params['m_pts'];n_pts_n=params['n_pts']
+        
+        # Get radial vector
+        n_pts_n=30
+        a=0.4;R=.7
+        r_theta,Z0,R0 = __gen_r_theta(file_geqdsk, a, R, m, n)
+        theta = np.linspace(0,2*np.pi,n_pts_n,endpoint=False)
+        if doPlot:
+            plt.figure(tight_layout=True);
+            plt.plot(r_theta(theta)*np.cos(theta)+R0,r_theta(theta)*np.sin(theta)+Z0)
+            plt.xlabel('R [m]');plt.ylabel('Z [m]')
+            plt.legend([r'$\psi_{%d/%d}(\vec{r})$'%(m,n)],fontsize=8)
+            plt.grid()
+            plt.show()
+        # Write output
+        with open('input_data/tCurr_mode.dat','w+') as fid:
+            fid.write('{0} {1}\n'.format(n_pts_n,n))
+            for theta in theta:
+                fid.write('{0} {1} {2} {3}\n'.format(
+                    R0+r_theta(theta)*np.cos(theta),
+                    Z0+r_theta(theta)*np.sin(theta),
+                    np.cos(m*theta),
+                    np.sin(m*theta)
+                ))
+
+#########################################################        
+def __gen_r_theta(file_geqdsk,a,R,m,n,):
+    if file_geqdsk is None:
+        #r_theta = lambda theta: a +0.01*np.abs(np.sin(theta)) # running circular approximation
+        r_theta = lambda theta: np.sqrt( (a*np.cos(theta))**2 + ( a*1.05*np.sin(theta))**2)
+        zmagx=0;rmagx=R
+    else: # Using geqdsk equilibrium to locate flux surfaces
+        # Load eqdsk
+        with open(file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+        
+        # get q(psi(r,z))
+        psi_eqdsk = eqdsk.psi
+        R_eq=np.linspace(eqdsk.rleft,eqdsk.rleft+eqdsk.rdim,len(psi_eqdsk))
+        Z_eq=np.linspace(eqdsk.zmid-eqdsk.zdim/2,eqdsk.zmid+eqdsk.zdim/2,len(psi_eqdsk))
+        psi_lin = np.linspace(eqdsk.simagx,eqdsk.sibdry,eqdsk.nx)
+        p = np.polyfit(psi_lin, eqdsk.qpsi,12)
+        fn_q = lambda psi: np.polyval(p,psi)
+        q_rz = fn_q(psi_eqdsk) # q(r,z)
+        
+        # Contour detectioon
+        contour,hierarchy=cv2.findContours(np.array(q_rz<m/n,dtype=np.uint8),
+                                           cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
+        # Algorithm will find non-closed contours (e.g. around the magnets)
+        try: contour = np.squeeze(contour) # Check if only the main contour was found
+        except:
+            a_avg=[]#track average minor radial distance to contour
+            for s in contour:
+                s=np.squeeze(s) # remove extra dimensions
+                a_avg.append(np.mean( (R_eq[s[1]]-eqdsk.rmagx)**2+(Z_eq[s[0]]-eqdsk.zmagx)**2))
+            # Select contour closested on average to the magnetic center
+            contour = np.squeeze( contour[np.argmin(a_avg)] )
+    
+        # Calculate r(theta) to stay on the surface as we wind around
+        r_norm=np.sqrt((R_eq[contour[:,1]]-eqdsk.rmagx)**2+(Z_eq[contour[:,0]]-eqdsk.zmagx)**2)
+        theta_r=np.arctan2(Z_eq[contour[:,0]]-eqdsk.zmagx,R_eq[contour[:,1]]-eqdsk.rmagx) % (2*np.pi)
+        
+        r_theta_=make_smoothing_spline(theta_r[np.argsort(theta_r)],r_norm[np.argsort(theta_r)],lam=.00001)
+        r_theta = lambda theta: r_theta_(theta%(2*np.pi) ) # Radial coordinate vs theta
+        
+        zmagx=eqdsk.zmagx;rmagx=eqdsk.rmagx
+    
+    return r_theta, zmagx,rmagx
+#########################################################
+#########################################################
+
 if __name__ == '__main__':
     #plot_B(plot_directory='../output_plots/')
     #map_psi_to_equilibrium(plot_directory='../output_plots/')
-    # convert_FAR3D_to_Bnorm(doSave='../output_plots/')
+    convert_FAR3D_to_Bnorm(doSave='../output_plots/')
     print('Finished')
 

@@ -3,20 +3,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.ion()
 
+plt.close('all')
 # RLC circuit parameters
-R = 7      # Ohms
+R = 200      # Ohms
 L = 60e-6      # Henry
-C = 700e-12     # Farads
+C = 400e-12     # Farads
 
 # Frequency range
 f = np.logspace(1, 6, 1000)  # Hz
 w = 2 * np.pi * f                 # Angular frequency
- 
+
 # Transfer function H(w) for series RLC (output across the capacitor)
 Z_R = lambda w: R 
 def Z_R_dynam(w):
     out = R * np.ones_like(w)
-    out[w/(2*np.pi)>=220e3] *= 1+(np.sqrt( w[w/(2*np.pi)>=220e3]/(2*np.pi))-np.sqrt(220e3))*0.0043 # Skin depth correction
+    out[w/(2*np.pi)>=220e3] *= 1+1*(np.sqrt( w[w/(2*np.pi)>=220e3]/(2*np.pi))-np.sqrt(220e3))*0.0043 # Skin depth correction
     return out
 Z_L =  (1j * w * L)
 Z_C = 1 / (1j * w * C)

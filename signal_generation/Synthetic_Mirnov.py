@@ -44,7 +44,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
         filament_coords = calc_filament_coords_field_lines(params,file_geqdsk,doDebug=debug)
 
     # Put filamanets in OFT file format
-    gen_filaments(xml_filename,params,filament_coords, eta)
+    gen_OFT_filement_and_eta_file(xml_filename,params,filament_coords, eta)
     
     # Generate sensors in OFT format
     sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot, skipBP= True, debug=debug)
@@ -112,7 +112,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,debug=True):
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
 ################################################################################################
-def gen_filaments(filament_file,params,filament_coords,\
+def gen_OFT_filement_and_eta_file(filament_file,params,filament_coords,\
                   eta = '1.8E-5, 3.6E-5, 2.4E-5'):
     # Write filament (x,y,z) coordinates to xml file in OFT format 
 
@@ -136,7 +136,7 @@ def gen_filaments(filament_file,params,filament_coords,\
 
                 for xyz in np.array(filament).T:
                     x=xyz[0];y=xyz[1];z=xyz[2]
-                    f.write('\t\t\t %1.1f, %1.1f, %1.1f\n'%(x,y,z) )
+                    f.write('\t\t\t %1.3f, %1.3f, %1.3f\n'%(x,y,z) )
 
                 f.write('\t\t</coil>\n')
                 f.write('\t</coil_set>\n')
@@ -346,7 +346,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 
     # Plot Mesh
     if plot_B_surf: 
-        p.add_mesh(grid,color="white",opacity=1,show_edges=True, \
+        p.add_mesh(grid,color="white",opacity=.6,show_edges=True, \
                    scalars=Jfull,clim=clim_J,smooth_shading=True,\
                        scalar_bar_args={'title':'Eddy Current [A/m]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
@@ -418,35 +418,38 @@ if __name__=='__main__':
     # Bulk resistivities
     Mo = 53.4e-9 # Ohm * m at 20c
     SS = 690e-9 # Ohm * m at 20c
-    w_tile = 1.5e-2 # Tile thickness
+    w_tile_lim = 1.5e-2  # Tile limiter thickness
+    w_tile_arm = 1.5e-2 *1 # Tile extention thickness
     w_vv = 3e-2 # Vacuum vessel thickness
-    w_ss = 1e-2 # Support structure thickness
-    w_shield = 0.43e-3
+    w_ss = 1e-2  # Support structure thickness
+    w_shield = 0.43e-3 
     # Surface resistivity: eta/thickness
     # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
     # For more accuracy, could break up filaments into different eta values based on position
     #
-    eta = f'{SS/w_ss}, {Mo/w_tile}, {SS/w_ss}, {Mo/w_tile}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile}, {SS/w_shield}' 
-
+    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+    eta = f'{SS/2e-2}, {SS/15e-2}'
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
-    sensor_set='C_MOD_LIM';cmod_shot=1051202011
+    # sensor_set='C_MOD_LIM';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
-    wind_in = 'theta'
+    # wind_in = 'theta'
     
     # C-Mod Frequency Scan
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
+    mesh_file='C_Mod_ThinCurr_VV_Improved-homology.h5'
+    
     # mesh_file = 'vacuum_mesh.h5'
     params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
-        'f':np.linspace(1e1,1e6,20),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
+        'f':np.linspace(1e1,1e6,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
     cmod_shot = 1151208900 	
     wind_in = 'phi'
     scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
     clim_J = [0,1]
-    doSave_Bode = True
+    doSave_Bode = False
 
     # SPARC Side
     #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
@@ -459,7 +462,7 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext='_f-sweep_All-Mirnovs-Corrected'
+    save_ext='_f-sweep_All-Mirnovs-Corrected-Testing-sensor'
     doSave='../output_plots/'*False
 
     # # Frequency, amplitude modulation

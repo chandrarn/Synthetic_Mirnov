@@ -47,7 +47,9 @@ from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 from OpenFUSIONToolkit.util import mu0
 from OpenFUSIONToolkit.io import histfile
-from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh, build_torus_bnorm_grid, ThinCurr_periodic_toroid
+from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh,\
+    build_torus_bnorm_grid, ThinCurr_periodic_toroid, build_periodic_mesh,\
+    write_periodic_mesh
 
     
 from freeqdsk import geqdsk

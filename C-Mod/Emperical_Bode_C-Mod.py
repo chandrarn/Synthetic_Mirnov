@@ -390,10 +390,10 @@ def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0
     # C = 760e-12#780e-12     # Farads
 
     def Z_R(w):
-        out = R * np.ones_like(w)
+        out = R_0 * np.ones_like(w)
         # Final factor is sqrt[resistivity/permeability]
         out[w/(2*np.pi)>=220e3] *= 1+(np.sqrt( w[w/(2*np.pi)>=220e3]/(2*np.pi))-np.sqrt(220e3))*0.0043 # Skin depth correction
-        #out += R # 
+        out += R # 
         return out
     Z_L =  lambda w: (1j * w * L)
     Z_C =  lambda w:1 / (1j * w * C)
@@ -431,10 +431,10 @@ def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0
 
 ################################################################################################3
 ################################################################################################
-def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSave,bad_sensor,\
-                           transfer_mag_synth=None,transfer_phase_synth=None,f_synth=None,
-                           synthDataFileNameInfo=None,B0_normalize=False,yLim_mag=[0,10],\
-                            yLim_phase=[60,460],save_ext=''):
+def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno, doSave, bad_sensor, \
+                           transfer_mag_synth=None, transfer_phase_synth=None, f_synth=None,
+                           synthDataFileNameInfo=None, B0_normalize=False, yLim_mag=[0,10], \
+                            yLim_phase=[60,460], save_ext=''):
     # Plot transfer function
 
 
@@ -447,7 +447,7 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSa
     else:
         plt.close('Transfer_Function_Magnitude_%d%s' % (shotno,save_ext))
         plt.close('Transfer_Function_Phase_%d%s' % (shotno,save_ext))
-        fig_mag, ax_mag = plt.subplots(7,7, num='Transfer_Function_Magnitude_%d%s' % (shotno,save_ext), tight_layout=True, sharex=True,sharey=True, figsize=(9,8))
+        fig_mag, ax_mag = plt.subplots(7,7, num='Transfer_Function_Magnitude_%d%s' % (shotno,save_ext), tight_layout=True, sharex=True,sharey=False, figsize=(9,8))
         fig_phase, ax_phase = plt.subplots(7,7, num='Transfer_Function_Phase_%d%s' % (shotno,save_ext), tight_layout=True, sharex=True,sharey=True, figsize=(9,8))
         ax_mag = ax_mag.flatten()
         ax_phase = ax_phase.flatten()
@@ -457,29 +457,63 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSa
         ax_mag = [ax_mag]
         ax_phase = [ax_phase]
     
+    # Sort sensors according to the pattern: BPXX_*, BPXT_*, then BP_XX_Top/Bot
+    def sort_key(name):
+        if name.startswith('bp') and len(name) > 4 and name[2:4].isdigit() and name[4] == '_':
+            # BPXX_* : e.g., bp01_abk -> category 0, number 1
+            return (0, int(name[2:4]), name)
+        elif name.startswith('bp') and len(name) > 4 and name[2].isdigit() and name[3] == 't' and name[4] == '_':
+            # BPXT_* : e.g., bp1t_abk -> category 1, number 1
+            return (1, int(name[2]), name)
+        else:
+            # BP_XX_Top/Bot or others : e.g., bp_ef_top -> category 2, full name
+            return (2, name)
+    
+    sensors = sorted(sensors, key=sort_key)
+
+    break_plot = ['bp28_ghk','bp6t_ghk']
     # Loop through each sensor
+    index_plot =0
     for i, name in enumerate(sensors):
         if name[2:] in bad_sensor: continue
 
-        ax_mag[i].plot(f * 1e-6, transfer_mag[i],\
+
+        ax_mag[index_plot].plot(f * 1e-6, transfer_mag[i],\
                         label=f'{name}'+(' Magnitude' if len(sensors)==1 else ''))
         
-        ax_phase[i].plot(f * 1e-6, transfer_phase[i], color='C1' if len(sensors)==1 else 'C0',\
+        ax_phase[index_plot].plot(f * 1e-6, transfer_phase[i], color='C1' if len(sensors)==1 else 'C0',\
                           label=f'{name}'+(' Phase' if len(sensors)==1 else ''), \
                             alpha=.6 if len(sensors)==1 else 1)
         
         # Plot synthetic transfer function for comparison
         if transfer_mag_synth is not None:
             
-            ax_mag[i].plot(f_synth * 1e-6, transfer_mag_synth[i], '--', color='C0' if len(sensors)==1 else 'C1',\
+            ax_mag[index_plot].plot(f_synth * 1e-6, transfer_mag_synth[i], '--', color='C0' if len(sensors)==1 else 'C1',\
                             label='Synth.' if i==0 else '',
                             alpha=.6)
-            ax_phase[i].plot(f_synth* 1e-6, transfer_phase_synth[i], '--', color='C1',\
+            ax_phase[index_plot].plot(f_synth* 1e-6, transfer_phase_synth[i], '--', color='C1',\
                                  label='Synth.' if i == 0 and len(sensors) != 1 else '', \
                                     alpha=.4 if len(sensors)==1 else .6)
 
-        __clean_up_plot(ax_mag,ax_phase,sensors,i,yLim_mag,yLim_phase,B0_normalize)
+        __clean_up_plot(ax_mag,ax_phase,sensors,i,yLim_mag,yLim_phase,B0_normalize,index_plot)
 
+        if name in break_plot: index_plot += 7 - index_plot%7
+        else:index_plot += 1
+    if len(sensors) > 1 and np.size(yLim_mag[0])>1:
+        for i in range (4): 
+            for j in range(7): 
+                ax_mag[i*7+j].set_ylim(yLim_mag[0])
+                if j != 0: ax_mag[i*7+j].set_yticklabels([])
+        for i in range (4,6):
+            for j in range(7): 
+                ax_mag[i*7+j].set_ylim(yLim_mag[1])
+                if j != 0: ax_mag[i*7+j].set_yticklabels([])
+        for i in [6]:
+            for j in range(7): 
+                ax_mag[i*7+j].set_ylim(yLim_mag[2])
+                if j != 0: ax_mag[i*7+j].set_yticklabels([])
+    else: 
+        ax_mag[0].set_ylim(yLim_mag[0])
     # Save plots
     if doSave:
         synth=f'_{synthDataFileNameInfo["mesh_file"].replace(".h5","")}_{synthDataFileNameInfo["sensor_set"]}_{save_ext}'\
@@ -494,28 +528,28 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSa
     plt.show()
 
 ######################################
-def __clean_up_plot(ax_mag,ax_phase,sensors,i,yLim_mag,yLim_phase,B0_normalize):
-    ax_mag[i].grid()
-    ax_mag[i].set_ylim(yLim_mag)
-    ax_phase[i].set_ylim(yLim_phase)
+def __clean_up_plot(ax_mag,ax_phase,sensors,i,yLim_mag,yLim_phase,B0_normalize,index_plot):
+    ax_mag[index_plot].grid()
+    if np.size(yLim_mag[0])==1:ax_mag[index_plot].set_ylim(yLim_mag)
+    ax_phase[index_plot].set_ylim(yLim_phase)
     if len(sensors) != 1: ax_phase[i].grid()
     if len(sensors) == 1:
-        ax_mag[i].legend(fontsize=8, loc='upper left')
-        ax_phase[i].legend(fontsize=8, loc='upper right')
-        ax_mag[i].set_ylabel('Transfer Magnitude ' +'[T/T]' if B0_normalize else '[T/s/A]')
-        ax_phase[i].set_ylabel('Transfer Phase [deg]')
-        ax_mag[i].set_xlabel('Frequency [MHz]')
+        ax_mag[index_plot].legend(fontsize=8, loc='upper left')
+        ax_phase[index_plot].legend(fontsize=8, loc='upper right')
+        ax_mag[index_plot].set_ylabel('Transfer Magnitude ' +'[T/T]' if B0_normalize else '[T/s/A]')
+        ax_phase[index_plot].set_ylabel('Transfer Phase [deg]')
+        ax_mag[index_plot].set_xlabel('Frequency [MHz]')
     else:
-        ax_mag[i].legend(fontsize=8, loc='upper right',handlelength=0.5)
-        ax_phase[i].legend(fontsize=8, loc='upper right',handlelength=0.5)
-        ax_mag[i].set_xticks([0,.5,1])
-        ax_phase[i].set_xticks([0,.5,1])
-        if i == 7*3: 
-            ax_mag[i].set_ylabel(r'$||H(\omega)||$ [T/s/A]')
-            ax_phase[i].set_ylabel(r'$\angle H(\omega)$ [deg]')
-        if i == 7*6+3 : 
-            ax_mag[i].set_xlabel('Frequency [MHz]')
-            ax_phase[i].set_xlabel('Frequency [MHz]')
+        ax_mag[index_plot].legend(fontsize=8, loc='upper right',handlelength=0.5)
+        ax_phase[index_plot].legend(fontsize=8, loc='upper right',handlelength=0.5)
+        ax_mag[index_plot].set_xticks([0,.5,1])
+        ax_phase[index_plot].set_xticks([0,.5,1])
+        if index_plot == 7*3: 
+            ax_mag[index_plot].set_ylabel(r'$||H(\omega)||$ [T/s/A]')
+            ax_phase[index_plot].set_ylabel(r'$\angle H(\omega)$ [deg]')
+        if index_plot == 7*6+3 : 
+            ax_mag[index_plot].set_xlabel('Frequency [MHz]')
+            ax_phase[index_plot].set_xlabel('Frequency [MHz]')
             
 
 # ###################################################################
@@ -545,7 +579,7 @@ def __load_mirnov_signals(shotno, tLim=[0,1]):
 ###################################3###################################
 
 ################################################################################3
-def sandbox(shotno,tLim=[0,1],input_channel=16,ACQ_board=3,mirnov_channel='bp_ef_top'):
+def sandbox_(shotno,tLim=[0,1],input_channel=16,ACQ_board=3,mirnov_channel='bp_ef_top'):
     # Test cross-correlation method
 
     # Load driver signal
@@ -631,21 +665,34 @@ def sandbox(shotno,tLim=[0,1],input_channel=16,ACQ_board=3,mirnov_channel='bp_ef
     # plt.savefig('../output_plots/Cmod_Cross_Spectrogram_%d.pdf'%shotno,dpi=300)
 
     print('Done')
+
+
+def sandbox(sensor_name='BP2T_ABK'):
+    hist = histfile('../data_output/floops_surface_C_MOD_LIM_m-n_14-11_f_7_FAR3D_NonLinear.hist')
+    time = hist['time'][:-1]
+    sensor_name = list(hist.keys())[1:] if sensor_name is None else sensor_name
+    
+    # Extract signals from hist
+    signals = np.array([hist[name.upper()] for name in sensor_name])
+    signals = np.diff(signals,axis=1)/(time[1]-time[0]) # Remove DC offset, convert to dB/s
+
+    print('Done')
 #######################################################################################
 if __name__ == '__main__':
     # sandbox(1150319903,tLim=[.5,1.65],input_channel=16,ACQ_board=2)
 
+    sandbox()
     # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     sensor_set = 'C_MOD_ALL' # Example sensor names
     calibration_magnitude = 6.325 # Replace with actual calibration magnitude
     calibration_frequency_limits = (10, 1e6)  # Frequency range in Hz
     comparison_shot = 1150319902 # Example shot number for comparison
-    synthDataFileNameInfo={'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',
+    synthDataFileNameInfo={'mesh_file':'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
                                         'sensor_set':'C_MOD_ALL',
-                                        'calibration_frequency_limits':(10,1e6),
+                                        'calibration_frequency_limits':(10,10),
                                         'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1],
-                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected'*True}
-    plot_sensors = 'all'#['bp01_abk']
+                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected-Testing-sensor'*True}
+    plot_sensors = ['bp01_abk']
     needs_correction = ['12_abk', '1t_ghk', '3t_ghk', '_ef_bot', '_ef_top']
     input_channel = 16 # Channel for calibration signal
     ACQ_board = 2 # ACQ board for calibration signal
@@ -653,13 +700,13 @@ if __name__ == '__main__':
     B0_normalize = False
     compareSynthetic = True
     fLim = [0,1e6]
-    yLim_mag = [0,21]
+    yLim_mag = [[0,5],[0,4],[0,24]]#[0,21]
     yLim_phase = [60,460]
     freq_domain_calculation = True # If True, use synthetic frequency domain data, otherwise time domain
     doSave='../output_plots/'*True
-    save_Ext_plot='_newCoords_Tiles_Mirnov_Shields'*True
+    save_Ext_plot='_newCoords_Tiles_Mirnov_Shields_1'*True
 
-    R = 20     # Ohms 
+    R = 5.3+0     # Ohms 
     L = 60e-6      # Henry
     C = 780e-12#780e-12     # Farads
 
@@ -678,8 +725,7 @@ if __name__ == '__main__':
     # transfer_mag = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Mag_1151208900.nc')
     # transfer_phase = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Phase_1151208900.nc')
     # transfer_complex = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Complex_1151208900.nc')
-    # plot_transfer_function(transfer_mag, transfer_phase,transfer_complex, shotno=1151208900)
-    print('Done')
+    # plot_transfer_function(transfer_mag, transfer_phase,transfer_complex, shotno=1151208900)    print('Done')
 
 
 

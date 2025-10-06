@@ -379,6 +379,11 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                         sensor_all.append(sens)
                 # # If existant, run top/bot Mirnov sensors
                 # if 
+            #########################
+            # # TEMPORARY ADDITION: Control sensor at origin
+            # pt, norm = (0,0,0), (0,0,1)
+            # sensor_all.append(Mirnov(pt, norm, 'C_MOD_CENTER_CONTROL', dx))
+
             # Slower BP sensors
             if not skipBP:
                 print('Including Low Frequency BP sensors')
