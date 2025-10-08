@@ -455,7 +455,7 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
             if frequencies is None:
                 frequencies = np.fft.rfftfreq(nfft, d=1/sampling_rate)
 
-            if block_time_centers is None:
+            if block_time_centers is None: 
                 current_index = 0
                 block_time_centers_list = []
                 for _ in range(len(windowed_blocks)):

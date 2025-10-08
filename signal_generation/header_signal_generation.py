@@ -18,6 +18,7 @@ plt.ion()
 import matplotlib.lines as mlines
 from matplotlib import rc,cm
 from matplotlib.colors import Normalize
+import vtk # potentially important for LaTex rendering in PyVista
 import pyvista
 # MDS load may not work on all machines
 try:import MDSplus as mds

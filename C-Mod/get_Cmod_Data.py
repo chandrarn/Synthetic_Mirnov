@@ -115,7 +115,7 @@ class BP_K:
     
     # Make use of Ted's Mirnov object [ does not include BP0x_K]
     # Need to pre-reduce data
-    def __init__(self, shotno, debug=False, params={}):
+    def __init__(self, shotno, debug=True, params={}):
         
         if debug: print('Loading ALL high frequency Mirnov Probes')
         

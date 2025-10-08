@@ -37,14 +37,14 @@ def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_sel
     
     # B_theta is orthogonal to B_norm, we need to calculate B_r(x,y,phi) * r_n_hat (x,y,z): B_norm = n_norm * r_n_hat * ||B_r||
     b_norm_cos, R_sig, Z_sig = calc_n_hat_b_norm_coords_geqdsk(eqdsk_file,R_downsamp,Z_downsamp,max(m),\
-                                        n,psi_norm_downsamp,B_r_RZ_downsamp_cos,psi_contour_select,doSave=doSave)
+                                        n,psi_norm_downsamp,B_r_RZ_downsamp_cos,psi_contour_select,doSave=doSave,debug=False)
     b_norm_sin, _, _ = calc_n_hat_b_norm_coords_geqdsk(eqdsk_file,R_downsamp,Z_downsamp,max(m),n,\
-                                                       psi_norm_downsamp,B_r_RZ_downsamp_sin,psi_contour_select,doSave=doSave)
+                                                       psi_norm_downsamp,B_r_RZ_downsamp_sin,psi_contour_select,doSave=doSave,debug=True)
     # b_norm_cos *= 1e6; b_norm_sin *= 1e6 # Scale
     # # Save B norm in ThinCurr format
     if downsample>1: # Downsample for testing [ALERT: build_torus_bnorm_grid will silently fail if the interpolation number is wrong]
-        b_norm_cos = b_norm_cos[::downsample]
-        b_norm_sin = b_norm_sin[::downsample]
+        b_norm_cos = b_norm_cos[::downsample] * 1e2
+        b_norm_sin = b_norm_sin[::downsample] * 1e2
         R_sig = R_sig[::downsample]
         Z_sig = Z_sig[::downsample]
     save_Bnorm('FAR3D' if (gethostname()[:4]=='orcd' or gethostname()[:4]=='node') \
@@ -52,7 +52,7 @@ def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_sel
     print('Finished conversion of FAR3D eigenfunctions %s, %s to ThinCurr effective surface current'%(br_file, bth_file))
 #####################################################################################
 def calc_n_hat_b_norm_coords_geqdsk(file_geqdsk,R,Z,m,n,psi_norm_downsamp,B_r,\
-                                    psi_contour_select,doSave,debug=True,save_ext=''):
+                                    psi_contour_select,doSave,debug=False,save_ext=''):
     # Calculate B-normal for the FAR3D eigenmode, on some select contour of Psi, in machine coordinates
 
     # Using geqdsk equilibrium to locate flux surfaces
@@ -128,7 +128,7 @@ def calc_n_hat_b_norm_coords_geqdsk(file_geqdsk,R,Z,m,n,psi_norm_downsamp,B_r,\
         r_hat /= fn_norm(r_hat)# Normalize (-1 is because unit normal is flipped, I think)
         all_r_hat.append(r_hat)
         # Take dot product with norm, scale by B_r
-        b_norm.append(fn_dot(r_hat,norm)*B_r[index[0],index[1]]*1e4)
+        b_norm.append(fn_dot(r_hat,norm)*B_r[index[0],index[1]])
         all_dot_prod.append(fn_dot(r_hat,norm))
         #all_norm.append(b_norm)
     
@@ -150,7 +150,7 @@ def __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,rmagx,zmagx,q_rz,all_r_hat
     vmin=np.nanmin(B_r);vmax=np.nanmax(B_r)
     vmin,vmax = -1e-6,1e-6
     #ax.imshow(B_r.T,origin='lower',extent=extent,vmin=vmin,vmax=vmax)
-    for i in range(2):ax[i].contourf(R,Z,B_r,zorder=-5)
+    for i in range(2):ax[i].contourf(R,Z,B_r*1e4,zorder=-5)
     ax[0].contour(R,Z,q_rz,cmap='plasma')
     norm_q = Normalize(vmin=np.nanmin(q_rz),vmax=np.nanmax(q_rz))
     fig.colorbar(cm.ScalarMappable(norm=norm_q,cmap=cm.get_cmap('plasma')),
@@ -177,8 +177,9 @@ def __b_norm_debug(b_norm,R_sig,Z_sig,B_r,R,Z,contour,rmagx,zmagx,q_rz,all_r_hat
     #ax[1].set_title(r'B$_\mathrm{r}$')
     if doPlot_norm: ax[1].legend(fontsize=8,handlelength=1)
     fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('plasma')),
-        label=r'$\hat{r}\cdot\hat{n}$' if doPlot_norm else r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [G]',ax=ax[1])
+        label=r'$\hat{r}\cdot\hat{n}$' if doPlot_norm else r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [T]',ax=ax[1])
     
+    plt.show()
     
     if doSave: fig.savefig(doSave+fig.canvas.manager.get_window_title()+('_vecs_' if doPlot_norm else '')+'.pdf',transparent=True)
 ########################################################################################
@@ -227,7 +228,8 @@ def interpolate_B(theta_inside,R_inside,Z_inside,dat_B,indices,m,psi_norm_inside
     # Evaluate the FAR3D eigenfunction _at the Psi, theta points corresponding to R,Z
     def eigenfunc(theta,B,B_indices,m):
         out = np.zeros((len(B_indices),))
-        for ind,m_ in enumerate(m): out += B[B_indices,ind]*np.cos(m_*(theta+0*np.pi/2)+phase) + B[B_indices,ind+len(m)]*np.sin(m_*(theta+0*np.pi/2)+phase)
+        for ind,m_ in enumerate(m): 
+            out += B[B_indices,ind]*np.cos(m_*(theta+0*np.pi/2)+phase) + B[B_indices,ind+len(m)]*np.sin(-m_*(theta+0*np.pi/2)+phase)
         return out
     
     B_RZ = eigenfunc(theta_inside,dat_B,indices,m)
@@ -248,7 +250,7 @@ def interpolate_B(theta_inside,R_inside,Z_inside,dat_B,indices,m,psi_norm_inside
 ##############################################
 def map_psi_to_equilibrium(br_file='br_0000',bth_file='bth_0000',\
     m=[9,10,11,12],eqdsk_file='g1051202011.1000',debug=True,lambda_merezhkin=0.4,\
-        data_directory='../M3D-C1_Data/',plot_directory='../output_plots/'):
+        data_directory='../M3D-C1_Data/',plot_directory='../output_plots/',normalization=8.1*3e1):
     # Generate equivalent FAR3D eigenfunction for Br, Bth, interpolated on the equilibrium flux surface grid in (r,z)
 
     # Load in FAR3D data
@@ -256,8 +258,8 @@ def map_psi_to_equilibrium(br_file='br_0000',bth_file='bth_0000',\
     dat_th = np.loadtxt(data_directory+bth_file,skiprows=1)
     
     psi_norm = dat_r[:,0]
-    dat_r = dat_r[:,1:]
-    dat_th = dat_th[:,1:]
+    dat_r = dat_r[:,1:]*normalization
+    dat_th = dat_th[:,1:]*normalization
     
     # Load in equilibrium data
     psi_normalized,R,Z, rmagx,zmagx = get_psi_grid(data_directory+eqdsk_file)
@@ -311,8 +313,8 @@ def map_psi_to_equilibrium(br_file='br_0000',bth_file='bth_0000',\
             ax[i].set_xlabel(r'R [m]')
             ax[i].set_rasterization_zorder(-1)
 
-        # norm = Normalize(vmin=vmin,vmax=vmax)
-        norm = Normalize(vmin=-1e-5,vmax=1e-5)
+        norm = Normalize(vmin=vmin,vmax=vmax)
+        #norm = Normalize(vmin=-1e-5,vmax=1e-5)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('viridis')),
              label=r'$||\tilde{\mathrm{B}}_{j}||$ [T]',ax=ax[1])
         if plot_directory: fig.savefig(plot_directory+'FAR3D_Eigenfunction_Equilibrium.pdf',transparent=True)

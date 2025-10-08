@@ -15,7 +15,7 @@ Created on Tue Feb  4 14:23:27 2025
 
 from header_signal_generation import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
     h5py, build_torus_bnorm_grid, OFT_env,ThinCurr_periodic_toroid, pyvista, subprocess,\
-        gethostname, server, I_KM, F_KM, F_KM_plot, build_periodic_mesh,write_periodic_mesh
+        gethostname, server, I_KM, F_KM, F_KM_plot, build_periodic_mesh,write_periodic_mesh, cm, Normalize
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from FAR3D_to_Bnorm import convert_FAR3D_to_Bnorm, __gen_b_norm_manual
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
@@ -25,15 +25,26 @@ def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_e
     'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5',\
     FAR3D_br_file='',FAR3D_bth_file='',plotOnly=False,eta='1.8E-5, 3.6E-5, 2.4E-5',doSave_Bode=False,\
-        scan_in_freq=False):
+        scan_in_freq=False,psi_contour_select=0.8):
     
    
- # Initialize OFT environment
+    # Initialize OFT environment
     oft_env = OFT_env(nthreads=params['n_threads'])
+
+    # Generate oft .xml file with resistivity values for mesh (no filament necessary here)
+    gen_OFT_filemant_and_eta_file(xml_filename, eta)
+
+    # Gen sensors location file
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
+
+    
+    
+
+
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
     elif FAR3D_br_file: convert_FAR3D_to_Bnorm(FAR3D_br_file,FAR3D_bth_file,m=params['m'],n=params['n'],\
-                                               eqdsk_file=file_geqdsk,debug=False)
+                                               eqdsk_file=file_geqdsk,debug=True,psi_contour_select=psi_contour_select)
     else: __gen_b_norm_manual(file_geqdsk,params)
     # __gen_b_norm_manual(file_geqdsk,params)
 
@@ -42,12 +53,7 @@ def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_e
     __gen_b_norm_mesh(prefix,params['m_pts'],params['n_pts'],oft_env,
                       sensor_set,doSave,save_ext,params,doPlot)
     
-    # Gen sensors location file
-    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
-
-    # Generate oft .xml file with resistivity values for mesh (no filament necessary here)
-    gen_OFT_filemant_and_eta_file(xml_filename, eta)
-    
+    print('Halt')
     # Build linked inductances and mode/current drivers 
     mode_driver_flux,mode_drive_currents, sensor_mode, sensor_obj, tw_mesh, tw_mode,\
           Msensor, Msensor_plasma = \
@@ -138,7 +144,7 @@ def run_frequency_scan(tw_mesh,tw_mode, mode_driver_flux, mode_drive_currents,Ms
     for freq in freqs if np.ndim(freqs) > 0 else [freqs]:
         
         result = tw_mesh.compute_freq_response(fdriver=mode_driver_flux,freq=freq)
-
+        result[np.isnan(result)] = 0 # Remove NaNs
         # contribution from the mesh current to the sensor, with the mesh current at a given frequency
         probe_signals = np.dot(result,Msensor) + np.dot(mode_drive_currents,Msensor_plasma)
         # Contribuio from the coil current directly to the sensor
@@ -150,11 +156,6 @@ def run_frequency_scan(tw_mesh,tw_mode, mode_driver_flux, mode_drive_currents,Ms
         probe_signals = probe_signals[0,:] + 1j*probe_signals[1,:] # Combine real and imaginary parts   
         sensors_bode.append(probe_signals)
     
-    # Only compute the mesh induced currents once
-    tw_mesh.save_current(result[0,:],'Jr_mode')
-    tw_mesh.save_current(result[1,:],'Ji_mode')
-    _ = tw_mesh.build_XDMF()
-
     # Save the probe signals to a file
     if doSave_Bode: 
         freqs = [freqs] if np.ndim(freqs) == 0 else freqs
@@ -164,6 +165,13 @@ def run_frequency_scan(tw_mesh,tw_mode, mode_driver_flux, mode_drive_currents,Ms
     
         # Plot the probe signals
         print('Saved frequency scan data to %s'%fName)
+
+    # Only compute the mesh induced currents once
+    tw_mesh.save_current(result[0,:],'Jr_mode')
+    tw_mesh.save_current(result[1,:],'Ji_mode')
+    _ = tw_mesh.build_XDMF()
+
+
     return np.array(sensors_bode)
 
 ################################################################################################
@@ -179,7 +187,7 @@ def gen_OFT_filemant_and_eta_file(xml_filename, eta):
 #########################################################
 def get_mesh_and_driver(mesh_file,oft_env,sensor_set):
     
-    # Pull in the conducting structure mesh
+    # # Pull in the conducting structure mesh
     tw_mesh = ThinCurr(oft_env)
     
     tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,
@@ -229,10 +237,10 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,oft_env,sensor_set,
     plasma_mode = ThinCurr_periodic_toroid(r_grid,nfp,n_theta,n_phi)
     plasma_mode.write_to_file('input_data/thincurr_mode.h5')
 
-    # # Plot Mesh
-    # fig = plt.figure(figsize=(12,5))
-    # plasma_mode.plot_mesh(fig)
-    # plt.show()
+    # Plot Mesh
+    fig = plt.figure(figsize=(12,5))
+    plasma_mode.plot_mesh(fig)
+    plt.show()
   
     # Convert from toroidal grid of periodic B-norm to J(theta) using self inductance
     tw_mode = ThinCurr(oft_env)
@@ -291,7 +299,13 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,oft_env,sensor_set,
     
     # Plot J(theta,phi)
     #return output,nfp,n_phi,n_theta,bnorm
-    if doPlot:__do_plot_B_J(output_full,nfp,n_phi,n_theta,bnorm,tw_mode,sensor_set,
+    if doPlot:
+        # Pull in the conducting structure mesh
+        tw_mesh = ThinCurr(oft_env)
+        tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,
+                            xml_filename='input_data/oft_in.xml')
+        tw_mesh.setup_io()
+        __do_plot_B_J(output_full,nfp,n_phi,n_theta,bnorm,tw_mode,tw_mesh,sensor_set,
                             doSave,save_Ext,params)
         
 ###########################################################
@@ -329,12 +343,16 @@ def __b_norm_surf_plot(r_grid,bnorm,nfp,ntheta,nphi,doSave='',save_Ext='',params
     for i in range(2):ax[0,i].set_xlabel(r'$\phi$ [$\pi$-rad]')
     ax[0,0].set_title(r'Cosine')
     ax[0,1].set_title('Sine')
+
+    norm = Normalize(vmin=np.min(bnorm),vmax=np.max(bnorm))
+    fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('plasma')),
+        label=r'$\hat{r}\cdot\hat{n}$' ,ax=ax[0,1])
     plt.show()
     m=params['m'];n=params['n'];
     if doSave:fig.savefig(doSave+'Surface_Current_2D_%s_m-n_%d-%d_%s.pdf'%\
                     (sensor_set,m if type(m) is int else m[0],n,save_Ext))
 #########################################################fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s_Surface_Current.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)
-def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
+def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,tw_mesh,sensor_set,doSave,
                   save_Ext,params):
 
     
@@ -356,10 +374,12 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
     grid = pyvista.UnstructuredGrid(cells, celltypes, r)
     
     p = pyvista.Plotter()
+    # actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
+    #            scalars=J_c,scalar_bar_args={'title':r'$\sigma_c(\theta,\phi)\, [A/m]$'})
     actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
-               scalars=J_c,scalar_bar_args={'title':'J_c'})
+            scalars=bn_c,scalar_bar_args={'title':r'$b_{\hat{n}}(\theta,\phi)\, [T]$'})
     actor.prop.edge_opacity = 0.5
-    #p.add_scalar_bar(title='J_c')
+    # p.add_scalar_bar(title='J_c',)
 
     # Plot Conducting Structures
     # tw_mesh.build_XDMF()
@@ -370,7 +390,12 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
     # cells = np.insert(lc, [0,], 3, axis=1)
     # grid = pyvista.UnstructuredGrid(cells, celltypes, r)
     # actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True)
-   
+    
+    # New ThinCurr way of getting mesh
+    plot_data = tw_mesh.build_XDMF()
+    grid = plot_data['ThinCurr']['smesh'].get_pyvista_grid()
+    p.add_mesh(grid,color="white",opacity=.3,show_edges=True)
+
 
     # Plot Sensors
     sensors=gen_Sensors_Updated(select_sensor=sensor_set)
@@ -380,20 +405,24 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,sensor_set,doSave,
                      label='Sensor' if ind==0 else None)
     if doSave:p.save_graphic(doSave+'Surface_J_s_%s_m-n_%d-%d_f_%d%s.pdf'%\
                     (sensor_set,params['m'] if type (params['m']) is int else params['m'][0],params['n'],params['f']*1e-3,save_Ext))
-    p.show()
+    
+    if doSave: p.save_graphic(doSave+ 'Surface_J_s_%s_m-n_%d-%d_f_%d%s.svg'%\
+                    (sensor_set,params['m'] if type (params['m']) is int else params['m'][0],params['n'],params['f']*1e-3,save_Ext))
 
+    p.show()
 
 #########################################################
 if __name__=='__main__':
     # SPARC Side
-    mesh_file='SPARC_Sept2023_noPR.h5';doSave='../output_plots/';save_ext='_FAR3D_NonLinear';file_geqdsk='g1051202011.1000',
+    mesh_file='SPARC_Sept2023_noPR.h5';doSave='../output_plots/';save_ext='_FAR3D_NonLinear_Scale_30';file_geqdsk='g1051202011.1000',
     sensor_set='BP';xml_filename='oft_in.xml';
     # params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
     # 'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
 
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    #mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    mesh_file = 'vacuum_mesh.h5'
+    # mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
     file_geqdsk='g1051202011.1000'
     eta = '1.8E-5, 1.8E-5'#, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
@@ -404,12 +433,12 @@ if __name__=='__main__':
     #     # Bulk resistivities
     Mo = 53.4e-9 # Ohm * m at 20c
     SS = 690e-9 # Ohm * m at 20c
-    w_tile_lim = 1.5e-2  # Tile limiter thickness
+    w_tile_lim = 1.5e-2 *1e-20  # Tile limiter thickness
     w_tile_arm = 1.5e-2 *1 # Tile extention thickness
     w_vv = 3e-2 # Vacuum vessel thickness
-    w_ss = 1e-2  # Support structure thickness
+    w_ss = 1e-2  # Limiter Support structure thickness
     w_shield = 0.43e-3 
-    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_shield}, {Mo/w_tile_arm}, {SS/w_tile_lim}' 
     
     [9,10,11,12]
     params={'m':[14,13,12,11,10,9,8],'n':11,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
@@ -418,7 +447,14 @@ if __name__=='__main__':
     C1_file=None#'/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'
     FAR3D_br_file = 'br_1103';FAR3D_bth_file='bth_1103'
 
+    doSave_Bode=True
+    scan_in_freq=True
+    psi_contour_select=0.4
+
     Synthetic_Mirnov_Surface(mesh_file=mesh_file,doSave=doSave,save_ext=save_ext,file_geqdsk=file_geqdsk,\
                              sensor_set=sensor_set,xml_filename=xml_filename,params=params,doPlot=doPlot,\
                             C1_file=C1_file,FAR3D_br_file=FAR3D_br_file,FAR3D_bth_file=FAR3D_bth_file,\
-                            plotOnly=plotOnly, eta=eta, doSave_Bode=True, scan_in_freq=True)fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s_Surface_Current.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)
+                            plotOnly=plotOnly, eta=eta, doSave_Bode=doSave_Bode, scan_in_freq=scan_in_freq,
+                            psi_contour_select=psi_contour_select)
+    
+    print('All done')
