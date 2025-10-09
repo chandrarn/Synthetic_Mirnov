@@ -1,6 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+'''
+    Main script to generate synthetic mirnov signals using ThinCurr
+    Requires a valid conducting structure mesh for ThinCurr
+    and an equilibrium file in gEQDSK format
+    and a set of probe locations and orientations
+    and a mode to simulate (m,n)
+    and a resistivity for the conducting structure
+    and a frequency to simulate
+
+    Outputs a netcdf file with the real and imaginary components of the probe signals in [T/s]
+    and optional plots of the mesh, filaments, and sensors
+
+    Requires OpenFUSIONToolkit, and TARS to be installed and configured
+    and the environment variables OFT_ROOTPATH and TARS_ROOTPATH to be set
+    (see header file for details)
+
+'''
+########################################################################################
 from header_synthetic_mirnov_generation import np, plt, pyvista, ThinCurr,\
     Mirnov, save_sensors, OFT_env, mu0, histfile, geqdsk, xr
 
