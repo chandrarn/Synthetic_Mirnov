@@ -445,7 +445,7 @@ if __name__=='__main__':
         'f':np.linspace(1e1,1e6,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
-    cmod_shot = 1151208900 	
+    cmod_shot = 1051202011#1151208900 	
     wind_in = 'phi' # Note: advanced `theta' winding does not work for single filament m/n=1 case
     scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
     clim_J = [0,1]

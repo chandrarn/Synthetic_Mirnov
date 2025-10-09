@@ -30,7 +30,7 @@ def gen_coil_currs_sin_cos(mode,debug=True,doSave=False):
     if debug:print('Initialized coil currents array with shape (%d,%d)'%coil_currs.shape)
 
     for ind, phase in enumerate([0, np.pi/2]): # sin and cos components
-        coil_currs = np.cos(n * starting_angle + phase)
+        coil_currs[ind] = np.cos(n * starting_angle + phase)
 
     # Save coil currents to .npy for manual inspection later
     if doSave: np.savez(doSave+'coil_currs.npz', coil_currs=coil_currs,m=m,n=n,n_pts=n_pts,m_pts=m_pts)
@@ -46,10 +46,11 @@ def gen_filament_coords(params):
     # Ported from geqdsk_filament_generator.py
     # Only accepts single m/n pair for now
 
-    starting_angle=[]; winding_angle=[]
+    ratio = Fraction(m,n)
+    m_local=ratio.numerator;n_local=ratio.denominator
 
-    starting_angle.append( np.linspace(0,2*np.pi/n,n_pts,endpoint=False) )
-    winding_angle.append( np.linspace(0,2*np.pi*m,m_pts) )
+    starting_angle =  np.linspace(0,2*np.pi/n_local,n_pts,endpoint=False) 
+    winding_angle = np.linspace(0,2*np.pi*m_local,m_pts) 
 
     return starting_angle, winding_angle
 
@@ -72,8 +73,8 @@ def starting_phi(m,n,m_pts,n_pts):
 
 ###############################################################
 # Core of new Winding Method
-def wind_in_theta(file_geqdsk,m,n, debug=False):
-    with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+def wind_in_theta(working_directory,file_geqdsk,m,n, debug=False):
+    with open(working_directory+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
     eq_field = EquilibriumField(eqdsk)
     eq_filament = EquilibriumFilament(m,n,eq_field)
     filament_points,filament_etas = eq_filament._trace(method=TraceType.AVERAGE,num_filament_points=300)
@@ -103,9 +104,9 @@ def conv_theta_wind_to_coords(filament_points,phi_start):
         Z = filament_points[:,2]
         coords.append([X,Y,Z])
     
-    return np.array(coords).T
+    return np.array(coords)
 
-def calc_filament_coords_field_lines(mode,file_geqdsk,doDebug=False):
+def calc_filament_coords_field_lines(mode,file_geqdsk,working_directory,doDebug=False):
     # Calling container for field-tracing filaments
     # Ported from geqdsk_filament_generator.py
 
@@ -115,9 +116,9 @@ def calc_filament_coords_field_lines(mode,file_geqdsk,doDebug=False):
     # wrap toroidally enough times to return to their starting point
 
 
-    phi_start, phi_advance =  starting_phi(m_,n,m_pts,n_pts)
+    phi_start, phi_advance =  starting_phi(m,n,m_pts,n_pts)
 
-    filament_points,filament_etas = wind_in_theta(file_geqdsk,m,n)
+    filament_points,filament_etas = wind_in_theta(working_directory,file_geqdsk,m,n)
 
     coords = conv_theta_wind_to_coords(filament_points,phi_start)
 
@@ -138,7 +139,7 @@ def gen_OFT_filement_and_eta_file(filament_file,filament_coords, eta, debug=Fals
     eta = ','.join([str(e) for e in eta])
 
     # Write filaments and eta to file
-    with open('input_data/'+filament_file,'w+') as f:
+    with open(filament_file+'oft_in.xml','w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
         if debug: print('File open for writing: %s'%filament_file)
@@ -155,7 +156,7 @@ def gen_OFT_filement_and_eta_file(filament_file,filament_coords, eta, debug=Fals
             f.write('\t</coil_set>\n')
 
         f.write('\t</icoils>\n\t</thincurr>\n</oft>')
-        
+
     if debug: print('Wrote OFT filament file to %s'%filament_file)
 ################################################################
 #######3#########################################################
@@ -165,19 +166,13 @@ def gen_OFT_sensors_file(probe_details, working_files_directory, debug=True):
     # theta, phi (orientation of each probe)
 
     sensor_list = []
-    for probe in probe_details.sensor_name.values:
-        theta_pol = probe_details.theta.sel(sensor_name=probe).item() # assume degrees
-        phi = np.arctan2(probe_details.Y.sel(sensor_name=probe).item(),\
-                         probe_details.X.sel(sensor_name=probe).item())
-        pt = ( probe_details.X.sel(sensor_name=probe).item(),
-                probe_details.Y.sel(sensor_name=probe).item(),
-                probe_details.Z.sel(sensor_name=probe).item(),)
+    for probe in probe_details.sensor.values:
+       
+        pt = probe_details.position.sel(sensor=probe).values
         # normal vector does not current account for toroidal tilt
-        norm = [np.cos(theta_pol*np.pi/180)*np.cos(phi),
-                np.cos(theta_pol*np.pi/180)*np.sin(phi),
-                np.sin(theta_pol*np.pi/180)]
+        norm = probe_details.normal.sel(sensor=probe).values
         # Probe radius
-        dx = probe_details.dx.sel(sensor_name=probe).item()
+        dx = probe_details.radius.sel(sensor=probe).item()
         # create Mirnov object
         sensor_list.append(
             Mirnov(pt, norm, probe, dx)

@@ -7,7 +7,7 @@ Created on Thu Jan  9 14:47:17 2025
 """
 
 from header_signal_generation import Mirnov, save_sensors, flux_loop, plt,\
-    mds, np, json, Mirnov_Geometry_C_Mod, os
+    mds, np, json, Mirnov_Geometry_C_Mod, os, xr
 
 from get_Cmod_Data import BP
 
@@ -359,6 +359,8 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             sensor_BP = []
             sensor_Lim = []
             sensor_all = []
+            sensors_pts =[]
+            sensors_norm =[]
             # doing all fast Mirnovs
             for name in phi:
                 # for sens_num in np.arange(1,7):
@@ -373,6 +375,8 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                     pt, norm = __cords_xyz_C_Mod(phi[name], \
                              R[name], Z[name], theta_pol[name], 0)
                     sens = Mirnov(pt, norm, name,dx)#scale=gen_Sensors_UpdatedN
+                    sensors_norm.append(norm)
+                    sensors_pts.append(pt)
                     if 'O' in name: sensor_all.append(sens)
                     else: 
                         sensor_Lim.append(sens)
@@ -433,8 +437,42 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 return sensor_BP
             if select_sensor == 'C_MOD_ALL': 
                 save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
+                save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
                 return sensor_all
         
+################################################################################# 
+
+def save_probe_details_xarray(sensors,sensors_norm,sensors_points, dx, sensor_set, freq_response=None):
+    """
+    Save probe details to an xarray Dataset.
+    Optionally associate each sensor with a frequency response function.
+    freq_response: a list of callables (one per sensor), or a single callable for all.
+    """
+    names = [s._name for s in sensors]
+    pts = np.array(sensors_points)  # shape: (N, 3)
+    norms = np.array(sensors_norm)  # shape: (N, 3)
+
+
+    ds = xr.Dataset(
+        {
+            "position": (["sensor", "coord"], pts, {"units": "meters"}),
+            "normal": (["sensor", "coord"], norms, {"units": "meters"}),
+            "radius": (["sensor"], np.full(len(names), dx), {"units": "meters"}),  # Add radius data variable
+        },
+        coords={
+            "sensor": names,
+            "coord": ["x", "y", "z"],
+        },
+        attrs={
+            "description": "Sensor positions, normals, radii",
+            "probe_set_name": sensor_set,
+        }
+    )
+
+    ds.to_netcdf(f"input_data/sensor_details_{sensor_set}.nc")
+    print('Saved sensor details to input_data/sensor_details_%s.nc'%sensor_set)
+    return ds
+
 ################################################################################
 def __save_C_Mod_BP_xyz(sensor_BP):
     X={};Y={};Z={}
@@ -495,4 +533,4 @@ def debug_plots(set_='BP',tor=0,coord_file='input_data/MAGX_Coordinates_CFS.json
     plt.grid();plt.show()
 ####################################
 if __name__ == '__main__':
-    out=gen_Sensors_Updated(select_sensor='Synth-C_MOD_BP',cmod_shot=1151208900,debug=True)
+    out=gen_Sensors_Updated(select_sensor='C_MOD_ALL',cmod_shot=1051202011,debug=True)
