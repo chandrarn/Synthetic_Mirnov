@@ -7,56 +7,49 @@ from header_synthetic_mirnov_generation import np, EquilibriumField, Equilibrium
 
 ################################################################################################
 ################################################################################################
-def gen_coil_currs(param,debug=True,doSave=False,wind_in='theta',scan_in_freq=False):
+def gen_coil_currs_sin_cos(mode,debug=True,doSave=False):
     # Assign currents to existing fillaments for time dependent calculation
     # The ordering of the filaments and currents must match for the field topology to be correct
 
-    m_pts=param['m_pts'];m=param['m'];dt=param['dt'];f=param['f'];periods=param['periods']
-    noise_envelope = param['noise_envelope'] # Random noise envelope
-    if type(m) is int: m = [m]# Convert type to correct format
+    m_pts=mode['m_pts'];m=mode['m'];n=mode['n'];n_pts=mode['n_pts']
 
-    I=param['I'];n=param['n'];n_pts=param['n_pts']
-    nsteps = int(param['T']/dt)
     
     # Need to get the list of starting angles, to correctly assign filament colors
-    starting_angle,_= gen_filament_coords(param,wind_in=wind_in) # returns as lists
-    time=np.linspace(0,param['T'],nsteps)
+    starting_angle,_= gen_filament_coords(mode) # returns as lists
+
     
-    # assume that m_pts can be a list
-    if type(m_pts) == int: num_filaments = m_pts*len(starting_angle)
-    else: num_filaments = sum([len(theta) for theta in starting_angle])
-    if debug:print('Number of filaments: %d'%num_filaments)
-    coil_currs = np.zeros((time.size,num_filaments+1))
+    # # assume that m_pts can be a list
+    # if type(m_pts) == int: num_filaments = m_pts*len(starting_angle)
+    # else: num_filaments = sum([len(theta) for theta in starting_angle])
+    if debug:print('Number of filaments: %d'%n_pts)
+
+    # Coil currents for the sin/cos compoenents for each filement
+    coil_currs = np.zeros((2,n_pts))
 
     # Time vector in first column
-    coil_currs[:,0]=time
     if debug:print('Initialized coil currents array with shape (%d,%d)'%coil_currs.shape)
 
+    for ind, phase in enumerate([0, np.pi/2]): # sin and cos components
+        coil_currs = np.cos(n * starting_angle + phase)
+
+    # Save coil currents to .npy for manual inspection later
+    if doSave: np.savez(doSave+'coil_currs.npz', coil_currs=coil_currs,m=m,n=n,n_pts=n_pts,m_pts=m_pts)
+
+    return coil_currs
+
 #########################################################################################################
-def gen_filament_coords(params, wind_in='phi'):
+def gen_filament_coords(params):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
     # generate theta,phi coordinates for fillaments
-    # The points launch in a fractional sector of the poloidal or toroidal plane
-    # (depending on 'wind_in' parameter), and
-    # wrap enough times to return to their starting point
+    # The points launch in a fractional sector of the toroidal plane
+    # and wrap enough times to return to their starting point
+    # Ported from geqdsk_filament_generator.py
+    # Only accepts single m/n pair for now
 
     starting_angle=[]; winding_angle=[]
-    if type(m_pts) is int: m_pts = [m_pts]*len(m)
-    if len(m_pts) != len(m): m_pts = m_pts*len(m)
-    if type(n_pts) is int: n_pts = [n_pts]*len(m_pts)
-    if len(n_pts) != len(m): n_pts = n_pts*len(m)
-    
-    for ind_m, m_ in enumerate(m if type(m) is list else [m]):
-        
-        n_ = n[ind_m] if type(n) is list else n
-        ratio = Fraction(m_,n_)
-        m_local=ratio.numerator;n_local=ratio.denominator
-        if wind_in == 'phi':
-            starting_angle.append(np.linspace(0,2*np.pi/m_local*n_local,m_pts[ind_m],endpoint=True))
-            winding_angle.append(np.linspace(0,m_local*2*np.pi,n_pts[ind_m],endpoint=True))
-        elif wind_in == 'theta':
-            starting_angle.append( np.linspace(0,2*np.pi/n_local,n_pts[ind_m],endpoint=False) )
-            winding_angle.append( np.linspace(0,2*np.pi*m_local,m_pts[ind_m]) )
+
+    starting_angle.append( np.linspace(0,2*np.pi/n,n_pts,endpoint=False) )
+    winding_angle.append( np.linspace(0,2*np.pi*m,m_pts) )
 
     return starting_angle, winding_angle
 
@@ -112,29 +105,21 @@ def conv_theta_wind_to_coords(filament_points,phi_start):
     
     return np.array(coords).T
 
-def calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False):
+def calc_filament_coords_field_lines(mode,file_geqdsk,doDebug=False):
     # Calling container for field-tracing filaments
+    # Ported from geqdsk_filament_generator.py
 
-    m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
+    m=mode['m'];n=mode['n'];n_pts=mode['n_pts'];m_pts=mode['m_pts']
     # generate theta,phi coordinates for fillaments
     # The points launch in a fractional sector of the poloidal plane, and
     # wrap toroidally enough times to return to their starting point
 
-    starting_angle=[]; winding_angle=[]
-    if type(m_pts) is int: m_pts = [m_pts]*len(m)
-    if type(n_pts) is int: n_pts = [n_pts]*len(m_pts)
-    coords = []
-    for ind_m, m_ in enumerate(m if type(m) is list else [m]):
-        phi_start, phi_advance =  starting_phi(m_,n[ind_m],m_pts[ind_m],n_pts[ind_m])
 
-        filament_points,filament_etas = wind_in_theta(file_geqdsk,m_,n[ind_m])
+    phi_start, phi_advance =  starting_phi(m_,n,m_pts,n_pts)
 
-        coords_ = conv_theta_wind_to_coords(filament_points,phi_start)
+    filament_points,filament_etas = wind_in_theta(file_geqdsk,m,n)
 
-        # if doDebug: debug_filament_currents(coords_,phi_start,n[ind_m])
-        #coords_[:,0]= coords[:,1]
-        # coords_[0,:2,:]=coords_[1,:2,:]
-        coords.append(coords_.T)
+    coords = conv_theta_wind_to_coords(filament_points,phi_start)
 
     return coords
 
@@ -143,34 +128,35 @@ def calc_filament_coords_field_lines(params,file_geqdsk,doDebug=False):
 ################################################################################################
 # Generate OFT Input Files
 ################################################################################################
-def gen_OFT_filement_and_eta_file(filament_file,filament_coords,\
-                  eta = '1.8E-5, 3.6E-5, 2.4E-5'):
+def gen_OFT_filement_and_eta_file(filament_file,filament_coords, eta, debug=False):
     # Write filament (x,y,z) coordinates to xml file in OFT format 
-
-    # Coords comes in as a list of m/n pairs, each with a list of filaments
     # Each filament is a list of points, each point is a list of [x,y,z] points
-    # This holds even if there's only one m/n pair
+    # Removing options for multiple m,n modes for now
+    # eta is the resistivity of the conducting structure in Ohm-m
 
+    # Convert eta to string
+    eta = ','.join([str(e) for e in eta])
+
+    # Write filaments and eta to file
     with open('input_data/'+filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
-        print('File open for writing: %s'%filament_file)
+        if debug: print('File open for writing: %s'%filament_file)
 
-        for filament_ in filament_coords:
-            
-            for filament in filament_:
-                f.write('\t<coil_set>\n')
-                f.write('\n\t\t<coil npts="%d" scale="1.0">\n'%np.shape(filament)[1])
+        for filament in filament_coords:
+            f.write('\t<coil_set>\n')
+            f.write('\n\t\t<coil npts="%d" scale="1.0">\n'%np.shape(filament)[1])
 
-                for xyz in np.array(filament).T:
-                    x=xyz[0];y=xyz[1];z=xyz[2]
-                    f.write('\t\t\t %1.3f, %1.3f, %1.3f\n'%(x,y,z) )
+            for xyz in np.array(filament).T:
+                x=xyz[0];y=xyz[1];z=xyz[2]
+                f.write('\t\t\t %1.3f, %1.3f, %1.3f\n'%(x,y,z) )
 
-                f.write('\t\t</coil>\n')
-                f.write('\t</coil_set>\n')
+            f.write('\t\t</coil>\n')
+            f.write('\t</coil_set>\n')
 
         f.write('\t</icoils>\n\t</thincurr>\n</oft>')
-
+        
+    if debug: print('Wrote OFT filament file to %s'%filament_file)
 ################################################################
 #######3#########################################################
 def gen_OFT_sensors_file(probe_details, working_files_directory, debug=True):

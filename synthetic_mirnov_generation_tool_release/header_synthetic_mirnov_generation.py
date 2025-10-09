@@ -13,7 +13,7 @@ from fractions import Fraction
 # TARS Equilibrium field tool for filament generation
 tars_python_path = os.getenv('TARS_ROOTPATH')
 if tars_python_path is not None:
-    sys.path.append(os.path.join(tars_python_path,'python'))
+    sys.path.append(tars_python_path)
 else: raise ValueError('Please set TARS_ROOTPATH environment variable to point to OpenFUSIONToolkit build directory')
 from tars.filaments import EquilibriumFilament, TraceType
 from tars.magnetic_field import EquilibriumField
@@ -40,7 +40,7 @@ import pyvista
 # ThinCurr and OFT imports
 thincurr_python_path = os.getenv('OFT_ROOTPATH')
 if thincurr_python_path is not None:
-    sys.path.append(os.path.join(thincurr_python_path,'python'))
+    sys.path.append(thincurr_python_path)
 else: raise ValueError('Please set OFT_ROOTPATH environment variable to point to OpenFUSIONToolkit build directory')
 from OpenFUSIONToolkit import OFT_env
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
