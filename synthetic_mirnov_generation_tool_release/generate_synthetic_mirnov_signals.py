@@ -17,6 +17,8 @@
     and the environment variables OFT_ROOTPATH and TARS_ROOTPATH to be set
     (see header file for details)
 
+    Beta version
+
 '''
 ########################################################################################
 from header_synthetic_mirnov_generation import np, plt, pyvista, ThinCurr,\
