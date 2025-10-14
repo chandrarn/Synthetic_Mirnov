@@ -150,7 +150,7 @@ if __name__ == '__main__':
     # Frequency to simulate
     freq = 1000  # Hz
 
-    # Frequency response correction
+    # Frequency response correction [ leave as a flat response if this is unknown: H = lambda w: 1 ]
     R = 6; L = 60e-6; C = 760e-12; R_0=0.7
     def Z_R(w):
         out = R_0 * np.ones_like(w)

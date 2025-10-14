@@ -380,7 +380,7 @@ def __gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
         
 
 ################################################################################################
-def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0=0.7):
+def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0=6):
 
     # RLC Circuit transfer function:
     # Transfer function H(w) for series RLC (output across the capacitor)
@@ -681,18 +681,18 @@ def sandbox(sensor_name='BP2T_ABK'):
 if __name__ == '__main__':
     # sandbox(1150319903,tLim=[.5,1.65],input_channel=16,ACQ_board=2)
 
-    sandbox()
+    # sandbox()
     # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     sensor_set = 'C_MOD_ALL' # Example sensor names
     calibration_magnitude = 6.325 # Replace with actual calibration magnitude
     calibration_frequency_limits = (10, 1e6)  # Frequency range in Hz
     comparison_shot = 1150319902 # Example shot number for comparison
-    synthDataFileNameInfo={'mesh_file':'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
+    synthDataFileNameInfo={'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',
                                         'sensor_set':'C_MOD_ALL',
-                                        'calibration_frequency_limits':(10,10),
+                                        'calibration_frequency_limits':(10,1e6),
                                         'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1],
-                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected-Testing-sensor'*True}
-    plot_sensors = ['bp01_abk']
+                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected-3D_Tiles'*True}
+    plot_sensors ='all'# ['bp01_abk']
     needs_correction = ['12_abk', '1t_ghk', '3t_ghk', '_ef_bot', '_ef_top']
     input_channel = 16 # Channel for calibration signal
     ACQ_board = 2 # ACQ board for calibration signal
@@ -704,9 +704,9 @@ if __name__ == '__main__':
     yLim_phase = [60,460]
     freq_domain_calculation = True # If True, use synthetic frequency domain data, otherwise time domain
     doSave='../output_plots/'*True
-    save_Ext_plot='_newCoords_Tiles_Mirnov_Shields_1'*True
+    save_Ext_plot='_newCoords_Tiles_Mirnov_Shields_3D'*True
 
-    R = 5.3+0     # Ohms 
+    R = 5.3*0+0     # Ohms 
     L = 60e-6      # Henry
     C = 780e-12#780e-12     # Farads
 
@@ -720,6 +720,8 @@ if __name__ == '__main__':
     
     transfer_mag, transfer_phase, f, sensors, synthetic_transfer_mag, \
         synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds = out
+    
+    print('Done')
     #compareBode(shotno=1051202011,doSave='../output_plots/Cmod_1051202011',doPlot=True)
     
     # transfer_mag = xr.open_dataarray(data_archive_path+'Cmod_Transfer_Mag_1151208900.nc')

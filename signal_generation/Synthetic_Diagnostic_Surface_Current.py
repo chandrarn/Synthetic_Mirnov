@@ -414,20 +414,21 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,tw_mesh,sensor_set,doSave
 #########################################################
 if __name__=='__main__':
     # SPARC Side
-    mesh_file='SPARC_Sept2023_noPR.h5';doSave='../output_plots/';save_ext='_FAR3D_NonLinear_Scale_30';file_geqdsk='g1051202011.1000',
+    mesh_file='SPARC_Sept2023_noPR.h5';doSave='../output_plots/';save_ext='_FAR3D_NonLinear_Scale_30_3D_Tiles';file_geqdsk='g1051202011.1000',
     sensor_set='BP';xml_filename='oft_in.xml';
     # params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
     # 'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
 
     # C-Mod Side
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    mesh_file = 'vacuum_mesh.h5'
-    # mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
+    # mesh_file = 'vacuum_mesh.h5'
+    # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined_3D_Tiles-homology.h5'
     file_geqdsk='g1051202011.1000'
-    eta = '1.8E-5, 1.8E-5'#, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
+    # eta = '1.8E-5, 1.8E-5, 3.6E-5, 1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     sensor_set='C_MOD_ALL';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
+
 
     # eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5
     #     # Bulk resistivities

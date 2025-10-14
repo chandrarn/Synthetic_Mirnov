@@ -265,14 +265,14 @@ def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0
 ########################`################################################
 if __name__ == '__main__':
     synthDataFileNameInfo = {
-        'mesh_file':'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
+        'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',#'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
         'sensor_set':'C_MOD_ALL',
         'calibration_frequency_limits':(650e3,650e3),
-        'save_ext_input':'_FAR3D_NonLinear_Scale_30_Surface_Current',
+        'save_ext_input':'_FAR3D_NonLinear_Scale_30_3D_Tiles_Surface_Current',
         'm': [14,13,12,11,10,9,8],
         'n': 11,
         'f': 7e3,
-        'save_Ext': '_FAR3D_NonLinear_Scale_30'
+        'save_Ext': '_FAR3D_NonLinear_Scale_30_3D_Tiles'
     }
     cmod_shot=1051202011
     time_point=1

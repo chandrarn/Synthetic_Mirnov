@@ -428,7 +428,7 @@ if __name__=='__main__':
     # For more accuracy, could break up filaments into different eta values based on position
     #
     eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
-    eta = f'{SS/2e-2}, {SS/15e-2}'
+    # eta = f'{SS/2e-2}, {SS/15e-2}'
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     # sensor_set='C_MOD_LIM';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
@@ -436,20 +436,20 @@ if __name__=='__main__':
     
     # C-Mod Frequency Scan
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
-    mesh_file='C_Mod_ThinCurr_VV_Improved-homology.h5'
+    # mesh_file='C_Mod_ThinCurr_VV_Improved-homology.h5'
     
     # mesh_file = 'vacuum_mesh.h5'
     params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
-        'f':np.linspace(1e1,1e6,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
+        'f':np.linspace(1e1,1e6,25),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
     cmod_shot = 1051202011#1151208900 	
     wind_in = 'phi' # Note: advanced `theta' winding does not work for single filament m/n=1 case
     scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
     clim_J = [0,1]
-    doSave_Bode = False
+    doSave_Bode = True
 
     # SPARC Side
     #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
@@ -462,7 +462,7 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext='_f-sweep_All-Mirnovs-Corrected-Testing-sensor'
+    save_ext='_f-sweep_All-Mirnovs-Corrected-3D_Tiles'
     doSave='../output_plots/'*False
 
     # # Frequency, amplitude modulation

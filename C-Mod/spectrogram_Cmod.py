@@ -18,7 +18,7 @@ import get_Cmod_Data as gC
 
 def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
                             doSave='',pad=800,fft_window=400,tLim=[.75,1.1],
-                            signal_reduce=2,f_lim=None,sensor_name='BP2T_GHK',
+                            signal_reduce=2,f_lim=None,sensor_name=['BP2T_GHK','BP1T_ABK', 'BP_EF_BOT'],
                             debug=True,plot_reduce=(4,1),doColorbar=True,
                             clabel='',HP_Freq=100,cLim=None,
                             doSave_Extractor=False,block_reduce=[200,40000],
@@ -512,7 +512,7 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos = [1051202011]#[1050615011]
+    shotnos = [1120906030]#[1050615011]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
@@ -521,8 +521,8 @@ def gen_lf_signals():
     # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
     #               'f_lim':[[0,100],[100,600]]}
     
-    dataRanges = {'tLim':[[.65,1.4]], 'signal_reduce':2,\
-                  'block_reduce':[1000,10],'sigma':(2,3),'plot_reduce':(1,1)}
+    dataRanges = {'tLim':[[1.0,1.3]], 'signal_reduce':2,\
+                  'block_reduce':[1000,1000],'sigma':(3,4),'plot_reduce':(1,1)}
     f_lim=[0,800]; c_lim=None
     pad = 14000;fft_window=100;HP_Freq=2e3
     doSave_data=True
@@ -530,7 +530,7 @@ def gen_lf_signals():
 
     for ind,shot in enumerate(shotnos):
         diag = None
-        if shot > 1080221018: continue
+        # if shot > 1080221018: continue
         plt.close('all') # Clear plots    
         for ind_t,tLim in enumerate(dataRanges['tLim']):
             #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
