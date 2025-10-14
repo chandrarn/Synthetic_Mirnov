@@ -91,7 +91,7 @@ def run_frequency_scan(tw_mesh,freq,coil_currs,probe_details,mesh_file,sensor_ob
 ################################################################################################
 def makePlots(tw_mesh,mode,coil_currs,sensors,doSave,save_Ext,
               filament_coords,plot_B_surf=True,debug=True,
-              clim_J=None,doPlot=True,working_files_directory=''):
+              plotParams={'clim_J':[0,1]},doPlot=True,working_files_directory=''):
     # Generate plots of mesh, filaments, sensors, and currents
     # Will plot induced current on the mesh if plot_B_surf is True
 
@@ -118,7 +118,7 @@ def makePlots(tw_mesh,mode,coil_currs,sensors,doSave,save_Ext,
     # Plot Mesh
     if plot_B_surf: 
         p.add_mesh(grid,color="white",opacity=.6,show_edges=True, \
-                   scalars=Jfull,clim=clim_J,smooth_shading=True,\
+                   scalars=Jfull,clim=plotParams['clim_J'],smooth_shading=True,\
                        scalar_bar_args={'title':'Eddy Current [A/m]'})
     else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
     

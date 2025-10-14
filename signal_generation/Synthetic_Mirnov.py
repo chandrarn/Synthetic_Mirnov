@@ -336,7 +336,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
         if scan_in_freq:
             Jfull = plot_data['ThinCurr']['smesh'].get_field('Jr_coil')
         else:
-            Jfull = plot_data['ThinCurr']['smesh'].get_field('J_v',timestep=0)
+            Jfull = plot_data['ThinCurr']['smesh'].get_field('J_v',timestep=1)
     if debug:print('Built Pyvista grid from ThinCurr mesh')
 
 
@@ -427,8 +427,9 @@ if __name__=='__main__':
     # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
     # For more accuracy, could break up filaments into different eta values based on position
     #
-    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+    # eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
     # eta = f'{SS/2e-2}, {SS/15e-2}'
+    eta = '1E-6'
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     # sensor_set='C_MOD_LIM';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
@@ -436,19 +437,21 @@ if __name__=='__main__':
     
     # C-Mod Frequency Scan
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    # mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
+    # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
     # mesh_file='C_Mod_ThinCurr_VV_Improved-homology.h5'
     
     # mesh_file = 'vacuum_mesh.h5'
-    params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[360],'m_pts':[1],\
-        'f':np.linspace(1e1,1e6,25),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':4.5,'noise_envelope':0.00}
+    params={'m':[4],'n':[2],'r':0,'R':0.8,'n_pts':[20],'m_pts':[20],\
+        'f':np.linspace(1e3,1e3,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':1,'noise_envelope':0.00}
+    params={'m':[4],'n':[2],'r':0,'R':0.8,'n_pts':[40],'m_pts':[20],\
+        'f':1e4,'dt':5.0e-6,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
-    file_geqdsk=None # 'g1051202011.1000' # Not used for frequency scan
+    file_geqdsk='g1051202011.1000' # Not used for frequency scan
     cmod_shot = 1051202011#1151208900 	
-    wind_in = 'phi' # Note: advanced `theta' winding does not work for single filament m/n=1 case
-    scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
-    clim_J = [0,1]
+    wind_in = 'theta' # Note: advanced `theta' winding does not work for single filament m/n=1 case
+    scan_in_freq = False # Set to True to run frequency scan, False to run time dependent simulation
+    clim_J = [0,.5] # Color limits for eddy current plot
     doSave_Bode = True
 
     # SPARC Side
@@ -462,8 +465,8 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext='_f-sweep_All-Mirnovs-Corrected-3D_Tiles'
-    doSave='../output_plots/'*False
+    save_ext='_f-sweep_All-Release_Comparison'
+    doSave='../output_plots/'*True
 
     # # Frequency, amplitude modulation
     # # Note: If the amplitude and frequency are not set correctly for LF signals, 
@@ -473,14 +476,14 @@ if __name__=='__main__':
     time = np.linspace(0,params['T'],int(params['T']/params['dt']))
 
     # Frequency sweep
-    periods = 1
-    dead_fraction = 0.0
-    f_mod = lambda t: 100e3 + 2e3*t
-    I_mod = lambda t: params['I']*np.ones_like(t)
-    f_out_1, I_out_1, f_out_plot_1 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,I_chirp_smooth_percent=0.001)
-    # params['f'] = f_out_1
-    # params['I'] = I_out_1
-    print('Generated frequency sweep from %1.1f kHz to %1.1f kHz'%(f_out_1[0]*1e-3,f_out_1[-1]*1e-3))
+    # periods = 1
+    # dead_fraction = 0.0
+    # f_mod = lambda t: 100e3 + 2e3*t
+    # I_mod = lambda t: params['I']*np.ones_like(t)
+    # f_out_1, I_out_1, f_out_plot_1 = gen_coupled_freq(time, periods, dead_fraction, f_mod, I_mod,I_chirp_smooth_percent=0.001)
+    # # params['f'] = f_out_1
+    # # params['I'] = I_out_1
+    # print('Generated frequency sweep from %1.1f kHz to %1.1f kHz'%(f_out_1[0]*1e-3,f_out_1[-1]*1e-3))
 
     # periods = 5
     # dead_fraction = 0.4

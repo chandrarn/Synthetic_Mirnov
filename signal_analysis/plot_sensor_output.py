@@ -208,7 +208,8 @@ def plot_Currents(params,coil_currs,doSave=False,save_Ext='',
 ######################################################
 ######################################################
 # Simplified single sensor plotting
-def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None,params=None,doSave=True):
+def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None,params=None,doSave=True,
+                       do_dBdt=True):
     hist_file = histfile(hist_file_name)
     # Sanitize input
     if type(sensor_name) is str: sensor_name = [sensor_name]
@@ -221,10 +222,18 @@ def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None
     fig,ax=plt.subplots(1+(1 if np.any(coil_currs) else 0),1,sharex=True,
             tight_layout=True,num='Single_Sensor_%s'%sensor_name,squeeze=False)
     for name in sensor_name:
-        ax[0,0].plot(hist_file['time'][:]*1e3,hist_file[name][:]*1e4,label=name,\
+        if do_dBdt:
+            sig = np.diff(hist_file[name][:])/(hist_file['time'][1]-hist_file['time'][0])
+            time = hist_file['time'][:-1]*1e3
+            ax[0,0].set_ylabel(r'dB/dt [T/s]')
+        else:
+            sig = hist_file[name][:-1]
+            time = hist_file['time'][:-1]*1e3
+            ax[0,0].set_ylabel(r'B [T]')
+        ax[0,0].plot(time*1e3,sig,label=name,\
                      alpha=1-.5*sensor_name.index(name)/len(sensor_name))
     
-    ax[0,0].set_ylabel(r'B [G]')
+    # ax[0,0].set_ylabel(r'B [G]')
     ax[0,0].legend(fontsize=8,loc='upper right',handlelength=1.5)
     ax[0,0].grid()
     if np.any(coil_currs):

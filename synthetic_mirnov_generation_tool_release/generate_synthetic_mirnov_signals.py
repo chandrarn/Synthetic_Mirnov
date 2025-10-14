@@ -34,20 +34,21 @@ from run_ThinCurr_model import get_mesh, run_frequency_scan, makePlots, correct_
 ################################################################################################
 ################################################################################################
 def thincurr_synthetic_mirnov_signal(
-    probe_details: xr.Dataset,
-    mesh_model_file: str,
-    eqdsk: geqdsk,
-    freq: float,
-    mode: dict,
-    eta: list[float],
-    working_files_directory: str,
-    save_Ext: str = '',
-    debug: bool = False,
-    n_threads: int = 0,
-    sensor_freq_response: dict = {},
-    doPlot: bool = False,
-    doSave: bool = False
-) -> xr.Dataset:
+        probe_details: xr.Dataset,
+        mesh_model_file: str,
+        eqdsk: geqdsk,
+        freq: float,
+        mode: dict,
+        eta: list[float],
+        working_files_directory: str,
+        save_Ext: str = '',
+        debug: bool = False,
+        n_threads: int = 0,
+        sensor_freq_response: dict = {},
+        doPlot: bool = False,
+        doSave: bool = False,
+        plotParams: dict = {'clim_J': [0, 0.5]}
+    ) -> xr.Dataset:
     
 
 
@@ -67,6 +68,9 @@ def thincurr_synthetic_mirnov_signal(
         sensor_freq_response: Dictionary with sensor names as keys and frequency response functions as values,
             if empty, assume that the sensors have a flat response
         doPlot: If True, generate debug plots of the mesh, filaments, and sensors
+        doSave: If True, save the output dataset to a netcdf file
+        plotParams: Dictionary with plotting parameters, e.g. {'clim_J': [0, 0.5]} for color limits of eddy current plot
+        working_files_directory: Directory to store and load mesh and temporary files from
     Returns:
         xr.Dataset: Dataset containing the simulated probe signals in [T/s].
     """
@@ -95,8 +99,7 @@ def thincurr_synthetic_mirnov_signal(
 
 
     ######################################################################################
-    # Prepare ThinCurr Model
-        # Get finite element Mesh
+    # Prepare ThinCurr Model, Get finite element Mesh
     tw_mesh, sensor_obj, Mc = \
         get_mesh(mesh_model_file, working_files_directory, n_threads,sensor_set, debug=debug)
     
@@ -108,7 +111,7 @@ def thincurr_synthetic_mirnov_signal(
     sensors_bode = run_frequency_scan(tw_mesh,freq,coil_currs,probe_details,mesh_model_file,\
                                       sensor_obj,mode,working_files_directory)
     
-    # Correct for sensor frequency response
+    # Correct for sensor frequency response and save results
     correct_frequency_response(sensors_bode, sensor_freq_response, freq, mode, doSave, debug,\
                                working_files_directory, probe_details, save_Ext)
 
@@ -117,7 +120,7 @@ def thincurr_synthetic_mirnov_signal(
     # Plot mesh, filaments, sensors, and currents
     makePlots(tw_mesh,mode,coil_currs,sensors,doSave,save_Ext,
               filament_coords,plot_B_surf=True,debug=debug,
-              clim_J=None,doPlot=doPlot,working_files_directory=working_files_directory)
+              plotParams=plotParams,doPlot=doPlot,working_files_directory=working_files_directory)
     
 
     ######################################################################################
@@ -148,8 +151,9 @@ if __name__ == '__main__':
     mesh_model = 'C_Mod_ThinCurr_VV-homology.h5'
 
     # Frequency to simulate
-    freq = 1000  # Hz
+    freq = 10000  # Hz
 
+    #####################
     # Frequency response correction [ leave as a flat response if this is unknown: H = lambda w: 1 ]
     R = 6; L = 60e-6; C = 760e-12; R_0=0.7
     def Z_R(w):
@@ -173,8 +177,10 @@ if __name__ == '__main__':
     n_threads=12
     doSave = True
     doPlot = True
+    plotParams = {'clim_J':[0,.5]}
 
-    # Run ThinCurr FFT simulation
+
+    # Run ThinCurr sensor response simulation
     sensors_bode = thincurr_synthetic_mirnov_signal(
         probe_details,
         mesh_model,
@@ -188,8 +194,10 @@ if __name__ == '__main__':
         n_threads=n_threads,
         sensor_freq_response=freq_response_dict,
         doSave=doSave,
-        doPlot=doPlot
+        doPlot=doPlot,
+        plotParams=plotParams
     )
+
 
     # Print results
     if debug:
