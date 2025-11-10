@@ -5,10 +5,11 @@
 # Actual measured signals
 # Should be able to handle time and frequency domain signals
 
-from header_signal_analysis import np, plt, sys, histfile
+from header_signal_analysis import np, plt, sys, histfile, hilbert
 sys.path.append('../C-Mod/')
 from get_Cmod_Data import __loadData
 from header_Cmod import __doFilter
+from Emperical_Bode_C_Mod import __load_in_RLC_Spline_Fit
 import scipy.optimize as opt
 
 
@@ -25,7 +26,7 @@ def compare_time_domain(synthDataFileNameInfo, C_mod_shot, C_mod_time, compariso
         __load_synth_signals_time(synthDataFileNameInfo,R=6,L=60e-6,C=760e-12)
     
     # Load real signals 
-    fft_magnitude, sensor_names, fft_freq, signals_window, time, R_mirnovs, Z_mirnovs = \
+    fft_magnitude, sensor_names, fft_freq, signals_window, time, R_mirnovs, Z_mirnovs,signal_env = \
         __load_real_data(C_mod_shot,C_mod_time,time_window=1e-3,target_freq=target_freq,doPlot=True)
     
     # Plot Comparison
@@ -35,7 +36,7 @@ def compare_time_domain(synthDataFileNameInfo, C_mod_shot, C_mod_time, compariso
     
 ########################################
 def compare_frequency_domanin(synthDataFileNameInfo, C_mod_shot, C_mod_time, doSave,target_freq,\
-                              saveExt='' ):
+                              saveExt='',time_window=10e-3):
     # Load in synthetic signals from frequency scan
     # Load in real signals, compute filtered magnitude
     # Plot
@@ -45,13 +46,13 @@ def compare_frequency_domanin(synthDataFileNameInfo, C_mod_shot, C_mod_time, doS
         __load_synth_signals(synthDataFileNameInfo,R=6,L=60e-6,C=760e-12)
 
     # Load real signals
-    fft_magnitude, sensor_names_real, fft_freq, signals_window, time, R_mirnovs, Z_mirnovs = \
-        __load_real_data(C_mod_shot,C_mod_time,time_window=1e-3,target_freq=target_freq,doPlot=True)
+    fft_magnitude, sensor_names_real, fft_freq, signals_window, time, R_mirnovs, Z_mirnovs, signal_env = \
+        __load_real_data(C_mod_shot,C_mod_time,time_window=time_window,target_freq=target_freq,doPlot=True)
     
     # Plot cooresponding sensors
     plot_comparison(probe_magnitude, sensor_names, freqs,
-                    fft_magnitude, sensor_names_real, fft_freq,R_mirnovs,Z_mirnovs,\
-                        doSave=doSave,save_ext=saveExt)
+                    fft_magnitude, sensor_names_real, fft_freq,R_mirnovs,Z_mirnovs,signal_env,\
+                        doSave=doSave,saveExt=saveExt,shotno=C_mod_shot,time=C_mod_time)
 
 ##################################################################################
 def plot_comparison_time(data_synth,time_synth, sensor_names_synth, \
@@ -66,7 +67,7 @@ def plot_comparison_time(data_synth,time_synth, sensor_names_synth, \
         ax[ind,0].plot(time,signals_window[arg_ind_real],label=comp_sensor)
 
         arg_ind_synth = np.argwhere(sensor_names_synth==comp_sensor)
-        ax[ind,0].plot(time_synth,data_synth[arg_ind_real],label='Synth.' if ind==0 else '',alpha=.6)
+        ax[ind,0].plot(time_synth,data_synth[arg_ind_real],label='Synth.',alpha=.6)
 
     ax[-1,0].set_xlabel('Time [s]')
     for ax_ in ax[:,0]:
@@ -79,7 +80,8 @@ def plot_comparison_time(data_synth,time_synth, sensor_names_synth, \
 ################################################################################
 def plot_comparison(probe_magnitude, sensor_names, freqs,
                     fft_magnitude, sensor_names_real, fft_freq,R_mirnovs,Z_Mirnovs,
-                    target_freq=650e3, doSave='', save_ext=''):
+                    signal_env,target_freq=650e3, doSave='', saveExt='',scale_synth=1,
+                    doHilbert=False,shotno=None,time=None):
     # Plot comparison between synthetic and real signals
     # No ordering of sensors yet
 
@@ -95,14 +97,16 @@ def plot_comparison(probe_magnitude, sensor_names, freqs,
     # Build plot
     plt.close('Frequency Domain Comparison')
     fig,ax = plt.subplots(1,1,num='Frequency Domain Comparison',tight_layout=True,figsize=(5,4))
-    ax.plot(sensor_names, probe_magnitude,'bo-', label= 'Synthetic Data',alpha=.7)
-    ax.plot(sensor_names_real, fft_magnitude,'rs--', label='Real Data',alpha=.7)
+    ax.plot(sensor_names, probe_magnitude*scale_synth,'bo-', label= 'Synthetic Data',alpha=.7)
+    ax.plot(sensor_names_real, fft_magnitude,'rs--', label='Real Data-FFT',alpha=.7)
+    if doHilbert: ax.plot(sensor_names_real, signal_env[indices_real],'gs--', label='Real Data-Hilbert',alpha=.7)
     ax.set_ylabel('Signial Magnitude [T/s]')
     ax.set_xlabel('Sensor Name')
 
     ax.grid()
-
-    ax.legend(fontsize=8)
+    if np.size(time) == 1:title=f'{shotno}: t={time:.2f} s'
+    else: title=f'{shotno}: t={np.min(time):.2f}-{np.max(time):.2f} s'
+    ax.legend(fontsize=8,title=title,title_fontsize=9)
 
     # Rotate x tick labels vertically and label every 3rd
     ax.set_xticks(range(0, len(sensor_names), 2))
@@ -110,8 +114,9 @@ def plot_comparison(probe_magnitude, sensor_names, freqs,
     ax.tick_params(axis='x', rotation=90)
 
     if doSave:
-        fig.savefig('../output_plots/Frequency_Domain_Comparison_%s%s.pdf'%(doSave,save_ext), transparent=True)
-
+        fig.savefig('../output_plots/Frequency_Domain_Comparison_%s%s.pdf'%(doSave,saveExt), transparent=True)
+        print('Saving' + '../output_plots/Frequency_Domain_Comparison_%s%s.pdf'%(doSave,saveExt))
+    
     # Separate plot of FFT real amplitude vs probe radial location
     plt.close('FFT Amplitude vs R')
     fig,ax = plt.subplots(1,1,num='FFT Amplitude vs R',tight_layout=True,figsize=(4,3))
@@ -134,10 +139,11 @@ def plot_comparison(probe_magnitude, sensor_names, freqs,
     
     ax.legend(fontsize=8)
     if doSave:
-        fig.savefig('../output_plots/FFT_Amplitude_vs_R_%s%s.pdf'%(doSave,save_ext), transparent=True)
+        fig.savefig('../output_plots/FFT_Amplitude_vs_R_%s%s.pdf'%(doSave,saveExt), transparent=True)
     print('Done')
 #################################################################################
-def __load_real_data(C_mod_shot,C_mod_time,time_window=1e-3,target_freq=650e3,doPlot=False):
+def __load_real_data(C_mod_shot,C_mod_time,time_window=60e-3,target_freq=650e3,
+                     doPlot=False,freq_window=5e3,):
 
     # Get raw data object
     bp_k = __loadData(C_mod_shot,pullData=['bp_k'],forceReload=['bp_k'*False],debug=True)['bp_k']
@@ -148,41 +154,79 @@ def __load_real_data(C_mod_shot,C_mod_time,time_window=1e-3,target_freq=650e3,do
     Z_mirnovs = np.array(bp_k.Z)
 
     # Find time indicies within time window
-    time_inds = np.where((time >= C_mod_time - time_window/2) & (time <= C_mod_time + time_window/2))[0]
+    if np.size(C_mod_time) == 1:
+        time_inds = np.where((time >= C_mod_time - time_window/2) & (time <= C_mod_time + time_window/2))[0]
+    else:
+        for t_block in C_mod_time:
+            inds_block = np.where((time >= t_block[0]) & (time <= t_block[1]))[0]
+            if 'time_inds' in locals():
+                time_inds = np.concatenate((time_inds, inds_block))
+            else:
+                time_inds = inds_block
+    
     if len(time_inds) == 0:
         raise ValueError('No time points found within time window')
     
-    # Do FFT
+
     signals_window = signals[:,time_inds]
     signals_window -= np.mean(signals_window,axis=1)[:,np.newaxis]
+
+    ################################################
+    # Do FFT
     fs = 1/(time[1]-time[0])
     fft_freq = np.fft.rfftfreq(len(signals_window[0]),1/fs)
     # Find index of target frequency
     freq_ind = np.argmin(np.abs(fft_freq - target_freq))
-    print('Target frequency: {0:.2f} kHz, Closest frequency: {1:.2f} kHz'.format(target_freq*1e-3,fft_freq[freq_ind]*1e-3))
+    freq_window_inds = int(freq_window / (fft_freq[1]-fft_freq[0]))
     
     # Do the FFT, get magnitude at target frequency
     fft_out = []
     for sig in signals_window:
-        fft_out.append( np.fft.rfft(sig)/(len(sig)/2) )
+        fft_out.append( np.fft.rfft(sig)/(len(sig)) )
     fft_out = np.array(fft_out)
-    fft_magnitude = np.abs(fft_out[:,freq_ind])
+    fft_magnitude = np.abs(fft_out[:,freq_ind-freq_window_inds:freq_ind+freq_window_inds+1])
+    freq_ind_ = np.argmax(np.mean(fft_magnitude,axis=0))
+    fft_magnitude = fft_magnitude[:,freq_ind_]
+    nearest_freq = freq_ind_ * (fft_freq[1]-fft_freq[0]) + fft_freq[freq_ind-freq_window_inds]
+    print('Target frequency: {0:.2f} kHz, Closest frequency: {1:.2f} kHz'.format(target_freq*1e-3,nearest_freq*1e-3))
 
     if doPlot:
+        if np.size(C_mod_time) == 1:
+            title = 'C-Mod Shot %d at t=%2.3f ms'%(C_mod_shot,C_mod_time*1e3)
+        else:
+            title = 'C-Mod Shot %d at t=%2.3f-%2.3f s'%(C_mod_shot,np.min(C_mod_time), np.max(C_mod_time))
         plt.close('Real Data FFT')
         fig,ax = plt.subplots(1,1,num='Real Data FFT',tight_layout=True,figsize=(4,3))
-        ax.plot(fft_freq*1e-3,np.abs(fft_out).T,alpha=.8)
+        ax.plot(fft_freq*1e-3,np.abs(fft_out).T,alpha=.6)
         ax.set_xlabel(r'Frequency [kHz]')
         ax.set_ylabel(r'FFT Magnitude')
-        ax.set_title('C-Mod Shot %d at t=%2.3f ms'%(C_mod_shot,C_mod_time*1e3))
-        ax.axvline(fft_freq[freq_ind]*1e-3,color='k',ls='--',label='Target Freq: %2.1f kHz'% (fft_freq[freq_ind]*1e-3))
-        ax.legend()
+        ax.set_title(title)
+        ax.axvline(nearest_freq*1e-3,color='k',ls='--',label=r'Target: %2.1f $\rightarrow$ %2.1f kHz'%\
+                    (fft_freq[freq_ind]*1e-3, nearest_freq*1e-3))
+        ax.legend(fontsize=8,handlelength=1.5)
         plt.show()
 
+    ########################################3
     # Run a highpass filter to isolate the target frequency
-    signals_window = __doFilter(signals_window,time[time_inds],HP_Freq=target_freq*.9,LP_Freq=target_freq*1.1)
+    signals_window = __doFilter(signals_window,time[time_inds],HP_Freq=target_freq - freq_window,\
+                                LP_Freq=target_freq + freq_window)
+    signals_env = np.mean(np.abs( hilbert(signals_window,axis=1) ), axis=1)
     
-    return fft_magnitude, sensor_names, fft_freq, signals_window, time[time_inds], R_mirnovs, Z_mirnovs
+    if doPlot:
+        offset= 30
+        plt.close('Filtered Signals')
+        fig,ax = plt.subplots(1,1,num='Filtered Signals',tight_layout=True,figsize=(5,4))
+        for ind, sig in enumerate(signals_window[::3]):
+            ax.plot(time[time_inds]*1e3,sig + ind*offset,label=sensor_names[ind],alpha=.7)
+        ax.set_xlabel('Time [ms]')
+        ax.set_ylabel('Filtered Signal + Offset [T/s]')
+        ax.set_title(title)
+        ax.legend(fontsize=6,ncol=3)
+        ax.set_yticks(np.arange(0, offset*len(signals_window[::3]), offset))
+        ax.grid()
+        plt.show()
+    return fft_magnitude, sensor_names, fft_freq, signals_window, time[time_inds], R_mirnovs,\
+          Z_mirnovs, signals_env
 
 ####################################################################################
 def __load_synth_signals(synthDataFileNameInfo,R,L,C):
@@ -190,8 +234,9 @@ def __load_synth_signals(synthDataFileNameInfo,R,L,C):
     # Return frequency, real/imag, sensor names
 
     # Add on correction for RLC circuit, best guess
-    fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s.npz'%\
-        (synthDataFileNameInfo['mesh_file'],synthDataFileNameInfo['sensor_set'],\
+    fName = 'Frequency_Scan_for_%s_on_%s_using_%s_from_%2.2e-%2.2eHz%s.npz'%\
+        (synthDataFileNameInfo['file_geqdsk'],\
+            synthDataFileNameInfo['mesh_file'],synthDataFileNameInfo['sensor_set'],\
           *synthDataFileNameInfo['calibration_frequency_limits'],\
             synthDataFileNameInfo['save_ext_input'])
     mirnov_Bode = np.load('../data_output/'+fName)
@@ -199,18 +244,66 @@ def __load_synth_signals(synthDataFileNameInfo,R,L,C):
     print('Loaded Synthetic Bode data from ../data_output/%s'%fName)
     probe_signals = mirnov_Bode['probe_signals'] # Comes in as scaled flux: V = -N*A * B
     freqs = mirnov_Bode['freqs']
-    probe_signals *= freqs[:,np.newaxis] * 2*np.pi * 1j # convert T/s (divide out A, switch current to voltage source)
+    probe_signals *= freqs[:] * 2*np.pi * 1j # convert T/s (divide out A, switch current to voltage source)
 
     # Get RLC circuit correction
-    mag_RLC, phase_RLC = __prep_RLC_Transfer_Function(R,L,C)
+    # mag_RLC, phase_RLC = __prep_RLC_Transfer_Function(R,L,C)
+    mag_RLC, phase_RLC, spline_fit_sensor_names = __load_in_RLC_Spline_Fit()
 
     sensor_names = mirnov_Bode['sensor_names']
 
-    probe_magnitude = np.abs(probe_signals) * mag_RLC(2*np.pi*freqs)
-    probe_magnitude = probe_magnitude[np.argmin(np.abs(freqs - 650e3)),:] # Get magnitude at 650 kHz    
+   
+    sensor_names, _names, order = __gen_sensor_ordering(sensor_names)
+
+    # Keep probe_signals aligned with the new sensor ordering
+    sensor_axis = next((i for i, s in enumerate(probe_signals.shape) if s == len(_names)), None)
+    if sensor_axis is not None:
+        probe_signals = np.take(probe_signals, order, axis=sensor_axis)
+
+    # Find common sensors and reorder
+    common_sensors = [name for name in sensor_names if name.lower() in [s.lower() for s in spline_fit_sensor_names]]
+    indices_sensor_names = [np.where(sensor_names == name)[0][0] for name in common_sensors]
+    indices_spline_fit = [np.where(np.char.lower(spline_fit_sensor_names) == name.lower())[0][0] for name in common_sensors]
+
+    # Reorder both to match
+    sensor_names = sensor_names[indices_sensor_names]
+    spline_fit_sensor_names = spline_fit_sensor_names[indices_spline_fit]
+
+    probe_magnitude = np.abs(probe_signals[0,indices_sensor_names]) * mag_RLC(freqs)[0,indices_spline_fit]
+    # probe_magnitude = probe_magnitude[np.argmin(np.abs(freqs - 650e3)),:] # Get magnitude at 650 kHz   
 
     return probe_magnitude, sensor_names, freqs
+###################################################################
+def __gen_sensor_ordering(sensor_names):
+     # Reorder sensor_names to: BPXX_ABK (all), BPXX_GHK (all), BPXT_ABK (all), BPXT_GHK (all), BP_AA_BOT (all), BP_AA_TOP (all)
+    import re
+    def _sensor_sort_key(name: str):
+        u = str(name).upper()
+        m = re.match(r'^BP(\d+)_([A-Z]+)$', u)  # BPXX_ABK/GHK
+        if m:
+            num = int(m.group(1)); suf = m.group(2)
+            # Group by suffix first: all ABK (cat=0), then all GHK (cat=1)
+            cat = 0 if suf == 'ABK' else 1 if suf == 'GHK' else 2
+            return (0, cat, num, u)
+        m = re.match(r'^BP(\d+)T_([A-Z]+)$', u)  # BPXT_ABK/GHK
+        if m:
+            num = int(m.group(1)); suf = m.group(2)
+            # Group by suffix first: all ABK (cat=0), then all GHK (cat=1)
+            cat = 0 if suf == 'ABK' else 1 if suf == 'GHK' else 2
+            return (1, cat, num, u)
+        m = re.match(r'^BP_([A-Z]{2})_((?:TOP|BOT))$', u)  # BP_AA_TOP/BOT
+        if m:
+            aa = m.group(1); pos = m.group(2)
+            # Treat BOT and TOP as separate categories: all BOT first, then all TOP
+            cat = 0 if pos == 'BOT' else 1
+            return (2, cat, aa, u)
+        # Fallback: put at end, keep lexicographic
+        return (9, 9, u, u, u)
 
+    _names = np.array(sensor_names).astype(str)
+    order = [i for i, _ in sorted(enumerate(_names), key=lambda t: _sensor_sort_key(t[1]))]
+
+    return _names[order], _names, order
 #################################################################################
 def __load_synth_signals_time(synthDataFileNameInfo,R,L,C):
     f_save = '../data_output/floops_surface_%s_m-n_%d-%d_f_%d%s.hist'%\
@@ -264,39 +357,56 @@ def __prep_RLC_Transfer_Function(R = 6, L = 60e-6, C = 760e-12, plot_R=False,R_0
 
 ########################`################################################
 if __name__ == '__main__':
+    # synthDataFileNameInfo = {
+    #     'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',#'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
+    #     'sensor_set':'C_MOD_ALL',
+    #     'calibration_frequency_limits':(650e3,650e3),
+    #     'save_ext_input':'_FAR3D_NonLinear_Scale_30_3D_Tiles_NewNorm_Surface_Current',
+    #     'm': [14,13,12,11,10,9,8],
+    #     'n': 11,
+    #     'f': 7e3,
+    #     'save_Ext': '_FAR3D_NonLinear_Scale_30_3D_Tiles'
+    # # # }
+    # cmod_shot=1051202011
+    # time_point=1
+
+    # target_freq=567e3
+    # time_window=40e-3#7e-3 # Window for FFT
+    # comparison_sensor_names =['BP02_GHK', 'BP1T_ABK']
+
+
     synthDataFileNameInfo = {
         'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',#'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
         'sensor_set':'C_MOD_ALL',
-        'calibration_frequency_limits':(650e3,650e3),
-        'save_ext_input':'_FAR3D_NonLinear_Scale_30_3D_Tiles_Surface_Current',
-        'm': [14,13,12,11,10,9,8],
-        'n': 11,
-        'f': 7e3,
-        'save_Ext': '_FAR3D_NonLinear_Scale_30_3D_Tiles'
+        'calibration_frequency_limits':(665e3,665e3),
+        'save_ext_input':'_FAR3D_NonLinear_Surface_Current',
+        'm': [13,12,11,10,9,8,7],
+        'n': 12,
+        'f': 665e3,
+        'rho': 0.25,
+        'lambda_merezhkin': 0.0,
+        'save_Ext': '_FAR3D_NonLinear',
+        'file_geqdsk' : 'g1160930034.1200'
     }
-    cmod_shot=1051202011
-    time_point=1
+    synthDataFileNameInfo['save_ext_input'] = f'_n={synthDataFileNameInfo["n"]}'+\
+        f'_rho={synthDataFileNameInfo["rho"]:1.1f}_lambda={synthDataFileNameInfo["lambda_merezhkin"]:1.2f}'+\
+            f'{synthDataFileNameInfo["save_ext_input"]}'
 
-    target_freq=567e3
+
+    # time_point=1.2#198
+    cmod_shot=1160930034
+    time_point = [[1.1,1.11],[1.128,1.141], [1.164,1.175], [1.191,1.205], [1.223,1.237]]
+    target_freq=657e3
+    time_window=10e-3#7e-3 # Window for FFT
 
     comparison_sensor_names =['BP02_GHK', 'BP1T_ABK']
 
     doSave=True
 
-    compare_frequency_domanin(synthDataFileNameInfo, cmod_shot, time_point, doSave=doSave,\
-                              target_freq=target_freq,saveExt='_Psi0.6')
+    saveExt = f'_{synthDataFileNameInfo['file_geqdsk']}_f_{synthDataFileNameInfo['f']*1e-3:1.0f}kHz_n={synthDataFileNameInfo["n"]}'+\
+        f'_rho={synthDataFileNameInfo["rho"]:1.1f}_lambda={synthDataFileNameInfo["lambda_merezhkin"]:1.2f}'
     
-    # synthDataFileNameInfo = {
-    #     'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',
-    #     'sensor_set':'C_MOD_LIM',
-    #     'calibration_frequency_limits':(650e3,650e3),
-    #     'save_ext_input':'_FAR3D_NonLinear_Surface_Current',
-    #     'm': [14,13,12,11,10,9,8],
-    #     'n': 11,
-    #     'f': 7e3,
-    #     'save_Ext': '_FAR3D_NonLinear'
-    # }
-    compare_time_domain(synthDataFileNameInfo, cmod_shot, time_point, comparison_sensor_names,\
-                        doSave, time_window=1e-3,saveExt='_Psi0.6')
-
+    compare_frequency_domanin(synthDataFileNameInfo, cmod_shot, time_point, doSave=doSave,\
+                              target_freq=target_freq,saveExt=saveExt, time_window=time_window)
+    
     print('Done')

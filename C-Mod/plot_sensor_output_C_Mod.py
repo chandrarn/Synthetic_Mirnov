@@ -17,9 +17,9 @@ from eqtools import CModEFITTree
 
 def plot_Current_Surface(shotno=1160930034,sensor_set='BP_T', doVoltage=False,
                          phi_sensor=0,doSave='/home/rianc/Documents/Synthetic_Mirnov/output_plots/',save_Ext='',timeScale=1,
-                         file_geqdsk='g1051202011.1000',tLim=[0.8175,0.821],
-                         HP_Freq=2e3, LP_Freq=10e3,cLims=None,
-                         doBode=True,calc_n=True,n=[-1],chan='BP1T_ABK'):
+                         file_geqdsk='g1051202011.1000',tLim=[1.2,1.2+5e-5],
+                         HP_Freq=300e3, LP_Freq=800e3,cLims=None,
+                         doBode=False,calc_n=True,n=[-12],chan='BP1T_ABK'):
     
     # Generate data
     # Select usable sensors from set
@@ -51,7 +51,7 @@ def plot_Current_Surface(shotno=1160930034,sensor_set='BP_T', doVoltage=False,
     #return X,Y,Z,sensor_dict,hist_file
 
     doPlot(sensor_set,save_Ext,sensor_dict,X,Y,Z,timeScale,doSave,False,
-           doVoltage,False,cLims,shotno=shotno)
+           doVoltage,False,{'unit':'T','scale':1},cLims,shotno=shotno)
     
     if calc_n:
         doSpect(X,Y,Z,doSave,save_Ext)
@@ -82,7 +82,7 @@ def build_data_dict(sensor_dict):
 def doFilter(X,Z,HP_Freq, LP_Freq):
     for i in range(len(X)):
         Z[i]=__doFilter(Z[i], X[i], HP_Freq, LP_Freq)
-def doFilter_hist(hist_file,HP_Freq, LP_Freq,tReduce=5000):
+def doFilter_hist(hist_file,HP_Freq, LP_Freq,tReduce=50):
     
     for sens_name in hist_file:
         if sens_name == 'time': continue
@@ -144,4 +144,6 @@ def doSpect(X,Y,Z,doSave,save_Ext):
     plt.show()
     if doSave:fig.savefig(doSave+'Periodogram%s.pdf'%save_Ext,transparent=True)
 ###############################################################################
-if __name__ == '__main__':plot_Current_Surface()
+if __name__ == '__main__':
+    
+    plot_Current_Surface()

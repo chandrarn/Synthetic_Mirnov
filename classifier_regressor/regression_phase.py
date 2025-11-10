@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 
 # Regression phase for ML mode id classifier
 # Assumes defined region in sensor-frequency space, for a single mode, with amplitude and phase described separately
@@ -16,6 +18,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 import matplotlib
+from sklearn.preprocessing import StandardScaler  # Add this import
+
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
 plt.rcParams['axes.labelweight']='bold'
@@ -34,6 +38,7 @@ def load_xarray_datasets(data_directory, n_files=1):
     file_pattern = os.path.join(data_directory, "*.nc")
     files = glob.glob(file_pattern)
     datasets = []
+    if n_files == -1: n_files = len(files)
     for file in files[:n_files]:
         ds = xr.open_dataset(file)
         datasets.append(ds)
@@ -64,7 +69,10 @@ def extract_spectrogram_matrices(ds, timepoint_indices):
         all_real_matrices.append(spect_real)
         all_imag_matrices.append(spect_imag)
 
-    return all_real_matrices, all_imag_matrices, sensor_names[:num_sensors]
+    # strip _ real and _ imag from sensor names
+    sensor_names = [name[:-5] for name in sensor_names[::2]]
+
+    return all_real_matrices, all_imag_matrices, sensor_names # Return only sensor names without _real/_imag
 
 def define_mode_regions(ds, F_mode_vars, time_indices, freq_tolerance=0.1):
     """
@@ -135,7 +143,7 @@ def extract_features_from_regions(real_matrices, imag_matrices, regions,normaliz
         features.append(mode_features)
     return np.array(features)
 
-def prepare_training_data(datasets, num_timepoints=22):
+def prepare_training_data(datasets, num_timepoints=22, theta=None, phi=None):
     """
     Prepare training data from all datasets.
     Instead of padding, loop across time_indices and extract relevant elements only if frequency != 0.
@@ -145,6 +153,11 @@ def prepare_training_data(datasets, num_timepoints=22):
     all_targets_m = []
     all_targets_n = []
 
+    diffs_real_all = []
+    diffs_imag_all = []
+    theta_diffs_all = []
+    phi_diffs_all = []
+    sensor_names_all = []
     for ds in datasets:
         # Select random timepoints
         time_indices = np.random.choice(len(ds['time']), num_timepoints, replace=False)
@@ -152,12 +165,40 @@ def prepare_training_data(datasets, num_timepoints=22):
         # Extract matrices for each timepoint, real/imag for each sensor
         real_mats, imag_mats, sensor_names = extract_spectrogram_matrices(ds, time_indices)
         
+        # Remove duplicates by converting to set and back to list
+        sensor_names = list(set(sensor_names))
+        
+        # Filter sensor_names to only include those present in theta and phi
+        sensor_names_filtered = [name for name in sensor_names if name in theta and name in phi]
+        
+        # Get indices of filtered sensors in the original sensor_names list
+        sensor_indices = [sensor_names.index(name) for name in sensor_names_filtered]
+        
+        # # Slice the matrices to only include the filtered sensors
+        # for time_idx in range(len(real_mats)):
+        #     real_mats[time_idx] = real_mats[time_idx][:, sensor_indices]
+        #     imag_mats[time_idx] = imag_mats[time_idx][:, sensor_indices]
+        
+        # Update sensor_names to the filtered list
+        # Implicitly, this takes on the orderings that will go into the feature vector
+        sensor_names = sensor_names_filtered
+        sensor_names_all.extend(sensor_names)
+        
+        # Get theta and phi values for the filtered sensors
+        theta_vals = np.array([theta[name] for name in sensor_names])
+        phi_vals = np.array([phi[name] for name in sensor_names])
+        theta_diff = theta_vals[1:] - theta_vals[0]
+        phi_diff = phi_vals[1:] - phi_vals[0]
+
         # Get F_Mode variables
         F_mode_vars = [var for var in ds.data_vars if var.startswith('F_Mode_')]
         
         # Define regions (now time-dependent)
         regions = define_mode_regions(ds, F_mode_vars, time_indices)
         
+ 
+
+      
         # Get targets
         mode_m = ds.attrs['mode_m']
         mode_n = ds.attrs['mode_n']
@@ -167,39 +208,88 @@ def prepare_training_data(datasets, num_timepoints=22):
             raise ValueError("Length of mode_m/n does not match number of F_Mode_ variables")
 
 
-        # Loop across time_indices
+        # Loop across time_indices and modes, extract features only if frequency != 0
         for time_idx in range(len(time_indices)):
             for mode_idx in range(len(F_mode_vars)):
 
                 freq_idx, sensor_idx = regions[mode_idx][time_idx]
 
+               
+
                 if len(freq_idx) > 0:  # Only if frequency != 0 (i.e., valid region)
+                     # Sensor indices per region must only refer to sensors being used
+                    sensor_idx = sensor_idx[sensor_indices]
+
                     real_region = real_mats[time_idx][np.ix_(freq_idx, sensor_idx)]
                     imag_region = imag_mats[time_idx][np.ix_(freq_idx, sensor_idx)]
                     # Extract features
                     # Extract features: average across frequency for each sensor, then concatenate real and imag
+                    
+                    # Find the on average largest frequency channel
+                    f_chan = np.argmax( np.mean( np.abs(real_region), axis=1) )
+                    # Normalize real part of sensors based on this channel
+                    real_region /= np.max( np.abs(real_region[f_chan, :]) ) 
+
+                
+
                     avg_real_per_sensor = np.mean(real_region, axis=0)  # Average across frequency (axis=0) for each sensor
+                    # Normalize real part of sensors
+                    avg_real_per_sensor /= np.max(np.abs(avg_real_per_sensor)) 
+
                     avg_imag_per_sensor = np.mean(imag_region, axis=0)  # Same for imag
                     
                     # Add pairwise differences (for simplicity, difference with the first sensor)
-                    if len(avg_real_per_sensor) > 1:
-                        diffs_real = avg_real_per_sensor[1:] - avg_real_per_sensor[0]
-                        diffs_imag = avg_imag_per_sensor[1:] - avg_imag_per_sensor[0]
-                        feat = np.concatenate([avg_real_per_sensor, avg_imag_per_sensor, diffs_real, diffs_imag])
+                    diffs_real = avg_real_per_sensor[1:] - avg_real_per_sensor[0]
+                    diffs_imag = avg_imag_per_sensor[1:] - avg_imag_per_sensor[0]
+                    
+                    if theta is None: 
+                        feat = np.concatenate([ diffs_real, diffs_imag])
                     else:
-                        feat = np.concatenate([avg_real_per_sensor, avg_imag_per_sensor])
-
+                        diffs_real_all.append(diffs_real)  # Collect raw diffs (no per-sample norm yet)
+                        diffs_imag_all.append(diffs_imag)
+                        theta_diffs_all.append(theta_diff)
+                        phi_diffs_all.append(phi_diff)
+                        # feat = np.stack([diffs_real, diffs_imag, theta_vals[1:]-theta_vals[0], phi_vals[1:]-phi_vals[0]])
+                    # if len(avg_real_per_sensor) > 1:
+                    #     feat = np.concatenate([avg_real_per_sensor, avg_imag_per_sensor, diffs_real, diffs_imag])
+                    # else:
+                    #     feat = np.concatenate([avg_real_per_sensor, avg_imag_per_sensor])
+                    # Concat features separately, stack at the end
                   
-                    all_features.append(feat)
+                    if theta is None: all_features.append(feat)
                     all_targets_m.append(mode_m[mode_idx])
                     all_targets_n.append(mode_n[mode_idx])
     
     # Convert lists to numpy arrays
-    X = np.array(all_features)
+    # X should look like (num_samples, num sensors, num_features) where num_samples = total valid timepoints * modes across all datasets
+    if theta is not None:
+        # Apply scalar to saved feature data, to allow saving of fitted scalar
+        # # After collecting all data, apply StandardScaler globally
+        # scaler = StandardScaler()
+        # # Stack into (N, 4) for scaling (N = total samples, 4 = features per sample)
+        # all_diffs = np.stack([np.array(diffs_real_all), np.array(diffs_imag_all),
+        #                       np.array(theta_diffs_all), np.array(phi_diffs_all)], axis=-1)  # (N, S-1, 4) assuming S-1 diffs
+        # # Flatten to (N*(S-1), 4) for scaler, then reshape back
+        # N, S_diff, C = all_diffs.shape
+        # all_diffs_flat = all_diffs.reshape(-1, C)
+        # scaled_diffs_flat = scaler.fit_transform(all_diffs_flat)
+        # scaled_diffs = scaled_diffs_flat.reshape(N, S_diff, C)
+        # # Unpack back to lists or arrays
+        # diffs_real_all = scaled_diffs[:, :, 0].tolist()
+        # diffs_imag_all = scaled_diffs[:, :, 1].tolist()
+        # theta_diffs_all = scaled_diffs[:, :, 2].tolist()
+        # phi_diffs_all = scaled_diffs[:, :, 3].tolist()
+
+        X = np.stack([np.array(diffs_real_all), np.array(diffs_imag_all), \
+                        np.array(theta_diffs_all), np.array(phi_diffs_all)], axis=-1 )
+    else:
+        X = np.array(all_features)
     y_m = np.array(all_targets_m)
     y_n = np.array(all_targets_n)
     
-    return X, y_m, y_n
+    # Only pull unique sensor names
+    unique_ordered = list(dict.fromkeys(sensor_names_all))
+    return X, y_m, y_n, unique_ordered
 
 def train_regression_model(X, y_m, y_n):
     """
@@ -349,39 +439,60 @@ def plot_regression_results(y_m_train, y_m_test, y_n_train, y_n_test,X,pred_m,pr
     plt.show()
 
 #############################################################################
-def save_training_data(X, y_m, y_n, filename=None):
+def save_training_data(X, y_m, y_n, sensors_names, filename=None):
     """
     Save the training data to a .npz file.
     """
-    np.savez(filename, X=X, y_m=y_m, y_n=y_n)
+    np.savez(filename, X=X, y_m=y_m, y_n=y_n, sensor_names =sensors_names)
     print(f"Training data saved to {filename}")
+############################################################################
+def apply_Scalar_to_training_data(X, scaler):
+    """
+    Apply a fitted StandardScaler to the training data X.
+    Assumes X shape is (num_samples, num_sensors, num_features).
+    """
+    num_samples, num_sensors, num_features = X.shape
+    X_reshaped = X.reshape(-1, num_features)  # Flatten to (num_samples * num_sensors, num_features)
+    X_scaled = scaler.fit_transform(X_reshaped)
+    X_scaled = X_scaled.reshape(num_samples, num_sensors, num_features)  # Reshape back
+    return X_scaled, scaler
+############################################################################
+def load_training_data(sensor_set, mesh_file, data_dir, theta=None, phi=None,n_files=1,\
+                       forceDataReload=False):
+    try: 
+        if forceDataReload: raise SyntaxError
+        dat = np.load(f'training_data_Sensor_Set_{sensor_set}_Mesh_file_{mesh_file}.npz')
+        X, y_m, y_n, sensor_names  = dat['X'], dat['y_m'], dat['y_n'], dat['sensor_names']
 
+        print(f"Loaded existing training data with {X.shape[0]} samples and {X.shape[1]} features")
+    except:
+        print("No existing training data found, generating new data...")
+        
+        
+        # Load datasets
+        datasets = load_xarray_datasets(data_dir,n_files=n_files)
+        
+        # Prepare training data
+        X, y_m, y_n, sensor_names = prepare_training_data(datasets, num_timepoints=10, theta=theta, phi=phi)
+        
+        save_training_data(X, y_m, y_n, sensor_names, \
+                           filename=f'training_data_Sensor_Set_{sensor_set}_Mesh_file_{mesh_file}.npz')
+
+        print(f"Generated training data with {X.shape[0]} samples and {X.shape[1]} features")
+    
+    # Apply StandardScaler
+    X, scaler = apply_Scalar_to_training_data(X, StandardScaler())
+
+    return X, y_m, y_n, sensor_names, scaler
 ####################################################################
 if __name__ == "__main__":
     # Directory containing the saved xarray files
     
     sensor_set = 'C_MOD_LIM'
     mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
-   
+    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/"  
 
-    try: 
-        dat = np.load(f'training_data_Sensor_Set_{sensor_set}_Mesh_file_{mesh_file}.npz')
-        X, y_m, y_n = dat['X'], dat['y_m'], dat['y_n']
-        print(f"Loaded existing training data with {X.shape[0]} samples and {X.shape[1]} features")
-    except:
-        print("No existing training data found, generating new data...")
-        data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/"  # Replace with actual path
-        
-        # Load datasets
-        datasets = load_xarray_datasets(data_dir)
-        
-        # Prepare training data
-        X, y_m, y_n = prepare_training_data(datasets, num_timepoints=10)
-        
-        save_training_data(X, y_m, y_n, \
-                           filename=f'training_data_Sensor_Set_{sensor_set}_Mesh_file_{mesh_file}.npz')
-
-        print(f"Generated training data with {X.shape[0]} samples and {X.shape[1]} features")
+    X, y_m, y_n,sensor_names,scaler = load_training_data(sensor_set, mesh_file, data_dir)
 
     # Train models
     fName_params = {'N': len(X), 'sensor_set': sensor_set, 'mesh_file': mesh_file}
@@ -396,7 +507,7 @@ if __name__ == "__main__":
 
 
     plot_regression_results(y_m_train, y_m_test, y_n_train, y_n_test,X,pred_m,pred_m_train,\
-                             pred_n,pred_n_train,err_m,err_n, fName_params,'_Classifier')
+                             pred_n,pred_n_train,err_m,err_n, fName_params,'_Classifier_low_mn')
     # Save models if needed
     # import joblib
     # joblib.dump(model_m, 'model_m.pkl')
@@ -404,3 +515,7 @@ if __name__ == "__main__":
 
     print('Done')
 
+
+    """
+    Write a new version of the regression_phase script, using a neural network instead of random forrest regression. Let the input have four channels: for each sensor, it will be given the real and imaginary components of a signal (as is done in prepare_training_data), but to that add the theta and phi direction coordinate of the sensor. For now, let the target vector be the n or m number, but not both at the same time. The network is being trained to recognize spatial patterns in the data, which are labeled by n and m interger numbers. As such, relationships between feature values are more important than their individual absolute values. We may wish to try a recurrent or reservior neural network for this reason. We may wish to use a Fourier Neutral Network kernal as a first test. The code to pull and prepare the real, imaginary data vectors and target vectors can remain as is, if needed
+    """

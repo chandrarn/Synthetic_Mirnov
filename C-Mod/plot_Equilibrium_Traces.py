@@ -228,3 +228,20 @@ def annotatePlot(ax,annotateTimePoints,time):
         ax.add_patch(r)
         ax.set_ylim(yLimTmp)
         ax.set_rasterization_zorder(-1)
+
+    ##############################################################################
+if __name__ == '__main__':
+    
+    shots = [1051202011]
+
+    tLim = [0.9,1.1]
+
+    makePlots = ['ip', 'p_rf', 'gpc_2', 'bp_t']
+
+    doSave = '../output_plots/'
+    
+    plot_basic_quantities(shots, LP_Freq = 30e3, tLim=tLim,
+                save_Ext='', highlightTimes = None, 
+                makePlots = makePlots, tall = True, doSave = doSave)
+    
+    print('Done')

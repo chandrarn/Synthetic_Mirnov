@@ -18,7 +18,7 @@ import get_Cmod_Data as gC
 
 def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
                             doSave='',pad=800,fft_window=400,tLim=[.75,1.1],
-                            signal_reduce=2,f_lim=None,sensor_name=['BP2T_GHK','BP1T_ABK', 'BP_EF_BOT'],
+                            signal_reduce=2,f_lim=None,sensor_name=['BP2T_GHK','BP1T_ABK', 'BT2T_ABK', 'BP_EF_BOT'],
                             debug=True,plot_reduce=(4,1),doColorbar=True,
                             clabel='',HP_Freq=100,cLim=None,
                             doSave_Extractor=False,block_reduce=[200,40000],
@@ -26,7 +26,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
                             params={},save_Ext='',batch=False,sigma_plot_reduce=(3,5),
                             doSave_data=False,doPlot=True,mesh_file=None,archiveExt=None,
                             filament=False,use_rolling_fft=False,tScale=1):
-    '''
+    r'''
     
 
     Parameters
@@ -163,7 +163,7 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim,params,m
             sensors=[]
             for ind,name in enumerate(['bp6t_ghk','bp4t_ghk','bp2t_ghk','bp1t_abk']):
                 if name in diag.names:sensors.append(name)
-                if ind ==2:break                
+                # if ind ==2:break                
             signals=signals[[np.argwhere(np.array(diag.names)==n).squeeze() for n in sensors]]#,'bp2t_ghk']]]
         else:
             signals=signals[[np.argwhere(np.array(diag.names)==n).squeeze() for n in [sensor_name]]]
@@ -383,7 +383,7 @@ def extract_and_window_blocks(signal, n_samples, m_skip, window_type='hanning'):
 
     return windowed_blocks
 
-def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=None, use_rolling_fft=True, rolling_window='hanning'):
+def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, m_skip, window_type='hanning', nfft=None, use_rolling_fft=False, rolling_window='hanning'):
     """
     Computes spectrograms for multiple signals, either by extracting windowed blocks and performing FFT on each,
     or by using a standard rolling FFT. Returns the average of the individual spectrogram magnitudes.
@@ -470,13 +470,14 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
             # 2. Perform FFT on each windowed block for the current signal
             for block in windowed_blocks:
                 padded_block = np.pad(block, (0, nfft - n_samples), 'constant')
-                fft_result = np.fft.rfft(padded_block) # Keep result complex untill plotting stage
+                fft_result = np.fft.rfft(padded_block) / (len(padded_block) ) # Keep result complex untill plotting stage
                 current_signal_ffts.append(fft_result)
 
             # 3. Stack the FFT results to form the spectrogram for the current signal
             current_spectrogram = np.column_stack(current_signal_ffts)
             all_individual_spectrograms.append(current_spectrogram)
-            averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
+            # averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
+            averaged_spectrogram_magnitude = np.abs(np.prod(np.array(all_individual_spectrograms), axis=0) )
 
     if not all_individual_spectrograms:
         return np.array([]), np.array([]), np.array([]) # Return empty if no spectrograms were computed
@@ -485,7 +486,6 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
     # Stack all individual spectrograms along a new axis (axis=0)
     # Then take the mean along that new axis
     averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
-
     return frequencies, block_time_centers, averaged_spectrogram_magnitude, all_individual_spectrograms
 #########################################################################################
 # File name generator for synthetic data loading
@@ -512,21 +512,22 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos = [1120906030]#[1050615011]
+    shotnos = [1160930034]#[1160714026]#[1160930033]#[1050615011]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
-    tLims=[[.7,1.5]]
+    tLims=[[1.,1.5]]
     # Break up into two frequency bins[.5,.8],
     # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
     #               'f_lim':[[0,100],[100,600]]}
     
-    dataRanges = {'tLim':[[1.0,1.3]], 'signal_reduce':2,\
-                  'block_reduce':[1000,1000],'sigma':(3,4),'plot_reduce':(1,1)}
-    f_lim=[0,800]; c_lim=None
-    pad = 14000;fft_window=100;HP_Freq=2e3
+    dataRanges = {'tLim':[[0.9,1.5]], 'signal_reduce':2,\
+                  'block_reduce':[10000,0],'sigma':(2,2),'plot_reduce':(1,1)}
+    f_lim=[0,900]; c_lim=[0,.15]
+    pad = 1400;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
+    save_Ext= '_Training_Coherance'
 
     for ind,shot in enumerate(shotnos):
         diag = None
@@ -542,7 +543,7 @@ def gen_lf_signals():
                              signal_reduce=dataRanges['signal_reduce'],
                              pad=pad,fft_window=fft_window,cmap=cmap,
                              figsize=(6,6),doSave='../output_plots/training_plots/'*True,\
-                             params={'tLim':tLim,'f_lim':f_lim},save_Ext='_Training',
+                             params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
                              batch=True,sigma_plot_reduce=dataRanges['sigma'],\
                                  plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
                                     doSave_data=True)
@@ -599,7 +600,7 @@ def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 #############################################################################
 # Batch launch
 if __name__ == '__main__':
-    # signal_spectrogram_C_Mod()
+    # signal_spectrogram_C_Mod(     )
     # fix_xarray()
     gen_lf_signals()
     print('Finished All')

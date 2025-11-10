@@ -88,7 +88,7 @@ def doPlot_n(angle,phases,n,n_opt,X,Z,doSave,save_Ext):
     ax[1].legend([r'$\phi=%1.1f^\circ$'%a for a in angle],fontsize=8,handlelength=1,ncols=2)
     
     ax[1].set_xlabel('Time [s]')
-    ax[1].set_ylabel('B [?]')
+    ax[1].set_ylabel('B [T]')
     for i in range(2):ax[i].grid()
     
     plt.show()

@@ -20,6 +20,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib import rc,cm
 import matplotlib
+from matplotlib.colors import Normalize
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
 plt.rcParams['axes.labelweight']='bold'
@@ -38,8 +39,8 @@ plt.ion()
 def linear_phase_fit(doPlot_Z_phi_map=True):
     
     # Load in one dataset
-    data_directory = "../data_output/synthetic_spectrograms/" 
-    ds = load_xarray_datasets(data_directory)
+    data_directory = "../data_output/synthetic_spectrograms/low_m-n_testing/" 
+    ds = load_xarray_datasets(data_directory,n_files=1)
     
     # Load sensor locations (necessary for n# determination)
     R_sensors, Z_sensors, phi_sensors = get_sensors()
@@ -58,88 +59,114 @@ def linear_phase_fit(doPlot_Z_phi_map=True):
         Z_phi_map(Z_sensors,phi_sensors,Z_level_sensor_names)
     
     
-    # Get component matrix 
-    X, y_m, y_n, all_F_mode_vars, all_time_indices = \
+    # Get component matrix
+    # Phase measured is size [total number of fittable modes in all datasets] x [total number of sensors in all Z levels = 35]
+    phase_measured, y_m, y_n, all_F_mode_vars, all_time_indices = \
         prepare_training_data(ds,Z_level_inds_ds_ordering,10)
 
-    plot_phase_by_group(X,ordered_phi,dPhi,y_n,Z_levels,X_ind=1)
+   
 
     # Fit linear model
     print('Fitting linear model')
-    n_opt =  run_optimization(X,y_n,dPhi,ordered_phi)
+    n_opt, error =  run_optimization(phase_measured,y_n,dPhi,ordered_phi,showMode=1)
 
+    plot_phase_by_group(phase_measured,ordered_phi,dPhi,y_n,Z_levels,n_opt,X_ind=1)
     # Plot results
-    build_plot(ds[0],n_opt,all_F_mode_vars,all_time_indices,'')
+    build_plot(ds,n_opt,all_F_mode_vars,all_time_indices,'',y_n,ds_ind=1)
 
+    # Build Confusion Matrix
+    create_confusion_matrix(n_opt, y_n, error, np.arange(1,16))  # Assuming x_range is accessible or pass it
+    
     print('Done')
 ###########################################################################
-def run_optimization(X,y_n,dPhi,ordered_phi,doPlot=True):
+def run_optimization(phase_measured,y_n,dPhi,ordered_phi,showMode=0,doPlot=True):
 
     flatPhase = np.array([p for p_ in dPhi for p in p_])
-    fn = lambda n: __fn_opt(n,flatPhase,X)
+    fn = lambda n: __fn_opt(n,flatPhase,phase_measured)
 
     #res = minimize(fn,[n[-1]],bounds=[[-15,15]])
     #n_opt = res.x
-    x_range = np.arange(-30,31)
-    error = np.array([fn([n_]) for n_ in x_range])
+    x_range = np.arange(1,16)
+    x_range = x_range[x_range != 0] # Exclude n=0
+    error = np.array([fn(-n_) for n_ in x_range])
     objective = np.argmin(error,axis=0)
     n_opt = x_range[objective]
 
     if doPlot:
         plt.close('Debug_n_optimization')
         fig,ax=plt.subplots(1,1,num='Debug_n_optimization',tight_layout=True,figsize=(5,3))
-        ax.plot(x_range,error,'o-',ms=4,lw=1)
+        ax.plot(x_range,error[:,showMode],'o-',ms=4,lw=1)
 
-    return n_opt
+    return n_opt, error
 ################################################################################
-def build_plot(ds,n_opt,all_F_mode_vars,all_time_indices,save_Ext):
+def build_plot(ds,n_opt,all_F_mode_vars,all_time_indices,save_Ext,y_n,ds_ind = 0):
     # Build plot of frequency vs time, with mode n overlaid
     plt.close('Frequency_vs_time_with_n')
     fig,ax=plt.subplots(1,1,num='Frequency_vs_time_with_n',tight_layout=True,figsize=(5,3))
     
+
     # Probably only useful for a single dataset
-    ds_ind = 0
-    time = ds['time'].values[all_time_indices[ds_ind]]*1e3
-    F_mode_vars = np.array([ds[mode_name].values[all_time_indices[ds_ind]] \
+    time = ds[ds_ind]['time'].values[all_time_indices[ds_ind]]*1e3
+    F_mode_vars = np.array([ds[ds_ind][mode_name].values[all_time_indices[ds_ind]] \
                    for mode_name in all_F_mode_vars[ds_ind] ])
     
+    ind = 0
+    norm = Normalize(vmin=np.min(n_opt), vmax=np.max(n_opt))
+    for ind_t,t in enumerate(time):
+        for _,f in enumerate(F_mode_vars[:,ind_t]):
+            if f > 0:
+                ax.plot(t,f*1e-3,'.',alpha=0.9,ms=7,color=plt.get_cmap('tab10')(norm(n_opt[ind])))
+                ind+=1  
 
+    sm = plt.cm.ScalarMappable(cmap=cm.get_cmap('tab10'), norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm,ax=ax,pad=0.01)
+    cbar.set_label(r'$n_{opt}$',rotation=270,labelpad=15)
+    ax.set_xlabel('Time [ms]')
+    ax.set_ylabel('Frequency [kHz]')
 
 
 
 ######################################################################################
-def plot_phase_by_group(X,ordered_phi,dPhi,y_n,Z_level_vals,X_ind=1):
+def plot_phase_by_group(phase_measured,ordered_phi,dPhi,y_n,Z_level_vals,n_opt,X_ind=0,):
     # Plot raw phase by Z level grouping
+    # X_ind is the index of the mode to plot in terms of all possible modes
     plt.close('Raw_Phase_by_Z-level')
     fig,ax = plt.subplots(1,1,num='Raw_Phase_by_Z-level',tight_layout=True,figsize=(5,3))
 
     Z_levels_full = [val for num in Z_level_vals for val in (-num,num)]
     ind=0
     for level,phi_list in enumerate(dPhi):
-        phase = X[X_ind,ind:ind+len(phi_list)]
+        phase = phase_measured[X_ind,ind:ind+len(phi_list)]
         # dPhi_local  = dPhi[level,ind:ind+len(phi_list)]
         ax.plot(phi_list,phase,'o',ms=4,lw=1,label='%1.1f cm'%(Z_levels_full[level]) )
         ind+=len(phi_list)
+        x_vals_n = np.linspace(np.min(phi_list),np.max(phi_list),100)
+    pred_phase = (-n_opt[X_ind] * np.linspace(0,2*np.pi,50)) % (2*np.pi)
+    # pred_phase[pred_phase > np.pi] -= 2*np.pi
+    ax.plot(np.linspace(0,2*np.pi,50), pred_phase,'--',color=plt.get_cmap('tab10')(0),lw=1)
     ax.grid()
     ax.set_xlabel(r'$\Delta\Phi_{mir}$ [rad]')
     ax.set_ylabel(r'$\Delta$ Phase [rad]')
 
     ax.legend(handlelength=1.5,fontsize=8,
-              title=r'$n_{synth.}$ = %d'%y_n[X_ind],title_fontsize=10,ncols=2)
+              title=r'$n_{synth.}$ = %d, $n_{opt}$ = %d'%(y_n[X_ind],n_opt[X_ind]),title_fontsize=10,ncols=2)
 
     fig.savefig('../output_plots/Raw_Phase_by_Z-level.pdf',transparent=True)
 
 ################################################################################
-def __fn_opt(n,angles,phase):
+def __fn_opt(n,angles,phase_measured):
     # at every angle, calculate the distance to the corresponding predicted angle
-    return np.mean(np.sqrt( (np.cos(phase)-np.cos(n[0]*angles))**2 +\
-                   (np.sin(phase)-np.sin(n[0]*angles))**2 ),axis=1)
+    return np.mean(np.sqrt( (np.cos(phase_measured)-np.cos(n * angles))**2 +\
+                   (np.sin(phase_measured)-np.sin(n * angles))**2 ),axis=1)
 
 
 ###############################################################################
 def find_sensor_by_index(Z_level_sensor_names, ds):
     out_inds = []
     # Get the sensor names in the ordering of the dataset, map to their indicies
+    # Only need to look at half the variables, since real/imag pairs 
+    # share the same ordering
     sensor_names_ds = [var.replace('_real','') for var in ds.data_vars if "Mode" not in var][::2]
     sensor_names_index_map = {name: idx for idx, name in enumerate(sensor_names_ds)}
 
@@ -174,20 +201,22 @@ def gen_sensor_groupings_by_Z(Z,Z_levels,tol=1):
     return Z_level_sensor_names, Z_level_sensor_inds
 #################################################################################
 def generate_delta_phi_by_Z_level(phi,Z_level_sensor_names):
-    # Generate the delta phi values for each Z level grouping
+    # Generate the (spatial) delta phi values for each Z level grouping
     all_dphi = []
     all_phi = []
     for name_list in Z_level_sensor_names:
         phi_list = np.array([phi[n_] for n_ in name_list])
-        dphi = phi_list[1:] - phi_list[0]
+        dphi = phi_list[:] - phi_list[0] # Normalize to first sensor in group (include 0)
         dphi *= np.pi/180 # Convert to radians
+        dphi = dphi % (2*np.pi) # Wrap to 2pi
         all_dphi.append(dphi)
         all_phi.append(phi_list)
     
     return all_dphi,all_phi
 ###############################################################################
     
-def prepare_training_data(datasets,Z_level_inds_ds_ordering, num_timepoints=22):
+def prepare_training_data(datasets,Z_level_inds_ds_ordering, num_timepoints=22,debug_Plot=True,\
+                          saveDebugPlots='../output_plots/',mode_region_fLim=[0,300]):
     """
     Prepare training data from all datasets.
     Instead of padding, loop across time_indices and extract relevant elements only if frequency != 0.
@@ -222,13 +251,18 @@ def prepare_training_data(datasets,Z_level_inds_ds_ordering, num_timepoints=22):
 
 
         # Loop across time_indices
+        store_indices = []
         for time_idx in range(len(time_indices)):
             for mode_idx in range(len(F_mode_vars)):
 
                 freq_idx, sensor_idx = regions[mode_idx][time_idx]
-
                 
                 if len(freq_idx) > 0:  # Only if frequency != 0 (i.e., valid region)
+
+                    # Store valid mode region coordinates
+                    store_indices.append((time_idx, mode_idx,freq_idx, sensor_idx))
+
+                    # Extract relevant region from real/imag matrices
                     real_region = real_mats[time_idx][np.ix_(freq_idx, sensor_idx)]
                     imag_region = imag_mats[time_idx][np.ix_(freq_idx, sensor_idx)]
                     
@@ -237,13 +271,13 @@ def prepare_training_data(datasets,Z_level_inds_ds_ordering, num_timepoints=22):
                     peak_in_f = np.argmax(np.mean(real_region, axis=1))  
                     avg_imag_per_sensor = imag_region[peak_in_f]  # Extrax all sensor phases at peak amplitude-f
                     
-                    
+                    # Vector of phase differences for all Z_levels, for a given mode, time difference
                     all_z_levels_mode_phase_phase = []
 
                     # Loop through toroidal rings of sensors, by z-level
                     for ind,Z_level_inds in enumerate(Z_level_inds_ds_ordering):
-                        diffs_imag = avg_imag_per_sensor[Z_level_inds[1:]] - \
-                            avg_imag_per_sensor[Z_level_inds[0]]
+                        diffs_imag = (avg_imag_per_sensor[Z_level_inds[:]] - \
+                            avg_imag_per_sensor[Z_level_inds[0]]) % (2*np.pi)
                         
                         # Normalize by dPhi for that Z level
                         # diffs_imag = diffs_imag / dPhi[ind]
@@ -256,12 +290,64 @@ def prepare_training_data(datasets,Z_level_inds_ds_ordering, num_timepoints=22):
                    
                    
                     all_targets_n.append(mode_n[mode_idx])
-     
+    
+
     # Convert lists to numpy arrays
     X = np.array(all_features)
     y_m = np.array(all_targets_m)
     y_n = np.array(all_targets_n)
     
+    # Debug plot: plot last real/imag matrix
+    if debug_Plot:
+        plt.close('Debug_Real_Imag_Matrix')
+        fig,ax=plt.subplots(1,2,num='Debug_Real_Imag_Matrix',tight_layout=True,figsize=(8,4),sharex=True,sharey=True)
+        im0 = ax[0].pcolormesh(store_indices[-1][3],ds['frequency'][store_indices[-1][2]]*1e-3,real_region,cmap='viridis')
+        fig.colorbar(im0,ax=ax[0],label=r'Synth Sig. [T/s]')
+        fig.suptitle('Mag/Arg Signal (Mode %s, Time %1.2e s)'%(F_mode_vars[store_indices[-1][1]],ds['time'][time_indices[store_indices[-1][0]]]))
+        
+        im1 = ax[1].pcolormesh(store_indices[-1][3],ds['frequency'][store_indices[-1][2]]*1e-3,imag_region,cmap='viridis')
+        fig.colorbar(im1,ax=ax[1],label=r'$\phi_{sig}$ [rad]')
+        # ax[1].set_title('Imag part of region')
+        ax[0].set_ylabel('Frequency [kHz]')
+        ax[0].set_xlabel('Sensor index')
+        if saveDebugPlots: fig.savefig(saveDebugPlots+'Debug_Real_Imag_Matrix.pdf',transparent=True)
+    
+    # For one sensor and the final dataset, plot the real magnitude and freq_indx, time_idx regions
+    if debug_Plot:
+        sensor_to_plot = 'BP01_ABK'
+        data = ds[sensor_to_plot+'_real'].values
+        plt.close(f'Debug_{sensor_to_plot}_Real_Spectrogram')
+        fig,ax=plt.subplots(1,1,num=f'Debug_{sensor_to_plot}_Real_Spectrogram',tight_layout=True,figsize=(5,3))
+        im = ax.pcolormesh(ds['time'].values*1e3,ds['frequency'].values*1e-3,data,cmap='viridis',zorder=-5)
+        fig.colorbar(im,ax=ax,label=r'Synth Sig. [T/s]')
+
+        # Loop over valid mode analysis regions and plot rectangular regions
+        from matplotlib.patches import Rectangle
+        for (time_idx, mode_idx, freq_idx, sensor_idx) in store_indices:
+            if len(freq_idx) > 0:  # Only plot if there are frequency indices
+                # Define the rectangular region: time is single point, so use a small width around it
+                time_val = ds['time'].values[time_indices[time_idx]] * 1e3
+                freq_min = ds['frequency'].values[freq_idx].min() * 1e-3
+                freq_max = ds['frequency'].values[freq_idx].max() * 1e-3
+                # Assume time bin width for rectangle width (or use a fixed small value)
+                time_bin_width = (ds['time'].values[1] - ds['time'].values[0]) * 1e3 if len(ds['time']) > 1 else 0.1  # Fallback small width
+                m_=ds.mode_m[mode_idx] if np.size(ds.mode_m)>1 else ds.mode_m
+                n_=ds.mode_n[mode_idx] if np.size(ds.mode_n)>1 else ds.mode_n
+                rect = Rectangle((time_val - time_bin_width/2, freq_min), time_bin_width, freq_max - freq_min,
+                                 linewidth=2, edgecolor=plt.get_cmap('tab10')(mode_idx), facecolor='none',
+                                 label=f'{F_mode_vars[mode_idx]}: {m_}/{n_}' if time_idx == 0 else None)
+                ax.add_patch(rect)
+        ax.legend(fontsize=8, handlelength=1.5)
+        ax.set_xlim(ds['time'].values.min() * 1e3, ds['time'].values.max() * 1e3)
+        ax.set_ylim(ds['frequency'].values.min() * 1e-3, ds['frequency'].values.max() * 1e-3)
+        ax.set_xlabel('Time [ms]')
+        ax.set_ylabel('Frequency [kHz]')
+        ax.set_rasterization_zorder(-1)
+        if mode_region_fLim is not None:
+            ax.set_ylim(mode_region_fLim[0], mode_region_fLim[1])
+
+        if saveDebugPlots: fig.savefig(saveDebugPlots+f'Debug_{sensor_to_plot}_Real_Spectrogram.pdf',\
+                                       transparent=True)
     return X, y_m, y_n, all_F_mode_vars, all_time_indices
 
 ###############################################################################
@@ -296,10 +382,10 @@ def Z_phi_map(Z,phi,Z_names):
     Z_ = np.array([Z[z_] for z_ in Z])
     phi_ = [phi[p_] for p_ in phi]
     
-    ax.plot(phi_,Z_*1e3,'*k',label='All Mirnov Sensors')
+    ax.plot(phi_,Z_,'*k',label='All Mirnov Sensors')
     for i,name in enumerate(Z_names):
         phi_ = [phi[n] for n in name]
-        Z_ = np.array([Z[n] for n in name]) * 1e3
+        Z_ = np.array([Z[n] for n in name])
         ax.plot(phi_,Z_,'*',ms=10)
     ax.set_xlabel(r'$\Phi$ [deg]')
     ax.set_ylabel(r'Z [cm]')
@@ -319,6 +405,8 @@ def load_xarray_datasets(data_directory, n_files=2):
     file_pattern = os.path.join(data_directory, "*.nc")
     files = glob.glob(file_pattern)
     datasets = []
+    if n_files == -1:
+        n_files = len(files)
     for file in files[:n_files]:
         ds = xr.open_dataset(file)
         datasets.append(ds)
@@ -354,7 +442,7 @@ def extract_spectrogram_matrices(ds, timepoint_indices):
 
 ###############################################################################
 
-def define_mode_regions(ds, F_mode_vars, time_indices, freq_tolerance=0.1):
+def define_mode_regions(ds, F_mode_vars, time_indices, freq_tolerance_init=0.1):
     """
     Define regions in frequency-sensor space for each mode based on F_Mode_# vectors.
     Now accounts for freq_values being functions of time.
@@ -375,11 +463,18 @@ def define_mode_regions(ds, F_mode_vars, time_indices, freq_tolerance=0.1):
                 mode_regions.append(([], []))
                 print(f"Skipping mode {mode_var} at time index {time_idx} due to zero frequency")
                 continue
+
+            # At minimum, include at least three frequency bins per region
             freq_min=freq_max=0
-            while freq_max - freq_min < ds['frequency'].values[1]-ds['frequency'].values[0]:
+            freq_tolerance = freq_tolerance_init
+            while freq_max - freq_min < ds['frequency'].values[4]-ds['frequency'].values[0]:
                 freq_min = freq_at_time * (1 - freq_tolerance)
                 freq_max = freq_at_time * (1 + freq_tolerance)
                 freq_tolerance *= 1.5  # Expand range if too narrow
+            # Check for too large range
+            if freq_max-freq_min > 60e3: # 60 kHz max range
+                freq_min = freq_at_time - 30e3
+                freq_max = freq_at_time + 30e3
 
             freq_indices = np.where((ds['frequency'].values >= freq_min) &
                                     (ds['frequency'].values <= freq_max))[0]
@@ -391,5 +486,54 @@ def define_mode_regions(ds, F_mode_vars, time_indices, freq_tolerance=0.1):
     return regions
 
 ################################################################################
+def create_confusion_matrix(n_opt, y_n, error, x_range):
+    """
+    Create a confusion matrix plot, compute accuracy, and compute AUC for multiclass classification.
+    """
+    from sklearn.metrics import confusion_matrix, accuracy_score, roc_auc_score, ConfusionMatrixDisplay
+    import numpy as np
+
+    # Compute confusion matrix
+    cm = confusion_matrix(y_n, n_opt)
+    
+    # Plot confusion matrix
+    plt.close('Confusion_Matrix')
+    fig, ax = plt.subplots(1, 1, num='Confusion_Matrix', tight_layout=True, figsize=(6, 5))
+    ConfusionMatrixDisplay.from_predictions(y_n, n_opt, ax=ax, cmap='viridis')
+   
+    
+    # Compute accuracy
+    accuracy = accuracy_score(y_n, n_opt)
+    print(f'Accuracy: {accuracy:.4f}')
+    
+    # Compute AUC using error as scores (higher score for lower error)
+    # Use softmax-like probabilities from error
+    probs = np.exp(-error) / np.sum(np.exp(-error), axis=0)  # probs is (n_classes, n_samples)
+    probs = probs.T  # Now (n_samples, n_classes)
+    
+    # Select only the classes present in y_n
+    unique_n = np.unique(y_n)
+    indices = [np.where(x_range == n)[0][0] for n in unique_n]
+    probs_selected = probs[:, indices]
+    
+    # Normalize each row to ensure they sum to 1 (fix numerical issues)
+    probs_selected = probs_selected / probs_selected.sum(axis=1, keepdims=True)
+    
+    # For multiclass AUC, use one-vs-rest
+    try:
+        auc = roc_auc_score(y_n, probs_selected, multi_class='ovr')
+        print(f'AUC (OVR): {auc:.4f}')
+    except ValueError as e:
+        print(f'AUC could not be computed: {e}')
+        auc = None
+
+    ax.set_title('Confusion Matrix for n Prediction (Accuracy: {:.2f}, AUC: {:.2f})'.\
+                 format(accuracy, auc if auc is not None else 0))
+    plt.show()
+    fig.savefig(f'../output_plots/Confusion_Matrix_Linear_acc_{accuracy:.3f}_auc_{auc:.2f}.pdf',transparent=True)
+    
+    return accuracy, auc
+###########################################################################
 if __name__ == "__main__":
     linear_phase_fit()
+    print('Done')

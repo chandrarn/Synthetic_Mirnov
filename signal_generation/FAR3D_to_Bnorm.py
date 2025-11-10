@@ -25,8 +25,73 @@ from matplotlib.colors import Normalize
 from matplotlib import rc,cm
 matplotlib.use('TkAgg')
 
+def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_select=0.3,\
+                           m=[14,13,12,11,10,9,8],n=11,eqdsk_file='g1051202011.1000',debug=True,\
+                           lambda_merezhkin=0.4,doSave='../output_plots/',downsample=1,\
+                            data_directory='../M3D-C1_Data/',normalization=1,a=0.21):
+    # Improved version of FAR3D to Bnorm conversion using built in formulation:
+    # B_n = B_rho / B_0 / |grad(rho)|, where |grad(rho)| = 1/(B_0 a) * q/rho * |grad(psi)|
+
+
+    # Load equilibrium file and 2D grid of psi_norm(R,Z)
+    psi_normalized,R,Z, rmagx,zmagx, psi,eqdsk = get_psi_grid(data_directory+eqdsk_file)
+
+    # Load in data
+    psi_tor_FAR3D, dat_r, dat_th = load_FAR3D_data(br_file=br_file,bth_file=bth_file,data_directory=data_directory)
+
+
+    ## Convert psi_tor to psi_norm 
+    psi_norm_to_psi_tor, psi_tor_to_psi_norm = psi_tor(eqdsk)
+
+
+    # Generate grid of psi values inside LCFS for plotting full eigenfunction
+    psi_norm_inside, psi_inside, R_inside, Z_inside, theta_inside, inside_inds = \
+        generate_psi_grid_within_LCFS(psi_normalized,psi,R,Z,rmagx,zmagx,lambda_merezhkin=lambda_merezhkin)
+    
+
+    # Generate eigenfunction on R,Z grid
+    R_downsamp,Z_downsamp,psi_norm_downsamp,psi_downsamp, B_r_RZ_downsamp_cos = \
+        interpolate_B_and_psi (theta_inside,R_inside,Z_inside,dat_r,m,psi_norm_inside,psi_inside,psi_tor_to_psi_norm(psi_tor_FAR3D),phase=0)
+    _,_,_,_, B_r_RZ_downsamp_sin = interpolate_B_and_psi (theta_inside,R_inside,Z_inside,dat_r,m,psi_norm_inside,psi_inside,psi_tor_to_psi_norm(psi_tor_FAR3D),phase=np.pi/2)
+    _,_,_,_, B_th_RZ_downsamp_cos = interpolate_B_and_psi (theta_inside,R_inside,Z_inside,dat_th,m,psi_norm_inside,psi_inside,psi_tor_to_psi_norm(psi_tor_FAR3D),phase=0)
+
+    if debug: 
+         ax,fig = plot_Far3D_eigenfunction(B_r_RZ_downsamp_cos,B_th_RZ_downsamp_cos,R_downsamp,Z_downsamp,rmagx,zmagx)
+
+    # From the equilibriium file, get the 2D contour of the desired flux surface
+    contour, R_sig, Z_sig = calc_contour_coords_psi_norm(eqdsk,psi_norm_downsamp,psi_contour_select,R_downsamp,Z_downsamp,debug)
+
+
+    # Sample B_r_cos, B_r_sin at contour points
+    b_r_cos = B_r_RZ_downsamp_cos[contour[:,0],contour[:,1]]
+    b_r_sin = B_r_RZ_downsamp_sin[contour[:,0],contour[:,1]]
+
+    # Scale by FAR3D B-norm Correction
+    normalizations = get_normalization(eqdsk,psi_downsamp,R_downsamp,Z_downsamp,normalization,a,psi_norm_to_psi_tor(psi_contour_select),psi_contour_select,contour)
+    b_r_cos *= normalizations
+    b_r_sin *= normalizations
+
+
+    # Downsample for testing [ALERT: build_torus_bnorm_grid will silently fail if the interpolation number is wrong]
+    b_norm_cos = b_r_cos[::downsample] 
+    b_norm_sin = b_r_sin[::downsample] 
+    R_sig = R_sig[::downsample] + rmagx
+    Z_sig = Z_sig[::downsample] + zmagx
+
+    save_Bnorm('FAR3D' if (gethostname()[:4]=='orcd' or gethostname()[:4]=='node') \
+            else '',  R_sig,Z_sig,b_norm_cos,b_norm_sin,n,len(Z_sig))
+
+    if debug: 
+        overplot_b_norm(R_sig,Z_sig,b_norm_cos,b_norm_sin,fig,ax,br_file,\
+                        lambda_merezhkin,psi_contour_select,eqdsk_file,doSave=doSave)
+    print('Finished conversion of FAR3D eigenfunctions %s, %s to ThinCurr effective surface current'%(br_file, bth_file))
 #####################################################################################
-def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_select=0.8,\
+#####################################################################################
+
+
+
+
+def convert_FAR3D_to_Bnorm_(br_file='br_1103',bth_file='bth_1103',psi_contour_select=0.8,\
     m=[14,13,12,11,10,9,8],n=11,eqdsk_file='g1051202011.1000',debug=True,lambda_merezhkin=0.0,\
         doSave='../output_plots/', downsample=4,data_directory='../M3D-C1_Data/',normalization=30,a=0.21):
     # Pull in FAR3D output eigenvectors, (sin/cos), convert to equilibrium geometry, convery to B-Norm
@@ -39,24 +104,24 @@ def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_sel
     psi_normalized,R,Z, rmagx,zmagx, psi,eqdsk = get_psi_grid(data_directory+eqdsk_file)
 
     # Convert psi_tor to psi_norm 
-    psi_norm_FAR3D, psi_tor_func = psi_tor(eqdsk)(psi_tor_FAR3D)
+    psi_norm_to_psi_tor, psi_tor_to_psi_norm = psi_tor(eqdsk)
 
     # Will need to resample dat_r(psi_norm_far3d) onto psi_normalized(R,Z)
-    dat_r = np.interp(psi_normalized, psi_norm_FAR3D, dat_r)
+    # dat_r = np.interp(psi_normalized, psi_norm_FAR3D(psi_tor_FAR3D), dat_r)
 
-    # Get contour indicies for desired psi_norm contour
-    contour, R_sig, Z_sig = calc_contour_coords_psi_norm(eqdsk,psi_norm_downsamp,psi_contour_select,R,Z,debug)
+    # # Get contour indicies for desired psi_norm contour
+    # contour, R_sig, Z_sig = calc_contour_coords_psi_norm(eqdsk,psi_norm_downsamp,psi_contour_select,R,Z,debug)
 
     # TODO: Refacor this section, make sure psi can be sampled on contour grid
     B_r_RZ_downsamp_cos,B_r_RZ_downsamp_sin, B_th_RZ_downsamp_cos,B_th_RZ_downsamp_sin, R_downsamp ,\
           Z_downsamp,psi_normalized,psi_norm_downsamp  = \
-        map_psi_to_equilibrium(psi_norm_FAR3D, dat_r,dat_th,eqdsk,psi_normalized, rmagx,zmagx,R,Z,\
-                           m,debug,lambda_merezhkin, plot_directory='../output_plots/',\
-                            normalization=1)
+        map_psi_to_equilibrium(psi_tor_to_psi_norm(psi_tor_FAR3D), dat_r,dat_th,eqdsk,psi_normalized, rmagx,zmagx,R,Z,\
+                           m=m,eqdsk_file=eqdsk_file,debug=debug,lambda_merezhkin=lambda_merezhkin,\
+                             plot_directory=doSave,normalization=1)
 
     # New way
     # Get contour indicies for desired psi_norm contour
-    contour, R_sig, Z_sig = calc_contour_coords_psi_norm(eqdsk,psi_norm_downsamp,psi_contour_select,R,Z,debug)
+    contour, R_sig, Z_sig = calc_contour_coords_psi_norm(eqdsk,psi_norm_downsamp,psi_contour_select,R_downsamp,R_downsamp,debug)
 
 
     # Sample B_r_cos, B_r_sin at contour points
@@ -64,7 +129,7 @@ def convert_FAR3D_to_Bnorm(br_file='br_1103',bth_file='bth_1103',psi_contour_sel
     b_r_sin = B_r_RZ_downsamp_sin[contour[:,0],contour[:,1]]
 
     # Scale by FAR3D Correction
-    normalizations = get_normalization(eqdsk,normalization,a,psi_tor_func(psi_contour_select),psi_contour_select,contour)
+    normalizations = get_normalization(eqdsk,psi,R_downsamp,Z_downsamp,normalization,a,psi_norm_to_psi_tor(psi_contour_select),psi_contour_select,contour)
     b_r_cos *= normalizations
     b_r_sin *= normalizations
 
@@ -291,15 +356,46 @@ def gen_psi_boundary_contour(psi_normalized, R, Z,rmagx,zmagx,psi_LCFS=0.95):
     inside_inds = np.argwhere(mask==1)
 
     return inside_inds, contour
+###########################################################
+def generate_psi_grid_within_LCFS(psi_normalized_2D,psi_2D, R_lin, Z_lin, rmagx,zmagx,lambda_merezhkin=0.4):
+    # Generates the Psi, psi-norm, R, Z, Theta grid within the LCFS
+
+    # Get plasma boundary contour
+    inside_inds,_ = gen_psi_boundary_contour(psi_normalized_2D, R_lin, Z_lin,rmagx,zmagx,psi_LCFS=0.95)
+
+    # Regrid R,Z, calculate theta from the magnetic axis
+    R_grid, Z_grid = np.meshgrid(R_lin,Z_lin,indexing='ij')
+    theta = np.atan2(Z_grid,R_grid) % (2*np.pi) # theta in [0,2pi], atan2 originally in [-pi,pi]
+    # If desired, we can use the Merezhkin formulation to approximate LFS/HFS asymmetry
+    theta = theta - lambda_merezhkin*np.sin(theta)
+
+    # Extract only the points inside the contour
+    # These are the R,Z points from the gEQDSK file which we want to evaluate the FAR3D mode over
+    psi_norm_inside = psi_normalized_2D[inside_inds[:,0],inside_inds[:,1]]
+    R_inside = R_grid[inside_inds[:,0],inside_inds[:,1]]
+    Z_inside = Z_grid[inside_inds[:,0],inside_inds[:,1]]
+    theta_inside = theta[inside_inds[:,0],inside_inds[:,1]]
+    psi_inside = psi_2D[inside_inds[:,0],inside_inds[:,1]]
+
+    return psi_norm_inside, psi_inside, R_inside, Z_inside, theta_inside, inside_inds
+
 ############################################################
-def interpolate_B(theta_inside,R_inside,Z_inside,dat_B,indices,m,psi_norm_inside=None,phase=0):
+def interpolate_B_and_psi(theta_inside,R_inside,Z_inside,dat_B,m,psi_norm_inside_2D,psi_inside_2D,psi_norm_lin,phase=0):
     # Evaluate the FAR3D eigenfunction _at the Psi, theta points corresponding to R,Z
+
     def eigenfunc(theta,B,B_indices,m):
         out = np.zeros((len(B_indices),))
         for ind,m_ in enumerate(m): 
             out += B[B_indices,ind]*np.cos(m_*(theta+0*np.pi/2)+phase) + B[B_indices,ind+len(m)]*np.sin(-m_*(theta+0*np.pi/2)+phase)
         return out
-    
+
+    ## Simply evaluate the Br, Bth functions at the apropriate psi,theta points, cooresponding to R,Z
+    # Compute absolute differences for all test values at once [vectorized]: This generates the indices
+    # Within the FAR3D datavector which correspond to the psi_norm values at R,Z
+    diff = np.abs(psi_norm_lin[None, :] - psi_norm_inside_2D[:, None])  # shape: (M, N)
+    # Find the index of the minimum difference for each test value
+    indices = np.argmin(diff, axis=1)  # shape: (M,)
+
     B_RZ = eigenfunc(theta_inside,dat_B,indices,m)
 
     # Downsample the grid from the gEQDSK file
@@ -309,11 +405,14 @@ def interpolate_B(theta_inside,R_inside,Z_inside,dat_B,indices,m,psi_norm_inside
 
     # Resample the FAR3D mode, now at the correct RZ locations, onto the gEQDSK grid
     B_RZ_downsamp = griddata((R_inside, Z_inside), B_RZ, (R_downsamp, Z_downsamp), method='cubic')
-    # For calculation of rational surface location (for B-norm), we also need to resample the normalized psi grid
-    if np.any(psi_norm_inside):psi_norm_downsamp = griddata((R_inside, Z_inside), psi_norm_inside, (R_downsamp, Z_downsamp), method='cubic')
-    # Need to resample Phi at RZ points 
 
-    return R_downsamp, Z_downsamp, psi_norm_downsamp if np.any(psi_norm_inside) else None ,B_RZ_downsamp
+    # For calculation of rational surface location (for B-norm), we also need to resample the normalized psi grid
+    psi_norm_downsamp = griddata((R_inside, Z_inside), psi_norm_inside_2D, (R_downsamp, Z_downsamp), method='cubic')
+
+    # Need to resample Phi at RZ points for |Grad(psi)|
+    psi_downsamp = griddata((R_inside, Z_inside), psi_inside_2D, (R_downsamp, Z_downsamp), method='cubic')
+
+    return R_downsamp, Z_downsamp, psi_norm_downsamp, psi_downsamp, B_RZ_downsamp
 
 ##############################################
 def map_psi_to_equilibrium(psi_norm, dat_r,dat_th,eqdsk,psi_normalized, rmagx,zmagx,R,Z,\
@@ -350,10 +449,10 @@ def map_psi_to_equilibrium(psi_norm, dat_r,dat_th,eqdsk,psi_normalized, rmagx,zm
     indices = np.argmin(diff, axis=1)  # shape: (M,)
 
     # Interpolate the FAR3D Mode on the equilibrium Psi grid
-    R_downsamp,Z_downsamp,psi_norm_downsamp, B_r_RZ_downsamp_cos = interpolate_B(theta_inside,R_inside,Z_inside,dat_r[:,0:],indices,m,psi_norm_inside)
-    _,_,_, B_r_RZ_downsamp_sin = interpolate_B(theta_inside,R_inside,Z_inside,dat_r[:,0:],indices,m,phase=np.pi/2)
-    _,_,_, B_th_RZ_downsamp_cos = interpolate_B(theta_inside,R_inside,Z_inside,dat_th[:,0:],indices,m)
-    _,_,_, B_th_RZ_downsamp_sin = interpolate_B(theta_inside,R_inside,Z_inside,dat_th[:,0:],indices,m,phase=np.pi/2)
+    R_downsamp,Z_downsamp,psi_norm_downsamp, B_r_RZ_downsamp_cos = interpolate_B_and_psi(theta_inside,R_inside,Z_inside,dat_r[:,0:],indices,m,psi_norm_inside)
+    _,_,_, B_r_RZ_downsamp_sin = interpolate_B_and_psi(theta_inside,R_inside,Z_inside,dat_r[:,0:],indices,m,phase=np.pi/2)
+    _,_,_, B_th_RZ_downsamp_cos = interpolate_B_and_psi(theta_inside,R_inside,Z_inside,dat_th[:,0:],indices,m)
+    _,_,_, B_th_RZ_downsamp_sin = interpolate_B_and_psi(theta_inside,R_inside,Z_inside,dat_th[:,0:],indices,m,phase=np.pi/2)
 
     ###########################
     # Plot the results
@@ -387,6 +486,42 @@ def map_psi_to_equilibrium(psi_norm, dat_r,dat_th,eqdsk,psi_normalized, rmagx,zm
     return B_r_RZ_downsamp_cos,B_r_RZ_downsamp_sin, B_th_RZ_downsamp_cos,B_th_RZ_downsamp_sin,\
           R_downsamp + rmagx, Z_downsamp + zmagx, psi_normalized, psi_norm_downsamp
 ###################################################################################
+def plot_Far3D_eigenfunction(B_r_RZ_downsamp_cos,B_th_RZ_downsamp_cos,R_downsamp,Z_downsamp,rmagx,zmagx,\
+                             plot_directory='../output_plots/',plot_separately=True):
+    
+    plt.close('FAR3D_Eigenfunction')
+    plt.close('FAR3D_Eigenfunction_b_th')
+    if plot_separately:
+        fig,ax = plt.subplots(1,1,tight_layout=True,num='FAR3D_Eigenfunction',figsize=(3,4),sharex=True,sharey=True)
+        fig_,ax_ = plt.subplots(1,1,tight_layout=True,num='FAR3D_Eigenfunction_b_th',figsize=(3,4),sharex=True,sharey=True)
+        ax = [ax,ax_]
+    else:
+        fig,ax = plt.subplots(1,2,tight_layout=True,num='FAR3D_Eigenfunction',figsize=(5,4),sharex=True,sharey=True)
+        fig_=fig
+
+    # Get normalization
+    vmin=np.nanmin(B_r_RZ_downsamp_cos)
+    if vmin >np.nanmin(B_th_RZ_downsamp_cos): vmin = np.nanmin(B_th_RZ_downsamp_cos)
+    vmax=np.nanmax(B_r_RZ_downsamp_cos)
+    if vmax <np.nanmax(B_th_RZ_downsamp_cos): vmax = np.nanmax(B_th_RZ_downsamp_cos)
+    ax[0].contourf(R_downsamp+rmagx,Z_downsamp+zmagx,B_r_RZ_downsamp_cos,levels=30,vmin=vmin,vmax=vmax,zorder=-5)
+    ax[1].contourf(R_downsamp+rmagx,Z_downsamp+zmagx,B_th_RZ_downsamp_cos,levels=30,vmin=vmin,vmax=vmax,zorder=-5)
+    ax[0].set_title(r'B$_r(\psi_N)$')
+    ax[1].set_title(r'B$_\theta(\psi_N)$')
+    ax[0].set_ylabel(r'Z [m]')
+    for i in range(2):
+        ax[i].set_xlabel(r'R [m]')
+        ax[i].set_rasterization_zorder(-1)
+
+    norm = Normalize(vmin=vmin,vmax=vmax)
+    #norm = Normalize(vmin=-1e-5,vmax=1e-5)
+    fig_.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('viridis')),
+            label=r'$||\tilde{\mathrm{B}}_{j}||$ [T]',ax=ax[1])
+    if plot_directory: fig.savefig(plot_directory+'FAR3D_Eigenfunction_Equilibrium.pdf',transparent=True)
+    plt.show()
+
+    return ax,fig
+
 ###################################################################################
 def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12],\
            eqdsk_file='g1051202011.1000',data_directory='../M3D-C1_Data/',plot_directory='../output_plots/'):
@@ -430,6 +565,24 @@ def plot_B(br_file='br_0000',bth_file='bth_0000',m=[9,10,11,12],\
     if plot_directory: fig.savefig(plot_directory+'FAR3D_Eigenfunction_Original.pdf',transparent=True)
     plt.show()
 ###############################################################################
+def  overplot_b_norm(R_sig,Z_sig,b_norm_cos,b_norm_sin,fig,ax,br_file,\
+                        lambda_merezhkin,psi_contour_select,eqdsk_file,doSave=''):
+    # Overplot the B-norm on an existing figure/axis
+    # Note: this is just for testing purposes, the real B-norm should come from
+    # the FAR3D eigenfunction output
+    #########################################################################################
+    # Plot B-norm
+    vmin=np.nanmin(b_norm_cos);vmax=np.nanmax(b_norm_cos)
+    if vmin > np.nanmin(b_norm_sin): vmin = np.nanmin(b_norm_sin)
+    if vmax < np.nanmax(b_norm_sin): vmax = np.nanmax(b_norm_sin)
+    norm = Normalize(vmin=vmin,vmax=vmax)
+    sc = ax[0].scatter(R_sig,Z_sig,c=b_norm_cos,s=20,cmap='plasma',norm=norm,zorder=5,label=r'B$_\mathrm{n,cos}$')
+    # sc = ax[0].scatter(R_sig,Z_sig,c=b_norm_sin,s=20,cmap='plasma',norm=norm,zorder=5,marker='x',label=r'B$_\mathrm{n,sin}$')
+    fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cm.get_cmap('plasma')),
+        label=r'$||\tilde{\mathrm{B}}_{\hat{n}}||$ [T]',ax=ax[0])
+    # ax[0].legend(fontsize=8,handlelength=1)
+    save_ext = '_Bnorm_overplot_%s_lambda%.2f_psi%.2f'%(br_file,lambda_merezhkin,psi_contour_select)
+    if doSave: fig.savefig(doSave+fig.canvas.manager.get_window_title()+save_ext+'.pdf',transparent=True)
 ###############################################################################
 #########################################################
 def __gen_b_norm_manual(file_geqdsk,params,orig_example_bnorm=False,doPlot=True):
@@ -572,7 +725,7 @@ def sandbox(data_directory='../M3D-C1_Data/',eqdsk_file='g1051202011.1000',norma
     print('halt')
 
 ###################################3
-def psi_tor(eqdsk):
+def psi_tor(eqdsk,a=0.21,debug=False):
     """
     Compute the toroidal flux psi_tor as a function of poloidal flux psi.
     Returns a function that interpolates psi_tor(psi).
@@ -588,30 +741,42 @@ def psi_tor(eqdsk):
     # Compute toroidal flux by integrating 1/q dpsi
     psi_tor_vals = cumtrapz(1 / eqdsk.qpsi, psi_lin, initial=0)
     
-    psi_tor_vals = np.sqrt(psi_tor_vals/psi_tor_vals[-1])  # Take square root to get psi_tor
+    psi_tor_norm = np.sqrt(psi_tor_vals/psi_tor_vals[-1])  # Take square root to get psi_tor
     # Return an interpolation function
     def psi_tor_func(psi_tor):
-        return np.interp(psi_tor, psi_tor_vals, psi_norm)
+        return np.interp(psi_tor, psi_tor_norm, psi_norm)
     
-    # Return an interpolation function to get psi from psi_tor
+    # Return an interpolation function to get psi_tor from 
     def psi_func(psi_norm_):
-        return np.interp(psi_norm_, psi_norm, psi_tor_vals)
+        return np.interp(psi_norm_, psi_norm, psi_tor_norm)
     
+    if debug:
+        plt.close('Psi_Tor_Conversion')
+        fig, ax = plt.subplots(tight_layout=True, num='Psi_Tor_Conversion', figsize=(4, 3))
+        ax.plot(psi_norm, label=r'$\bar{\psi}_{\hat{\theta}}$')
+        ax.plot(psi_tor_norm,label=r'$\bar{\psi}_{\hat{\phi}}$')
+        ax.grid()
+        ax.set_xlabel(r'Radial Index [\#]')
+        ax.set_ylabel(r'Normalized Flux')
+        ax.legend(fontsize=8)
+        plt.show()
+        fig.savefig('../output_plots/Psi_Tor_Conversion.pdf',transparent=True)
+
+
     return psi_func, psi_tor_func
 
 ##########################33############################
-def get_normalization(eqdsk,normalization,a,psi_tor,psi_contour_select,contour):
+def get_normalization(eqdsk,psi,R,Z,normalization,a,psi_tor,psi_contour_select,contour):
     # Get normalization factor to convert Br to B-norm
 
     # Get |grad(psi)| on the contour
-    grad_psi = grad_psi(eqdsk)
+    grad_psi = grad_psi_fn(psi,R+eqdsk.rmagx,Z,norm=2*np.pi,contour=contour)
 
-    grad_psi_contour = grad_psi[contour[:,0],contour[:,1]]
+    grad_psi_contour = grad_psi[contour[:,0],contour[:,1]] 
 
     # get q on the contour
     psi_lin = np.linspace(eqdsk.simagx,eqdsk.sibdry,eqdsk.nx)
     # Convert psi_linear to psi_norm, for extrapolation into psi_norm_downsample
-    psi_lin = (psi_lin-eqdsk.simagx)/(eqdsk.sibdry-eqdsk.simagx)
     psi_norm = np.sqrt((psi_lin-eqdsk.simagx)/(eqdsk.sibdry-eqdsk.simagx))
     p = np.polyfit(psi_norm, eqdsk.qpsi,10)
     fn_q = lambda psi: np.polyval(p,psi)
@@ -619,9 +784,9 @@ def get_normalization(eqdsk,normalization,a,psi_tor,psi_contour_select,contour):
     q_contour = fn_q(psi_contour_select)
 
     # Computer normalization
-    B0 = eqdsk['bcentr']  # Toroidal field at R0 [T]
+    B0 = 8.1#eqdsk['bcentr']  # Toroidal field at R0 [T] (doesn't work from eqdsk for some reason)
 
-    return (1/(B0*a)) * (q_contour/psi_tor) * grad_psi_contour * normalization
+    return B0 / ( (1/(B0*a)) * (q_contour/psi_tor) * grad_psi_contour ) * normalization
 ##############################################33
 ##############################################33
 
@@ -640,22 +805,33 @@ def load_FAR3D_data(br_file='br_0000',bth_file='bth_0000',\
     return psi_tor, dat_r, dat_th
 ##############################################33
 
-def grad_psi(eqdsk):
+def grad_psi_fn(psi,R,Z,norm=2*np.pi,contour=None,debug=True):
     # Calculate gradient of psi, to get |grad(psi)|
     # d(psi)/dr, d(psi)/dz
-    psi = eqdsk['psi']
-    R = np.linspace(eqdsk['rleft'], eqdsk['rleft'] + eqdsk['rdim'], eqdsk['nx'])
-    Z = np.linspace(eqdsk['zmid'] - eqdsk['zdim']/2, eqdsk['zmid'] + eqdsk['zdim']/2, eqdsk['ny'])
-    dpsi_dr = np.gradient(psi, axis=0) / np.gradient(R)[:, None]
-    dpsi_dz = np.gradient(psi, axis=1) / np.gradient(Z)[None, :]
+    dpsi_dr = np.gradient(psi, axis=1) / np.gradient(R, axis=1)
+    dpsi_dz = np.gradient(psi, axis=0) / np.gradient(Z, axis=0)
     # |grad(psi)| = sqrt( (d(psi)/dr)^2 + (d(psi)/dz)^2 )
-    grad_psi = np.sqrt(dpsi_dr**2 + dpsi_dz**2)
+    grad_psi = np.sqrt(dpsi_dr**2 + dpsi_dz**2) / norm
+
+    if debug:
+        plt.close('Grad_Psi')
+        fig, ax = plt.subplots(tight_layout=True, num='Grad_Psi', figsize=(3, 4))
+        im = ax.contourf(R, Z, grad_psi, levels=30, zorder=-5)
+        ax.set_xlabel('R [m]')
+        ax.set_ylabel('Z [m]')
+        ax.set_rasterization_zorder(-1)
+        fig.colorbar(im, label=r'$|\nabla \psi|$', ax=ax)
+        if contour is not None:
+            ax.plot(R[contour[:,0],contour[:,1]],Z[contour[:,0],contour[:,1]],'k-',linewidth=1,label='Contour')
+            ax.legend(fontsize=8)
+        plt.show()
+        fig.savefig('../output_plots/Grad_Psi.pdf', transparent=True)
     return grad_psi
 ##############################################33
 if __name__ == '__main__':
-    sandbox()
+    # sandbox()
     #plot_B(plot_directory='../output_plots/')
     #map_psi_to_equilibrium(plot_directory='../output_plots/')
-    # convert_FAR3D_to_Bnorm(doSave='../output_plots/')
+    convert_FAR3D_to_Bnorm(doSave='../output_plots/')
     print('Finished')
 

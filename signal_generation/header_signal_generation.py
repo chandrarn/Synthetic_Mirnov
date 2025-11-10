@@ -10,6 +10,7 @@ import struct
 import sys
 import importlib.util
 import os
+from os import getcwd
 import h5py
 import subprocess
 import numpy as np
@@ -18,8 +19,10 @@ plt.ion()
 import matplotlib.lines as mlines
 from matplotlib import rc,cm
 from matplotlib.colors import Normalize
-import vtk # potentially important for LaTex rendering in PyVista
-import pyvista
+try:
+    import vtk # potentially important for LaTex rendering in PyVista
+    import pyvista
+except: pass
 # MDS load may not work on all machines
 try:import MDSplus as mds
 except:import mdsthin as mds
@@ -55,7 +58,7 @@ from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh,\
     
 from freeqdsk import geqdsk
 import cv2
-from scipy.interpolate import make_smoothing_spline
+from scipy.interpolate import make_smoothing_spline, BSpline
 from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
 from fractions import Fraction

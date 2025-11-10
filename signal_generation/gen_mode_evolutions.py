@@ -92,9 +92,11 @@ def gen_mode_params_for_training(training_shots=1,\
         params['file_geqdsk'] = 'gEQDSK_files/'+gEQDSK_files[shot]
 
          # Generate up to 5 modes per shot
-        params['m'],params['n'] = __get_plausible_mn_values(\
-            gEQDSK_file=params['file_geqdsk'],max_modes=params['max_modes'],max_n=params['max_n'],max_m=params['max_m'])
-     
+        try:
+            params['m'],params['n'] = __get_plausible_mn_values(\
+                gEQDSK_file=params['file_geqdsk'],max_modes=params['max_modes'],max_n=params['max_n'],max_m=params['max_m'])
+        except: continue  # If fail to get plausible m/n values, skip this shot
+        
         params['f'] = []
         params['I'] = []
         params['f_Hz'] = []
@@ -130,7 +132,7 @@ def gen_mode_params_for_training(training_shots=1,\
                                          params['f'][2],params['I'][2],params['f_Hz'][2],save_ext)
     return params_per_shot # Params now include frequency bands, structured as list of dicts for each shot
 ######################################################################################################
-def gen_frequency_evolutions(n, m, v_phi_0=[5, 20], v_a=[200, 400]):
+def gen_frequency_evolutions(n, m, v_phi_0=[5, 30], v_a=[200, 400]):
     """
     Generates a time-dependent frequency evolution f(t) with a base frequency,
     a smooth evolution (linear or polynomial), and a smooth perturbation.
@@ -157,7 +159,7 @@ def gen_frequency_evolutions(n, m, v_phi_0=[5, 20], v_a=[200, 400]):
         f_0 += rng.uniform(v_a[0], v_a[1]) * 1e3  # Proxy for base AE frequency, Hz
 
     # 2. Smooth Evolution (Linear or Polynomial)
-    evolution_type = rng.choice(['linear', 'polynomial'])
+    evolution_type = rng.choice(['linear'])#, 'polynomial'])
     if evolution_type == 'linear':
         slope = rng.uniform(-0.1, 0.1) * f_0  # Linear slope (fraction of base frequency)
         f_evol = lambda time: slope * time + f_0
@@ -170,7 +172,7 @@ def gen_frequency_evolutions(n, m, v_phi_0=[5, 20], v_a=[200, 400]):
     perturbation_type = rng.choice(['sinusoidal', 'random'])
     if perturbation_type == 'sinusoidal':
         freq_mod = rng.uniform(1,6)  # Modulation frequency (Hz)
-        amp_mod = rng.uniform(0.01, 0.05) * f_0  # Modulation amplitude (fraction of base frequency)
+        amp_mod = rng.uniform(0.01, 0.01) * f_0  # Modulation amplitude (fraction of base frequency)
         f_pert = lambda time: amp_mod * np.sin(2 * np.pi * freq_mod * time)
     else:  # random
         rand_pert = lambda time: rng.normal(0, 0.001 * f_0, len(time))  # Random noise (fraction of base frequency)
@@ -202,7 +204,7 @@ def gen_amplitude_evolution(freq_avg):
     I_0 = rng.uniform(1, 5) * 1/freq_avg  # Base amplitude, normalized by frequency
 
     # 2. Smooth Evolution (Linear or Polynomial)
-    evolution_type = rng.choice(['linear', 'polynomial'])
+    evolution_type = rng.choice(['linear'])#, 'polynomial'])
     if evolution_type == 'linear':
         slope = rng.uniform(-0.05, 0.05) * I_0  # Linear slope (fraction of base amplitude)
         I_evol = lambda time: slope * time + I_0
@@ -277,7 +279,7 @@ def __build_geqdsks(n_equilibria,shot_list_file='../C-Mod/C_Mod_Shot_List_with_T
     shotnos = np.loadtxt(shot_list_file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     
     # +20% is saftey margin, some EFITs don't converge properly
-    shots = np.random.choice(shotnos,int(n_equilibria*1.2),replace=False)
+    shots = np.random.choice(shotnos,int(n_equilibria*1.2),replace=True)
     times = np.random.choice(np.linspace(time_range[0],time_range[1],100+1,endpoint=True),int(n_equilibria*1.2),replace=True)
 
     g_files = ['g%d.%04d'%(shots[ind],times[ind]*1e3) for ind in range(n_equilibria)]

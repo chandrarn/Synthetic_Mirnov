@@ -14,7 +14,7 @@ Created on Tue Feb  4 14:23:27 2025
 """
 
 from header_signal_generation import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
-    h5py, build_torus_bnorm_grid, OFT_env,ThinCurr_periodic_toroid, pyvista, subprocess,\
+    h5py, build_torus_bnorm_grid, OFT_env,ThinCurr_periodic_toroid, pyvista, subprocess,os,\
         gethostname, server, I_KM, F_KM, F_KM_plot, build_periodic_mesh,write_periodic_mesh, cm, Normalize
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from FAR3D_to_Bnorm import convert_FAR3D_to_Bnorm, __gen_b_norm_manual
@@ -25,9 +25,9 @@ def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_e
     'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3},doPlot=True,\
     C1_file='/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5',\
     FAR3D_br_file='',FAR3D_bth_file='',plotOnly=False,eta='1.8E-5, 3.6E-5, 2.4E-5',doSave_Bode=False,\
-        scan_in_freq=False,psi_contour_select=0.8):
+        scan_in_freq=False,psi_contour_select=0.8,lambda_merezhkin=0.0,cmod_shot=1051202011):
     
-   
+    os.chdir('../signal_generation/') # TODO: Fix relative pathing properly
     # Initialize OFT environment
     oft_env = OFT_env(nthreads=params['n_threads'])
 
@@ -35,7 +35,7 @@ def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_e
     gen_OFT_filemant_and_eta_file(xml_filename, eta)
 
     # Gen sensors location file
-    sensors=gen_Sensors_Updated(select_sensor=sensor_set)
+    sensors=gen_Sensors_Updated(select_sensor=sensor_set,cmod_shot=cmod_shot)
 
     
     
@@ -44,7 +44,9 @@ def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_e
     # Generate 2D b-norm sin/cos
     if C1_file: convert_to_Bnorm(C1_file,params['n'],params['n_pts'])
     elif FAR3D_br_file: convert_FAR3D_to_Bnorm(FAR3D_br_file,FAR3D_bth_file,m=params['m'],n=params['n'],\
-                                               eqdsk_file=file_geqdsk,debug=True,psi_contour_select=psi_contour_select)
+                                               eqdsk_file=file_geqdsk,debug=True,\
+                                                psi_contour_select=psi_contour_select,
+                                                lambda_merezhkin=lambda_merezhkin)
     else: __gen_b_norm_manual(file_geqdsk,params)
     # __gen_b_norm_manual(file_geqdsk,params)
 
@@ -65,7 +67,8 @@ def Synthetic_Mirnov_Surface(mesh_file='SPARC_Sept2023_noPR.h5',doSave='',save_e
             # sensor_all.append(Mirnov(pt, norm, 'C_MOD_CENTER_CONTROL', dx))
         if scan_in_freq:
             run_frequency_scan(tw_mesh, tw_mode, mode_driver_flux, mode_drive_currents, Msensor, \
-                               Msensor_plasma, sensor_obj, doSave_Bode, save_ext)
+                               Msensor_plasma, sensor_obj, doSave_Bode, save_ext,params,\
+                                file_geqdsk,psi_contour_select,lambda_merezhkin)
         else:
             __run_td(mode_driver_flux, sensor_mode, tw_mesh, sensor_obj, \
                       params, sensor_set, save_ext)
@@ -132,7 +135,8 @@ def __run_td(mode_driver_flux,sensor_mode,tw_mesh,sensor_obj,params,\
 ################################################################################################
 ################################################################################################
 def run_frequency_scan(tw_mesh,tw_mode, mode_driver_flux, mode_drive_currents,Msensor,\
-                        Msensor_plasma, sensor_obj,doSave_Bode,save_ext):
+                        Msensor_plasma, sensor_obj,doSave_Bode,save_ext,params,file_geqdsk,\
+                        psi_contour_select,lambda_merezhkin):
 
     # Run frequency dependent scan using conducting mesh, mode surface mesh/currents
 
@@ -159,19 +163,26 @@ def run_frequency_scan(tw_mesh,tw_mode, mode_driver_flux, mode_drive_currents,Ms
     # Save the probe signals to a file
     if doSave_Bode: 
         freqs = [freqs] if np.ndim(freqs) == 0 else freqs
-        fName = 'Frequency_Scan_on_%s_using_%s_from_%2.2e-%2.2eHz%s_Surface_Current.npz'%(mesh_file,sensor_set, freqs[0], freqs[-1],save_ext)
+        fName = 'Frequency_Scan_for_%s_on_%s_using_%s_from_%2.2e-%2.2eHz_n=%d_rho=%1.1f_lambda=%1.2f%s_Surface_Current.npz'%\
+            (file_geqdsk,mesh_file,sensor_set, freqs[0], freqs[-1],params['n'],\
+             psi_contour_select,lambda_merezhkin,save_ext)
         np.savez('../data_output/'+fName, probe_signals=sensors_bode, freqs=freqs,\
                  sensor_names=sensor_obj['names']) 
     
         # Plot the probe signals
         print('Saved frequency scan data to %s'%fName)
 
+  
+    if doSave_Bode:print('Saved frequency scan data to %s'%fName)
+    print('Saved frequency scan data to %s'%fName)
+    print('WHY NOT')
+
     # Only compute the mesh induced currents once
     tw_mesh.save_current(result[0,:],'Jr_mode')
     tw_mesh.save_current(result[1,:],'Ji_mode')
     _ = tw_mesh.build_XDMF()
 
-
+   
     return np.array(sensors_bode)
 
 ################################################################################################
@@ -307,7 +318,7 @@ def __gen_b_norm_mesh(C1_file,n_theta,n_phi,oft_env,sensor_set,
         tw_mesh.setup_io()
         __do_plot_B_J(output_full,nfp,n_phi,n_theta,bnorm,tw_mode,tw_mesh,sensor_set,
                             doSave,save_Ext,params)
-        
+
 ###########################################################
 def __b_norm_surf_plot(r_grid,bnorm,nfp,ntheta,nphi,doSave='',save_Ext='',params={}): 
         
@@ -377,7 +388,7 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,tw_mesh,sensor_set,doSave
     # actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
     #            scalars=J_c,scalar_bar_args={'title':r'$\sigma_c(\theta,\phi)\, [A/m]$'})
     actor = p.add_mesh(grid, color="white", opacity=1.0, show_edges=True,
-            scalars=bn_c,scalar_bar_args={'title':r'$b_{\hat{n}}(\theta,\phi)\, [T]$'})
+            scalars=bn_c,scalar_bar_args={'title':r'$\sigma(\theta,\phi)\, [A/m]$'})
     actor.prop.edge_opacity = 0.5
     # p.add_scalar_bar(title='J_c',)
 
@@ -414,7 +425,8 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,tw_mesh,sensor_set,doSave
 #########################################################
 if __name__=='__main__':
     # SPARC Side
-    mesh_file='SPARC_Sept2023_noPR.h5';doSave='../output_plots/';save_ext='_FAR3D_NonLinear_Scale_30_3D_Tiles';file_geqdsk='g1051202011.1000',
+    # mesh_file='SPARC_Sept2023_noPR.h5';
+    doSave='../output_plots/';save_ext='_FAR3D_NonLinear';
     sensor_set='BP';xml_filename='oft_in.xml';
     # params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
     # 'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
@@ -423,10 +435,9 @@ if __name__=='__main__':
     mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file = 'vacuum_mesh.h5'
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined_3D_Tiles-homology.h5'
-    file_geqdsk='g1051202011.1000'
-    # eta = '1.8E-5, 1.8E-5, 3.6E-5, 1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' )
-    # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
-    sensor_set='C_MOD_ALL';cmod_shot=1051202011
+
+    # sensor_set='Synth-C_MOD_BP_T'
+    sensor_set='C_MOD_ALL'
     # sensor_set = 'C_MOD_ALL'
 
 
@@ -441,21 +452,36 @@ if __name__=='__main__':
     w_shield = 0.43e-3 
     eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_shield}, {Mo/w_tile_arm}, {SS/w_tile_lim}' 
     
-    [9,10,11,12]
-    params={'m':[14,13,12,11,10,9,8],'n':11,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
-    'f':650e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    # FAR3D files for 1051202011
+    # [9,10,11,12]
+    # cmod_shot=1051202011
+    # file_geqdsk = 'g1051202011.1000'
+    # params={'m':[13,12,11,10,9,8,7],'n':10,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
+    # 'f':655e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    # FAR3D_br_file = 'br_1073';FAR3D_bth_file='bth_1073'
+
+    # # FAR3D files for 1160930034
+    cmod_shot=1160930033
+    file_geqdsk='g1160930034.1200'
+    params={'m':[15,14,13,12,11,10,9],'n':12,'n_pts':28,'m_pts':60,'f':665e3,'n_threads':28,\
+    }#'r':.25,'R':1,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    # FAR3D_br_file = 'br_1087';FAR3D_bth_file='bth_1087'
+    # FAR3D_br_file = 'br_7029';FAR3D_bth_file='bth_7029'
+    FAR3D_br_file = 'br_1221';FAR3D_bth_file='bth_1221'
+
     doPlot=True; plotOnly=False
     C1_file=None#'/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'
-    FAR3D_br_file = 'br_1103';FAR3D_bth_file='bth_1103'
+    
 
     doSave_Bode=True
     scan_in_freq=True
-    psi_contour_select=0.4
+    psi_contour_select=0.25
+    lambda_merezhkin= 0.00
 
     Synthetic_Mirnov_Surface(mesh_file=mesh_file,doSave=doSave,save_ext=save_ext,file_geqdsk=file_geqdsk,\
                              sensor_set=sensor_set,xml_filename=xml_filename,params=params,doPlot=doPlot,\
                             C1_file=C1_file,FAR3D_br_file=FAR3D_br_file,FAR3D_bth_file=FAR3D_bth_file,\
                             plotOnly=plotOnly, eta=eta, doSave_Bode=doSave_Bode, scan_in_freq=scan_in_freq,
-                            psi_contour_select=psi_contour_select)
-    
+                            psi_contour_select=psi_contour_select,lambda_merezhkin=lambda_merezhkin,
+                            cmod_shot=cmod_shot)
     print('All done')

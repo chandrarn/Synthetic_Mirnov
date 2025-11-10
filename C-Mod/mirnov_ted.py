@@ -72,7 +72,7 @@ class Mirnov :
         elif type(coil_selection)==list :
             self.coil_selection=[n.lower() for n in coil_selection]
         else :
-            self.coil_selection=lower(coil_selection)
+            self.coil_selection=coil_selection.lower()
         
         #NO: test=self.Tree.getNodeWild('active_mhd.signals.*') #Returns empty list
         #NO: self.Tree.getNodeWild('active_mhd.signals.bp***') #Returns all sub nodes of magnetics signal nodes.
@@ -113,6 +113,7 @@ class Mirnov :
         phi = list(self.tree.getNode('rf_lim_coils.phi_ab').getData().evaluate().getData().evaluate())+list(self.tree.getNode('rf_lim_coils.phi_gh').getData().evaluate().getData().evaluate())
         nodeNames=list(self.tree.getNode('rf_lim_coils.nodename').getData().evaluate()[0:(len(phi))]);
         try: # Catch for: low-n sensors move around 2008
+            # Works for newer shots
             nodeNames += list(self.tree.getNode('low_n_coils.nodename').getData().evaluate().getData().evaluate())
         except:pass
         #Deblank (trim whitespace) the strings and enforce lower case
@@ -261,7 +262,7 @@ class Mirnov :
         '''
         if coil_list is None:
             #Return attributes of all coils 
-            return list(this_attr.values)
+            return list(this_attr.values())
         elif type(coil_list) is list :
             out=[] #Initialize empty list
             for coil in coil_list :
@@ -484,3 +485,28 @@ class Mirnov :
         '''
         
         return self.t
+    
+
+#######################################################################
+if __name__ == '__main__' :
+    #Example usage
+    shot=1151208900#1051202011
+    t1=.9
+    t2=.91
+    m=Mirnov(shot,t1,t2,None)
+    print('Coil names:')
+    print(m.coil_names)
+    print('Coil toroidal angles (deg):')
+    print(m.getPhi())
+    print('Pulling signals...')
+    sigs=m.getSig('bp_bc_top')
+    t=m.getT()
+    print('Signal shape:')
+    print(sigs.shape)
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(t,sigs)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Signal (arb. units)')
+    plt.title('Mirnov signal for shot %d'%shot)
+    plt.show()

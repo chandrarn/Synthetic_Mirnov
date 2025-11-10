@@ -5,7 +5,7 @@
 
 # Import necessary libraries
 
-from header_signal_generation import plt, np, sys, xr, Fraction, os
+from header_signal_generation import plt, np, sys, xr, Fraction, os, OFT_env
 sys.path.append('../C-Mod/')
 from Synthetic_Mirnov import gen_synthetic_Mirnov
 from spectrogram_Cmod import signal_spectrogram_C_Mod
@@ -47,6 +47,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
     per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
                                 doPlot=doPlot,save_ext=save_Ext+'_')
 
+    # Initialize OFT environment
+    oft_env = OFT_env(nthreads=ThinCurr_params['n_threads'],abort_callback=True)
     # For each mode, run the simulation
     for mode_param in per_shot_mode_params:
         print(f"Running simulation for mode: {mode_param['m']}/{mode_param['n']} at frequency {mode_param['f']} Hz")
@@ -65,7 +67,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
             wind_in=ThinCurr_params['wind_in'],
             eta = ThinCurr_params['eta'],
             file_geqdsk=mode_param['file_geqdsk'],
-            cmod_shot=ThinCurr_params['cmod_shot']
+            cmod_shot=ThinCurr_params['cmod_shot'],
+            oft_env=oft_env
         )
         
         # Calculate spectrogram
@@ -107,7 +110,7 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
     f = mode_param['f_Hz'] # Need frequency in Hz, instead of phase advance
     I = mode_param['I'] 
     if type(f) is float: f_out = '%d'%f*1e-3
-    else: f_out = '_f-Custom'
+    else: f_out = f'_f-{np.min(f):1.3f}-{np.max(f)*1e-3:1.3f}kHz'
     if type(m) is not list: mn_out = '%d-%d'%(m,n)  
     else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
         '-'.join([str(n_) for n_ in n])
@@ -233,7 +236,7 @@ def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, senso
 ##################################################################3
 if __name__ == '__main__':
     # Example usage
-    output_directory = '../data_output/synthetic_spectrograms/'
+    output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -254,23 +257,24 @@ if __name__ == '__main__':
     ThinCurr_params = {
         'mesh_file': 'C_Mod_ThinCurr_Combined-homology.h5',
         'sensor_set': 'C_MOD_ALL',
-        'cmod_shot' : 1051202011,
+        'cmod_shot' : 1160930034,#1051202011,
         'save_ext': '',
         'doNoise': False,
         'wind_in' : 'phi',
         'file_geqdsk' : 'g1051202011.1000',
-        'eta' : eta
+        'eta' : eta,
+        'n_threads' : 24,
     }
 
     Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':100,'m_pts':60,'R':None,'r':None,\
-                   'noise_envelope':0.00,'n_threads':12,'max_modes':1,'max_m':1,'max_n':1} 
+                   'noise_envelope':0.00,'max_modes':1,'max_m':6,'max_n':6,'n_threads' : 24} 
 
     spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 
     save_Ext = '_Synth_low-n'
-    doSave = '../output_plots/'
-    doPlot = True
-    training_shots = 1
+    doSave = '../output_plots/low_m-n_spectrograms'
+    doPlot = False
+    training_shots = 200
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,

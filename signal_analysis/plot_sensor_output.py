@@ -7,7 +7,7 @@ Created on Mon Jan 27 15:43:15 2025
 """
 from header_signal_analysis import json,plt,np,histfile,geqdsk,factorial, Normalize,cm, cv2,sys
 sys.path.append('../signal_generation/')
-from header_signal_generation import F_AE_plot
+# from header_signal_generation import F_AE_plot
 
 from get_signal_data import get_signal_data, __select_sensors
 

@@ -28,7 +28,8 @@ from prep_ThinCurr_input import gen_coil_currs_sin_cos, gen_filament_coords, cal
       gen_OFT_sensors_file, gen_OFT_filement_and_eta_file
 
 
-from run_ThinCurr_model import get_mesh, run_frequency_scan, makePlots, correct_frequency_response
+from run_ThinCurr_model import get_mesh, run_frequency_scan, makePlots, correct_frequency_response,\
+        plot_sensor_output
 
 
 ################################################################################################
@@ -142,7 +143,7 @@ if __name__ == '__main__':
     file_geqdsk = 'g1051202011.1000'
     
     # Define mode to simulate
-    mode = {'m': 4, 'n': 2, 'm_pts': 20, 'n_pts': 40}
+    mode = {'m': 11, 'n': 3, 'm_pts': 20, 'n_pts': 40}
 
     # Resistivity of the conducting structure in Ohm-m
     eta = [1e-6]
@@ -206,3 +207,14 @@ if __name__ == '__main__':
         for i, sensor_name in enumerate(sensors_bode.sensor.values):
             print(f'Sensor: {sensor_name}, Real: {sensors_bode.sel(sensor=sensor_name).signal.values.real:.2e},'+\
                   f' Imag: {sensors_bode.sel(sensor=sensor_name).signal.values.imag:.2e}')
+        
+        plot_sensor_output(
+            working_files_directory,
+            probe_details,
+            mode,
+            freq,
+            save_Ext,
+            doSave,
+        )
+
+    print('SynthWave Synthetic Mirnov Signal Generation Complete.')

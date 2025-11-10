@@ -35,8 +35,8 @@ except:import mdsthin as mds
 
 
 
-sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
-sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/')
+sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit/build_release/python/')
+# sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/')
 # from OpenFUSIONToolkit.ThinCurr import ThinCurr
 # from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop
 # from OpenFUSIONToolkit.util import build_XDMF, mu0
@@ -52,6 +52,7 @@ from scipy.interpolate import make_smoothing_spline
 from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
 from scipy.io import loadmat
+from scipy.signal import hilbert, butter, sosfilt
 import json
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')

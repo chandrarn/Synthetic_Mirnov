@@ -430,6 +430,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
                 return sensor_Mirnov
             if select_sensor == 'C_MOD_LIM':
+                save_sensors_RZPhi(sensor_Lim)
                 save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
                 return sensor_Lim
             if select_sensor == 'C_MOD_BP': 

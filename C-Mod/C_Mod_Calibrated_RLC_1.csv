@@ -1,0 +1,163 @@
+Sensor_NameR [1kHz]   L [1kHz]   R [10 kHz]            R [100 kHz]           Comment    
+BP01_ABK         10.22      67.68                                            
+BP02_ABK         10.05      67.84                                            
+BP03_ABK          9.49      68.67                                            
+BP04_ABK          9.41      65.97                                            
+BP05_ABK          9.65      67.06                                            
+BP06_ABK         11.36      66.96                                            
+BP07_ABK          8.98      67.06                                            
+BP08_ABK          9.04      68.54                                            
+BP09_ABK          8.93      66.23                                            
+BP10_ABK         69.89 -157000.48                                            Broken     
+BP11_ABK          9.77      66.91                                            
+BP12_ABK           9.9       69.9                                            
+BP23_ABK         10.57      69.85                                            
+BP01_GHK        124.89 -114000.48                                            Broken     
+BP02_GHK          9.13      67.87                                            
+BP03_GHK        159.89      -0.48                                            Broken     
+BP05_GHK          8.97      68.21                                            
+BP09_GHK         74.89      66.27                                            Broken     
+BP15_GHK        129.89      65.47                                            Broken     
+BP16_GHK         24.79      66.27                                            Flaky      
+BP17_GHK         12.96      65.47                                            
+BP18_GHK        331.29 -105600.48                                            Broken     
+BP19_GHK         12.88      67.04                                            
+BP20_GHK         11.53      67.19                                            
+BP21_GHK         11.84      67.64                                            Flaky      
+BP22_GHK         11.16      67.29                                            
+BP23_GHK         11.15      20.26                                            
+BP24_GHK         12.01      67.25                                            
+BP25_GHK         11.51       67.5                                            
+BP26_GHK         11.65      65.71                                            
+BP27_GHK       1839.89 -126420.48                                            Broken     
+BP28_GHK         11.93      65.39                                            
+BP29_GHK         24.97      65.86                                            
+BP1T_GHK         7.645         68      7.835      65.61     14.319      57.25
+BP2T_GHK         8.612         69      8.827      66.24     15.452      57.53
+BP3T_GHK         8.003         69        8.2      66.04     14.732      57.68
+BP4T_GHK          1200-1.73E+007         130    -175000        6.9   -1796000
+BP5T_GHK          1370-1.28E+007                                             
+BP6T_GHK          1400-1.26E+007                                             
+BP1T_ABK         8.556         68      8.787      65.77     14.756       57.3
+BP2T_ABK         8.533         69      8.767       65.9     14.964      57.04
+BP3T_ABK         8.566         69       8.76      66.68     15.387      58.47
+BP4T_ABK         8.301         68      8.496      66.16     14.941      58.18
+BP5T_ABK        10.285         68     10.458      66.13     17.262      58.64
+BP6T_ABK        15.835         69     16.032      66.36      22.71      58.14
+BP_AB_TOP        5.581         64      5.668      62.79      9.459       59.3
+BP_BC_BOT        5.581         40      5.617       38.7      7.467       36.9
+BP_BC_TOP         5.77         64      5.855      62.59      9.717      59.18
+BP_EF_BOT        6.136         42      6.176      40.46       8.07       38.7
+BP_EF_TOP        6.258         63      6.344      61.53      9.995      58.46
+BP_KA_BOT        5.739         64      5.825      62.69       9.58      59.79
+BP_KA_TOP        6.408         64       6.49      62.68       9.95      59.75
+BP01_GHK                                 150-1.26E+005                       
+BP02_GHK                                8.73      67.49                      
+BP03_GHK                                 150-2.38E+005                       
+BP04_GHK                               8.032       67.5                      
+BP05_GHK                               7.944       67.9                      
+BP06_GHK                                7.89      67.75                      
+BP07_GHK                               7.962      67.94                      
+BP08_GHK                               7.996      67.99                      
+BP09_GHK                                 686-1.41E+005                       
+BP10_GHK                                8.09      67.69                      
+BP11_GHK                               8.078      67.21                      
+BP12_GHK                              12.855      65.12                      
+BP13_GHK                               9.167      67.93                      
+BP14_GHK                               8.754      66.02                      
+BP15_GHK                                 120-2.08E+005                       
+BP01_ABK                               8.809      67.41                      
+BP02_ABK                               9.336      67.55                      
+BP03_ABK                               8.612      68.41                      
+BP04_ABK                               8.565       65.7                      
+BP05_ABK                               8.667      66.81                      
+BP06_ABK                               8.974      66.72                      
+BP07_ABK                               8.407      66.79                      
+BP08_ABK                               8.568      68.26                      
+BP09_ABK                               8.162      65.97                      
+BP10_ABK                                  89-1.64E+005                       
+BP11_ABK                               9.367      66.62                      
+BP12_ABK                               9.517      69.61                      
+BP13_ABK                               9.071      67.17                      
+BP14_ABK                               8.378      67.05                      
+BP15_ABK                                8.35      66.48                      
+BP16_ABK                                 130-2.17E+005                       
+BP17_ABK                               8.447      68.46                      
+BP18_ABK                               8.439       67.5                      
+BP19_ABK                               9.238       66.9                      
+BP20_ABK                               9.186      66.28                      
+BP21_ABK                              10.908      68.11                      
+BP22_ABK                               8.867       65.5                      
+BP23_ABK                               8.969      69.59                      
+BP24_ABK                               9.042      68.34                      
+BP2T_GHK                               8.534      66.63                      Digitized  
+BP3T_GHK                                  31      66.74                      Digitized. 
+BP4T_GHK                                 110-156.6.58E3                      Digitized. 
+BP5T_GHK                               8.136      58.75                      
+BP6T_GHK                              15.333      61.12                      
+BP1T_ABK                               8.892      66.17                      Digitized  
+BP2T_ABK                               8.869      66.31                      Digitized  
+BP3T_ABK                               8.863      67.07                      Digitized  
+BP4T_ABK                               8.729      66.56                      Digitized  
+BP5T_ABK                              11.211      66.52                      Digitized  
+BP6T_ABK                               19.16      66.66                      Digitized  
+BP_AB_TOP                              5.817      63.27                      Digitized  
+BP_BC_TOP                                  6      63.15                      Digitized  
+BP_BC_BOT                              39.18      5.761                      Digitized  
+BP_EF_TOP                              6.485      62.06                      Digitized  
+BP_EF_BOT                              6.319      40.94                      Digitized  
+BP_KA_TOP                                 30-1.79E+005                       Digitized  
+BP_KA_BOT                                 40-1.25E+005                       Digitized  
+BP01_GHK                                  60    -160120                      Digitized, 
+BP02_GHK                               8.665      67.96                      Digitized  
+BP03_GHK                                 100    -208400                      
+BP04_GHK                               8.288      67.93                      Digitized  
+BP05_GHK                               8.333      68.32                      Digitized  
+BP06_GHK                               8.178      68.18                      Digitized  
+BP07_GHK                               8.218      68.36                      Digitized  
+BP08_GHK                               8.246      68.43                      Digitized  
+BP09_GHK                                1590     -144.4                      
+BP10_GHK                               8.211      68.12                      Digitized  
+BP11_GHK                               8.198      67.65                      Digitized  
+BP12_GHK                               9.973      65.62                      Digitized  
+BP13_GHK                               26.67      68.65                      Digitized  
+BP14_GHK                               10.52      66.51                      Digitized  
+BP15_GHK                                 100    -186000                      Sick coil  
+BP16_GHK                                1100    -688000                      
+BP17_GHK                                1100    -687000                      
+BP18_GHK                                1100    -679000                      
+BP19_GHK                                1100    -681000                      
+BP20_GHK                                1100    -677000                      
+BP21_GHK                                1100    -677000                      
+BP22_GHK                                1100    -670800                      
+BP23_GHK                                1100    -677000                      
+BP24_GHK                                1100    -662000                      
+BP25_GHK                                1100    -670000                      
+BP26_GHK                                1100    -664000                      
+BP27_GHK                                1100    -662700                      
+BP28_GHK                                1100    -651000                      
+BP29_GHK                                1100    -660600                      
+BP01_ABK                               8.915      67.82                      
+BP02_ABK                                9.01      67.96                      
+BP03_ABK                               8.714      68.81                      
+BP04_ABK                               8.664      66.11                      
+BP05_ABK                               8.747      67.22                      
+BP06_ABK                                8.86      67.12                      
+BP07_ABK                               8.477       67.2                      Digitized  
+BP08_ABK                               8.856      68.66                      Digitized  
+BP09_ABK                               8.294      66.37                      
+BP10_ABK                                  60    -150440                      
+BP11_ABK                               9.413      67.02                      
+BP12_ABK                                9.87      70.01                      
+BP13_ABK                               8.828      67.57                      
+BP14_ABK                               8.487      67.44                      
+BP15_ABK                                8.46      66.89                      
+BP16_ABK                                  90    -182000                      
+BP17_ABK                               8.564      68.86                      
+BP18_ABK                               8.564       67.9                      
+BP19_ABK                               9.557       67.3                      
+BP20_ABK                               9.551      66.68                      Digitized  
+BP21_ABK                              11.157      68.51                      
+BP22_ABK                               8.966      65.91                      
+BP23_ABK                               9.004         70                      
+BP24_ABK                               9.171      68.74                      

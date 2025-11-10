@@ -18,7 +18,7 @@ Created on Fri May 23 22:57:33 2025
 """
 
 
-try:from header_signal_analysis import CModEFITTree, doFFT
+try:from header_signal_analysis import CModEFITTree, doFFT, butter, sosfilt
 except:pass
 from sys import path; path.append('../C-Mod/')
 from header_Cmod import __doFilter, correct_Bode, np, hilbert, minimize, plt, remove_freq_band
@@ -26,39 +26,54 @@ from get_Cmod_Data import __loadData
 
 from scipy.stats import mode
 # Assume that we have some way of grouping in frequency/time
-def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None, 
-          HP_Freq=400e3, LP_Freq=600e3,n=[2], doSave='',save_Ext='',
-          directLoad=True,tLim_plot=[],z_levels = [8,10,14], doBode=False,
-          bp_k=None,doPlot=True):
-    
+def run_n(shotno=1160930034, tLim=[1.1,1.11], fLim=None, 
+          HP_Freq=670e3, LP_Freq=730e3, n=[12], doSave='', save_Ext='',
+          directLoad=True, tLim_plot=[], z_levels=[8,10,14],
+          doBode=True, bp_k=None, doPlot=True,
+          phase_mode="fft_peak"):
+    """
+    phase_mode:
+        "hilbert"  -> per-channel time series phase via analytic signal (default)
+        "fft_peak" -> constant per-channel phase taken at strongest FFT peak
+                      within [HP_Freq, LP_Freq]; broadcast over time axis
+    """
     # Load in data
     bp_k,data,f_samp,R,Z,phi,inds,time = \
             load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k)
 
-    R_map=R;Z_map=Z;phi_map =phi# Save for later plotting
-    # FFT processing: more than just Hilbert
-    # Use dominant frequency within bandpassfilteresed region for now
-    #return data,time,HP_Freq,LP_Freq,R,Z,phi,bp_k
-    
-    data,R,Z,phi,mag,mag_Freq,names,fft_freq,fft_out = \
+    R_map=R; Z_map=Z; phi_map=phi
+
+    data,R,Z,phi,mag,mag_Freq,names,fft_freq,fft_out,time = \
         doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,bp_k.names)
-    
-    #return bp_k, data, f_samp,R,Z,phi,mag,mag_Freq
-    # Bode filtering
+
     if doBode:
         for ind, sig in enumerate(data):
-            data[ind]=correct_Bode(sig,time,names[ind])[0]
-    
-    phase = np.unwrap(np.angle(hilbert(data,axis=1)))*180/np.pi # all phases, unfilterd
-    
-    #return data,phase,phi,bp_k,inds
-    
+            data[ind] = correct_Bode(sig,time,names[ind])[0]
+
+    if phase_mode.lower() == "hilbert":
+        phase = np.unwrap(np.angle(hilbert(data,axis=1)), axis=1)*180/np.pi
+    elif phase_mode.lower() == "fft_peak":
+        # Find peak FFT phase within band for each channel
+        band = (fft_freq >= HP_Freq) & (fft_freq <= LP_Freq)
+        if not np.any(band):
+            raise ValueError("No FFT frequencies inside HP/LP window for phase_mode='fft_peak'.")
+        band_fft = fft_out[:, band]                 # (Nch, Nband)
+        band_mag = np.abs(band_fft)
+        peak_idx = np.argmax(np.mean(band_mag, axis=1)) # (Nch,)
+        print('Maximum Frequency: ', fft_freq[band][peak_idx]/1e3, 'kHz')     
+        peak_phase_deg = np.angle(band_fft[:, peak_idx])*180/np.pi
+        peak_phase_deg = peak_phase_deg % 360
+        # Broadcast to (Nch, Nt) to keep downstream averaging logic unchanged
+        phase = np.tile(peak_phase_deg[:, None], (1, data.shape[1]))
+    else:
+        raise ValueError(f"Unknown phase_mode '{phase_mode}'. Use 'hilbert' or 'fft_peak'.")
+
     # Calculate relative toroidal phase angle vs poloidal group of sensors
     angles_group, phase_group, z_inds_out = get_rel_phase(Z,data,phi,phase,z_levels)
     
     if doPlot:
         # Print filter output
-        __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out,)
+        __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out)
         
         # Print map of used sensors
         __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,save_Ext)
@@ -66,7 +81,7 @@ def run_n(shotno=1160930034, tLim=[0.82,0.82008], fLim=None,
 
     
     ## run fit for n
-    n_opt, res = optimize_n(angles_group.copy(),phase_group,n,doPlot=False)
+    n_opt, res = optimize_n(angles_group.copy(),phase_group,n,doPlot=doPlot)
     
     if doPlot: doPlot_n(angles_group,phase_group,n,n_opt,data[z_inds_out[0,0]],time,
              doSave,save_Ext,tLim_plot)
@@ -85,12 +100,28 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
     
     # select time block, or just use entire signal if its stored in short form
     if directLoad:
-        inds = np.arange(len(bp_k.time))
-        if tLim[1]-tLim[0]>4e-3:tLim[0]+=1e-3;tLim[1]-=1e-3
+        # Check if tLim is a list of time ranges or a single time range
+        if isinstance(tLim[0], (list, tuple)):
+            # Multiple time ranges
+            inds_list = []
+            for t_range in tLim:
+                t_start, t_end = t_range
+                # Get indices for this time range
+                i_start = np.argmin(np.abs(bp_k.time - t_start))
+                i_end = np.argmin(np.abs(bp_k.time - t_end))
+                inds_list.append(np.arange(i_start, i_end + 1))
+            # Concatenate all indices
+            inds = np.concatenate(inds_list)
         else:
-            len_ = tLim[1]-tLim[0]
-            tLim[0]+=len_*.05;tLim[1]-=len_*.05
-        inds = np.arange(*[np.argmin(np.abs(bp_k.time-t)) for t in tLim])
+            # Single time range
+            if tLim[1] - tLim[0] > 4e-3:
+                tLim[0] += 1e-3
+                tLim[1] -= 1e-3
+            else:
+                len_ = tLim[1] - tLim[0]
+                tLim[0] += len_ * 0.05
+                tLim[1] -= len_ * 0.05
+            inds = np.arange(*[np.argmin(np.abs(bp_k.time - t)) for t in tLim])
     else:
         # get Time range
         time_block = bp_k.blockStart/f_samp+bp_k.tLim[0]
@@ -101,31 +132,47 @@ def load_in_data(shotno,directLoad,tLim,HP_Freq,LP_Freq,bp_k=None):
         inds = np.arange(ind_1,ind_2,dtype=int)
      
     
-    #return R,Z,data, inds,bp_k
-    
-    #return bp_k
     # trim data
     data = data[:,inds]
+    
+    # Apply windowing at edges of time ranges for multiple ranges
+    if directLoad and isinstance(tLim[0], (list, tuple)):
+        window_length = int(0.5e-3 * f_samp)  # 0.5 ms taper on each edge
+        cumulative_idx = 0
+        for i, t_range in enumerate(tLim):
+            segment_length = len(inds_list[i])
+            # Create Tukey window (cosine taper)
+            if segment_length > 2 * window_length:
+                window = np.ones(segment_length)
+                # Taper at start
+                window[:window_length] = 0.5 * (1 - np.cos(np.pi * np.arange(window_length) / window_length))
+                # Taper at end
+                window[-window_length:] = 0.5 * (1 - np.cos(np.pi * np.arange(window_length, 0, -1) / window_length))
+                # Apply window to this segment
+                data[:, cumulative_idx:cumulative_idx + segment_length] *= window[np.newaxis, :]
+            cumulative_idx += segment_length
     
     phi = np.array(bp_k.Phi)
     
     R = np.array(bp_k.R)
     Z = np.array(bp_k.Z)
     
-    #theta = get_theta(R,Z,shotno,tLim)
-    
     return bp_k,data,f_samp,R,Z,phi,inds, bp_k.time[inds]
 ###############################################################################
 def filterAveMag(data,lim=[]):pass
     
-def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=0,
-                   hist_ind=4,hist_lim=80):
+def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=.5,freqLim=0,
+                   hist_ind=3,hist_lim=100):
     
     # Do frequency Filtering 
-    data=__doFilter(data.copy(), time,HP_Freq, LP_Freq)
+    # data=__doFilter(data.copy(), time,HP_Freq, LP_Freq)
     
+    # Trying with Butterworth filter
+    sos = butter(2, [HP_Freq,LP_Freq], 'bandpass', fs=1/(time[1]-time[0]), output='sos')
+    data = sosfilt(sos, data,axis=1)
+
     # Remove spurious frequencies
-    data = remove_freq_band(data, time, freq_rm=500e3, freq_sigma=50)
+    data = remove_freq_band(data, time, freq_rm=500e3, freq_sigma=10e3)
     
     # check if signal is finite
     mag = np.mean(np.abs(hilbert(data,axis=1)),axis=1)
@@ -151,7 +198,7 @@ def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=0,
     #if HP_Freq<100e3:inds = np.append(inds,[4]) # known bad channel for this shot
     
     inds = np.unique(inds).astype(int)
-    print(inds,mag_inds,freq_inds,hist_inds)
+    # print(inds,mag_inds,freq_inds,hist_inds)
     if np.size(inds)>0:
         data = np.delete(data,inds,axis=0)
         Z = np.delete(Z,inds,axis=0)
@@ -159,9 +206,13 @@ def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=1,freqLim=0,
         phi = np.delete(phi,inds,axis=0)
         names = np.delete(names,inds,axis=0)
     
-    return data, R, Z, phi,mag,mag_Freq,names,fft_freq,fft_out
+    # check to ensure data and time sizes match
+    if data.shape[1]!=len(time):  time = time[:data.shape[1]]
+
+    return data, R, Z, phi,mag,mag_Freq,names,fft_freq,fft_out, time
 ###############################################################################
-def __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out,plotAll=True):
+def __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft_out,\
+                   freq_lim=[0,800],plotAll=True):
     
     
     title='Filter_Output'
@@ -182,17 +233,33 @@ def __doPlotFilter(mag,mag_Freq,z_inds_out,angles_group,data,time,Z,fft_freq,fft
             ax_1[ind,0].plot(time,data[z_ind].T)
             ax_1[ind,0].plot(time,np.abs(hilbert(data[z_ind])),
                 alpha=.6,c=plt.get_cmap('tab10')(ind_1))
-            ax_1[ind,1].plot(fft_freq,np.abs(fft_out[z_ind].T))
-        for i in range(2):ax[ind,i].grid()
+            ax_1[ind,1].plot(fft_freq*1e-3,np.abs(fft_out[z_ind].T))
+            ax_1[ind,1].set_xlim(freq_lim)
+        for i in range(2):ax[i,ind].grid()
         for i in range(2):ax_1[ind,i].grid()
+        if ind > 0: ax_1[ind,1].sharex(ax_1[0,1])
+        
+        ax_1[ind,0].set_ylabel('Z = %1.1f cm'% (Z[ind]) )
+    
+    # Clean up
     ax[0,0].set_ylabel('Magnitude')
     ax[1,0].set_ylabel('PSD')
+    for i in range(len(z_inds_out)):
+        ax[1,i].set_xlabel(r'$\phi$ [deg]')
+        ax[0,i].set_title('Z = %1.1f cm'% (z_inds_out[i,1]) )
     
+    
+    for ax_ in ax_1[:-1,1]: ax_.label_outer()
+
+
+    ax_1[-1,0].set_xlabel('Time [s]')
+    ax_1[-1,1].set_xlabel('Frequency [kHz]')
+
     plt.show()
 #################################################################################
 def optimize_n(angles_group,phase_group,n,doPlot=True):
     if len(angles_group) == 0: return np.nan,[]
-    print(angles_group)
+    # print(angles_group)
 
     for i in range(len(angles_group)):
         angles_group[i] -=angles_group[i][0]
@@ -225,7 +292,7 @@ def __fn_opt(n,angles,phase):
                    (np.sin(phase*np.pi/180)-np.sin(n[0]*angles*np.pi/180))**2 ) )
     
 #################################################################################
-def get_rel_phase(Z,data,angles,phase, z_levels):
+def get_rel_phase(Z,data,angles,phase, z_levels,Z_tol=1):
     angles_group = []
     phase_group=[]
     # normalize off phase by rings in poloidal plane?
@@ -234,7 +301,7 @@ def get_rel_phase(Z,data,angles,phase, z_levels):
     z_inds_out=[]
     for z in z_levels:
         for s in [-1,1]:
-            z_inds_ = np.argwhere((Z*1e2<=s*z+0.5)  &  (Z*1e2>=s*z-0.5)).squeeze()
+            z_inds_ = np.argwhere((Z*1e2<=s*z+Z_tol)  &  (Z*1e2>=s*z-Z_tol)).squeeze()
 
 
             if np.size(z_inds_)<=1:continue
@@ -312,7 +379,7 @@ def __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,sa
             flag=False
     ax.set_xlabel(r'$\phi$ [deg]')
     ax.set_ylabel(r'Z [cm]')
-    ax.legend(fontsize=9,handlelength=1.5,title_fontsize=8,)
+    ax.legend(fontsize=9,handlelength=1.5,title_fontsize=8,ncols=3,)
      #         title=r'R$in${%1.1f-%1.1f}'%(np.min(R),np.max(R)))
     ax.grid()
     
@@ -320,4 +387,19 @@ def __Coord_Map(R,Z,phi,R_map,Z_map,phi_map,doSave,shotno,z_levels,z_inds_out,sa
         fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.png',transparent=True)
     plt.show() 
 ########################################################
-if __name__ == '__main__': run_n()
+if __name__ == '__main__': 
+    shotno = 1160930034
+    tLim = [[1.1,1.11],[1.128,1.141], [1.164,1.175], [1.191,1.205], [1.223,1.237]]
+    
+    HP_Freq=725e3; LP_Freq=750e3
+    n = [12]   
+    z_levels = [8,10,14]
+    
+    doSave='../output_plots/'
+    save_Ext='_Test_n12_Calibrated'
+    run_n(shotno=shotno, tLim=tLim, HP_Freq=HP_Freq, LP_Freq=LP_Freq,
+          n=n, z_levels=z_levels,
+          doSave=doSave, save_Ext=save_Ext,
+          doPlot=True, doBode=True)
+    
+    print('Done')

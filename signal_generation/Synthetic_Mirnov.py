@@ -10,7 +10,8 @@ Created on Tue Dec 17 11:43:59 2024
 # header
 from header_signal_generation import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, OFT_env, mu0, histfile, subprocess, geqdsk, cv2,\
-        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys, gen_coupled_freq, debug_mode_frequency_plot
+        make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys,\
+              gen_coupled_freq, debug_mode_frequency_plot, getcwd
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk, calc_filament_coords_field_lines
 from prep_sensors import conv_sensor
@@ -27,14 +28,14 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
                                 eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=True,
-                                scan_in_freq=False,clim_J=None,doSave_Bode=False,):
+                                scan_in_freq=False,clim_J=None,doSave_Bode=False,oft_env=None):
     
-    
+    os.chdir('../signal_generation/')
     # Get mode amplitudes, indexed to filament positions
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params,wind_in=wind_in,scan_in_freq=scan_in_freq)
 
-    
+   
     # Get starting coorindates for fillaments
     theta,phi=gen_filament_coords(params,wind_in=wind_in)
 
@@ -52,7 +53,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     
     # Get finite element Mesh
     tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv = \
-        get_mesh(mesh_file,xml_filename,params,sensor_set, debug=debug)
+        get_mesh(mesh_file,xml_filename,params,sensor_set,\
+                  oft_env=oft_env,debug=debug)
 
 
 
@@ -77,14 +79,14 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     
     
     return tw_mesh,params,coil_currs,sensors,doSave,\
-                                save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set, scale
+            save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set, scale, oft_env
 
 ################################################################################################
 ################################################################################################
-def get_mesh(mesh_file,filament_file,params,sensor_set,debug=True):
+def get_mesh(mesh_file,filament_file,params,sensor_set,oft_env=None,debug=True):
     # Load mesh, compute inductance matrices   
     if debug: print('Loading mesh from %s'%mesh_file)
-    oft_env = OFT_env(nthreads=params['n_threads'],abort_callback=True)
+    if oft_env is None: oft_env = OFT_env(nthreads=params['n_threads'],abort_callback=True)
     tw_mesh = ThinCurr(oft_env)
     tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename='input_data/'+filament_file)
     tw_mesh.setup_io()
@@ -275,6 +277,7 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
     coil_current_magnitude = params['I'] # Current magnitude for the coil
     freqs = params['f'] # Frequency range for the scan
 
+    # Compute mutual inductance between coil filaments and mesh
     Mcoil = tw_mesh.compute_Mcoil()
     driver = np.zeros((2,tw_mesh.nelems))
     driver[0,:] = Mcoil[0,:]*coil_current_magnitude
@@ -290,7 +293,7 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
 
         # contribution from the mesh current to the sensor, with the mesh current at a given frequency
         probe_signals = np.dot(result,Msensor)
-        # Contribuio from the coil current directly to the sensor
+        # Contribuion from the coil current directly to the sensor
         probe_signals[0,:] += np.dot(np.r_[coil_current_magnitude],Msc)
 
         # for i in range(probe_signals.shape[1]):
@@ -444,11 +447,11 @@ if __name__=='__main__':
     # mesh_file = 'vacuum_mesh.h5'
     params={'m':[4],'n':[2],'r':0,'R':0.8,'n_pts':[20],'m_pts':[20],\
         'f':np.linspace(1e3,1e3,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':1,'noise_envelope':0.00}
-    params={'m':[4],'n':[2],'r':0,'R':0.8,'n_pts':[40],'m_pts':[20],\
-        'f':1e4,'dt':5.0e-6,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
+    params={'m':[10],'n':[4],'r':0,'R':0.8,'n_pts':[40],'m_pts':[20],\
+        'f':1e4,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
-    file_geqdsk='g1051202011.1000' # Not used for frequency scan
-    cmod_shot = 1051202011#1151208900 	
+    file_geqdsk='g1160930034.1200'#'g1051202011.1000' # Not used for frequency scan
+    cmod_shot = 1160930034#1151208900 	
     wind_in = 'theta' # Note: advanced `theta' winding does not work for single filament m/n=1 case
     scan_in_freq = False # Set to True to run frequency scan, False to run time dependent simulation
     clim_J = [0,.5] # Color limits for eddy current plot
@@ -520,10 +523,10 @@ if __name__=='__main__':
 
     #coil_currs=gen_coil_currs(params,True)
     
-
+    
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
          save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
-           plotOnly=False, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode)
+           plotOnly=True, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode)
     
     print('Run complete')

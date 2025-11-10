@@ -192,7 +192,8 @@ def starting_phi(m,n,m_pts,n_pts):
 ###############################################################
 # Core of new Winding Method
 def wind_in_theta(file_geqdsk,m,n, debug=False):
-    with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+    
+    with open('../signal_generation/input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
     eq_field = EquilibriumField(eqdsk)
     eq_filament = EquilibriumFilament(m,n,eq_field)
     filament_points,filament_etas = eq_filament._trace(method=TraceType.AVERAGE,num_filament_points=300)
