@@ -35,9 +35,10 @@ from data_caching import build_or_load_cached_dataset
 # Dataset wrapper
 # -------------------------
 class SensorFourChannelDataset(Dataset):
-    """Holds (N, S, 4) with per-sensor channels [real, imag, theta, phi]."""
+    """Holds (N, S, 4) with per-sensor channels: difference from first sensor for [real, imag, theta, phi]."""
     def __init__(self, X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.ndarray]=None,
-                 phi: Optional[np.ndarray]=None, mask_prob: float = 0.1, is_train: bool = True):
+                 phi: Optional[np.ndarray]=None, mask_prob: float = 0.1, is_train: bool = True,
+                 scaler: Optional['StandardScaler']=None):
         assert X_ri.ndim == 3 and X_ri.shape[-1] == 2
         self.X_ri = X_ri.astype(np.float32)
         self.y = y.astype(np.int64)
@@ -50,18 +51,36 @@ class SensorFourChannelDataset(Dataset):
         self.phi = phi.astype(np.float32)
         self.mask_prob = mask_prob
         self.is_train = is_train
+        self.scaler = scaler
+
+        # Precompute difference features for all samples
+        # For each sample: (S, 2) real/imag, (S,) theta, (S,) phi
+        # Output: (S, 4) where each channel is value - value[0]
+        diff_features = []
+        for i in range(N):
+            xri = self.X_ri[i]  # (S, 2)
+            real_diff = xri[:, 0] - xri[0, 0]
+            imag_diff = xri[:, 1] - xri[0, 1]
+            th_diff = self.theta - self.theta[0]
+            ph_diff = self.phi - self.phi[0]
+            x = np.stack([real_diff, imag_diff, th_diff, ph_diff], axis=1)  # (S, 4)
+            diff_features.append(x)
+        self.diff_features = np.stack(diff_features, axis=0)  # (N, S, 4)
+
+        # Apply scaler if provided
+        if self.scaler is not None:
+            N, S, C = self.diff_features.shape
+            flat = self.diff_features.reshape(-1, C)
+            flat_scaled = self.scaler.transform(flat)
+            self.diff_features = flat_scaled.reshape(N, S, C)
 
     def __len__(self):
-        return self.X_ri.shape[0]
+        return self.diff_features.shape[0]
 
     def __getitem__(self, idx):
-        xri = torch.from_numpy(self.X_ri[idx])  # (S, 2)
-        S = xri.shape[0]
-        th = torch.from_numpy(self.theta).view(S, 1)
-        ph = torch.from_numpy(self.phi).view(S, 1)
-        x = torch.cat([xri, th, ph], dim=1)  # (S, 4)
+        x = torch.from_numpy(self.diff_features[idx])  # (S, 4)
         y = torch.tensor(int(self.y[idx]), dtype=torch.long)
-
+        S = x.shape[0]
         if self.is_train and self.mask_prob > 0:
             mask = torch.rand(S) < self.mask_prob
             x[mask] = 0.0
@@ -69,6 +88,31 @@ class SensorFourChannelDataset(Dataset):
             noise = torch.randn_like(x[:, :2]) * 0.05
             x[:, :2] += noise
         return x, y
+from sklearn.preprocessing import StandardScaler
+
+def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray, phi: np.ndarray) -> Tuple[np.ndarray, StandardScaler]:
+    """
+    Compute difference features and fit StandardScaler, then transform and return scaled features.
+    Returns scaled difference features (N, S, 4) and fitted scaler.
+    """
+    N, S, _ = X_ri.shape
+    diff_features = []
+    for i in range(N):
+        xri = X_ri[i]
+        real_diff = xri[:, 0] - xri[0, 0]
+        imag_diff = xri[:, 1] - xri[0, 1]
+        th_diff = theta - theta[0]
+        ph_diff = phi - phi[0]
+        x = np.stack([real_diff, imag_diff, th_diff, ph_diff], axis=1)
+        diff_features.append(x)
+    diff_features = np.stack(diff_features, axis=0)
+    scaler = StandardScaler()
+    N, S, C = diff_features.shape
+    flat = diff_features.reshape(-1, C)
+    scaler.fit(flat)
+    flat_scaled = scaler.transform(flat)
+    diff_features_scaled = flat_scaled.reshape(N, S, C)
+    return diff_features_scaled, scaler
 
 # -------------------------
 # FNO 1D modules
@@ -170,8 +214,8 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
                          plot_confusion: bool = False,
                          class_names: Optional[np.ndarray] = None) -> Tuple[FNO1dClassifier, LabelEncoder, float, float]:
     le = LabelEncoder()
-    y_enc = le.fit_transform(y)
-    n_classes = n_classes or int(y_enc.max()) + 1
+    y_enc = np.array(le.fit_transform(y))
+    n_classes = n_classes or int(np.max(y_enc)) + 1
 
     ds = SensorFourChannelDataset(X_ri, y_enc, theta=theta, phi=phi, mask_prob=cfg.mask_prob, is_train=True)
     N = len(ds)
@@ -179,7 +223,7 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
     n_train = max(1, N - n_val)
     train_ds, val_idx = random_split(ds, [n_train, n_val])
     # Build val dataset without masking
-    val_X_ri = ds.X_ri[val_idx.indices]
+    val_X_ri = ds.diff_features[val_idx.indices]
     val_y = y_enc[val_idx.indices]
     val_ds = SensorFourChannelDataset(val_X_ri, val_y, theta=theta, phi=phi, mask_prob=0.0, is_train=False)
 
@@ -299,24 +343,28 @@ def example_usage():
     Adjust paths as needed.
     """
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
-    out_path = "/home/rianc/Documents/Synthetic_Mirnov/data_output/cached/cached_training_slices_n.npz"
+    out_path = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/cached_data_-1.npz"
     geometry_shot = 1160714026  # for bp_k geometry; set None to skip
 
     # Cache or load
-    X_ri, y, sensor_names, theta, phi = build_or_load_cached_dataset(
+    X_ri, y, y_m, y_n, sensor_names, theta, phi = build_or_load_cached_dataset(
         data_dir=data_dir, out_path=out_path, use_mode='n', include_geometry=True,
-        geometry_shot=geometry_shot, num_timepoints=-1, freq_tolerance=0.1, n_datasets=-1)
+        geometry_shot=geometry_shot, num_timepoints=10, freq_tolerance=0.1, n_datasets=-1,
+        load_saved_data=True, visualize_first=False)
+
+    # Compute difference features and fit scaler
+    diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi)
 
     # Train FNO (4 channels constructed inside Dataset)
     model, le, val_acc, auc = train_fno_classifier(
-        X_ri, y, theta=theta, phi=phi, n_classes=None,
+        diff_features_scaled, y, theta=None, phi=None, n_classes=None,
         cfg=TrainConfig(batch_size=64, n_epochs=300, patience=30, modes=24, width=192, depth=4, dropout=0.3),
         plot_confusion=True, class_names=le.classes_ if hasattr(le, 'classes_') else None)
 
-    # Save model bundle
+    # Save model bundle and scaler
     os.makedirs('../output_models', exist_ok=True)
     torch.save({'state_dict': model.state_dict(), 'classes': le.classes_.tolist(), 'sensor_names': sensor_names,
-                'theta': theta, 'phi': phi}, '../output_models/fno_classifier_n.pth')
+                'scaler': scaler, 'theta': theta, 'phi': phi}, '../output_models/fno_classifier_n.pth')
     print(f"Done. Val Acc={val_acc:.3f}, AUC={auc:.3f}")
 
 

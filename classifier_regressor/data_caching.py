@@ -21,14 +21,32 @@ from typing import List, Tuple, Optional, Dict
 
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib import rc,cm
+import matplotlib
+plt.rcParams['figure.figsize']=(6,6)
+plt.rcParams['font.weight']='bold'
+plt.rcParams['axes.labelweight']='bold'
+plt.rcParams['lines.linewidth']=2
+plt.rcParams['lines.markeredgewidth']=2
+rc('font',**{'family':'serif','serif':['Palatino']})
+rc('font',**{'size':11})
+rc('text', usetex=True)
+matplotlib.use('TkAgg')
+plt.ion()
 
 # Allow importing C-Mod utilities for geometry (optional)
 import sys
 sys.path.append('../C-Mod/')
 try:
     from get_Cmod_Data import __loadData  # for bp_k geometry
+    from mirnov_Probe_Geometry import Mirnov_Geometry as Mirnov_Geometry_C_Mod
 except Exception:
     __loadData = None
+
+
+##################################################################################################
 
 
 # -------------------------
@@ -37,36 +55,244 @@ except Exception:
 def gen_sensor_ordering(sensor_names: List[str]) -> Tuple[np.ndarray, np.ndarray, List[int]]:
     """
     Return (sorted_names, original_names_array, order_indices) for a consistent ordering:
-      1) BPXX_ABK, BPXX_GHK (XX numeric)
-      2) BPXT_ABK, BPXT_GHK (XX numeric)
-      3) BP_AA_BOT (AA letters) [all BOT first]
-      4) BP_AA_TOP (AA letters)
+      1) BPXX_ABK (XX numeric)
+      2) BPXX_GHK (XX numeric)
+      3) BPXT_ABK (XX numeric)
+      4) BPXT_GHK (XX numeric)
+      5) BP_AA_BOT (AA letters) [all BOT first]
+      6) BP_AA_TOP (AA letters)
     Case-insensitive matching; unknowns go to the end, lexicographic.
     """
-    def _key(u: str):
-        u = u.upper()
+    def _sensor_sort_key(name: str):
+        u = str(name).upper()
         m = re.match(r'^BP(\d+)_([A-Z]+)$', u)  # BPXX_ABK/GHK
         if m:
             num = int(m.group(1)); suf = m.group(2)
-            sub = 0 if suf == 'ABK' else 1 if suf == 'GHK' else 2
-            return (0, 0, num, sub, u)
+            # Group by suffix first: all ABK (cat=0), then all GHK (cat=1)
+            cat = 0 if suf == 'ABK' else 1 if suf == 'GHK' else 2
+            return (0, cat, num, u)
         m = re.match(r'^BP(\d+)T_([A-Z]+)$', u)  # BPXT_ABK/GHK
         if m:
             num = int(m.group(1)); suf = m.group(2)
-            sub = 0 if suf == 'ABK' else 1 if suf == 'GHK' else 2
-            return (1, 0, num, sub, u)
+            # Group by suffix first: all ABK (cat=0), then all GHK (cat=1)
+            cat = 0 if suf == 'ABK' else 1 if suf == 'GHK' else 2
+            return (1, cat, num, u)
         m = re.match(r'^BP_([A-Z]{2})_((?:TOP|BOT))$', u)  # BP_AA_TOP/BOT
         if m:
             aa = m.group(1); pos = m.group(2)
-            # BOT category before TOP category
-            cat = 2 if pos == 'BOT' else 3
-            return (cat, 0, aa, 0 if pos == 'BOT' else 1, u)
-        return (9, 9, u, 9, u)
+            # Treat BOT and TOP as separate categories: all BOT first, then all TOP
+            cat = 0 if pos == 'BOT' else 1
+            return (2, cat, aa, u)
+        # Fallback: put at end, keep lexicographic
+        return (9, 9, u, u, u)
 
-    names_arr = np.array(sensor_names).astype(str)
-    order = [i for i, _ in sorted(enumerate(names_arr), key=lambda t: _key(t[1]))]
-    return names_arr[order], names_arr, order
+    _names = np.array(sensor_names).astype(str)
+    order = [i for i, _ in sorted(enumerate(_names), key=lambda t: _sensor_sort_key(t[1]))]
 
+    return _names[order], _names, order
+
+##################################################################################################
+##################################################################################################
+
+# -------------------------
+# Visualization utilities
+# -------------------------
+def visualize_dataset_regions(ds: xr.Dataset, time_indices: np.ndarray, 
+                              F_mode_vars: List[str], regions: List[List[Tuple[np.ndarray, np.ndarray]]],
+                              t_window_width: int = 4, 
+                              sensor_to_plot: str = 'BP01_ABK', 
+                              save_path: Optional[str] = None,
+                              mode_region_fLim: Optional[List[float]] = None) -> None:
+    """
+    Visualize the frequency-time regions used for data extraction from a dataset.
+    
+    Creates a plot showing the real spectrogram for one sensor with colored rectangles
+    indicating the mode regions (frequency bands at each time point) that are used
+    for feature extraction.
+    
+    Args:
+        ds: xarray Dataset containing spectrogram data
+        time_indices: Array of time indices used for sampling
+        F_mode_vars: List of mode frequency variable names (e.g., ['F_Mode_0', 'F_Mode_1'])
+        Width in timepoints to use for rectangle width (default: 4)
+        regions: List[mode][time_idx] of (freq_inds, sensor_inds) tuples
+        sensor_to_plot: Name of sensor to visualize (default: 'BP01_ABK')
+        save_path: Optional path to save the figure (e.g., '../output_plots/')
+        mode_region_fLim: Optional [f_min, f_max] frequency limits in kHz for y-axis
+    """
+    # Check if sensor exists in dataset
+    sensor_var = f"{sensor_to_plot}_real"
+    if sensor_var not in ds.data_vars:
+        print(f"Warning: Sensor '{sensor_to_plot}' not found in dataset. Available sensors:")
+        available = [str(v).replace('_real', '') for v in ds.data_vars if str(v).endswith('_real') and 'Mode' not in str(v)]
+        print(f"  {available[:5]}... ({len(available)} total)")
+        if available:
+            sensor_to_plot = available[0]
+            sensor_var = f"{sensor_to_plot}_real"
+            print(f"Using '{sensor_to_plot}' instead.")
+        else:
+            print("No sensors available for visualization.")
+            return
+    
+    data = ds[sensor_var].values
+    
+    plt.close(f'Debug_{sensor_to_plot}_Real_Spectrogram')
+    fig, ax = plt.subplots(1, 1, num=f'Debug_{sensor_to_plot}_Real_Spectrogram', 
+                          tight_layout=True, figsize=(5, 3))
+    
+    # Plot spectrogram
+    im = ax.pcolormesh(ds['time'].values * 1e3, ds['frequency'].values * 1e-3, 
+                       data, cmap='viridis', zorder=-5)
+    fig.colorbar(im, ax=ax, label=r'Synth Sig. [T/s]')
+    
+    # Collect valid regions for plotting
+    # Stores valid regions as (time_idx, mode_idx, freq_inds, sensor_inds)
+    store_indices = []
+    for time_idx, ti in enumerate(time_indices):
+        for mode_idx in range(len(F_mode_vars)):
+            freq_inds, sensor_inds = regions[mode_idx][time_idx]
+            if len(freq_inds) > 0:
+                store_indices.append((time_idx, mode_idx, freq_inds, sensor_inds))
+    
+    # Loop over valid mode analysis regions and plot rectangular regions
+    for (time_idx, mode_idx, freq_inds, sensor_inds) in store_indices:
+        if len(freq_inds) > 0:  # Only plot if there are frequency indices
+            # Define the rectangular region: time is single point, so use a small width around it
+            time_val = float(ds['time'].values[time_indices[time_idx]] * 1e3)
+            freq_min = ds['frequency'].values[freq_inds].min() * 1e-3
+            freq_max = ds['frequency'].values[freq_inds].max() * 1e-3
+            
+            # Assume time bin width for rectangle width (or use a fixed small value)
+            time_bin_width = t_window_width*(ds['time'].values[1] - ds['time'].values[0]) * 1e3 if len(ds['time']) > 1 else 0.1
+            
+            # Extract mode numbers for label
+            mode_m = ds.attrs.get('mode_m', 0)
+            mode_n = ds.attrs.get('mode_n', 0)
+            m_ = mode_m[mode_idx] if np.ndim(mode_m) > 0 else mode_m
+            n_ = mode_n[mode_idx] if np.ndim(mode_n) > 0 else mode_n
+            
+            # Draw rectangle
+            rect = Rectangle((time_val - time_bin_width / 2, freq_min), 
+                           time_bin_width, freq_max - freq_min,
+                           linewidth=2, edgecolor=plt.get_cmap('tab10')(mode_idx), 
+                           facecolor='none',
+                           label=f'{F_mode_vars[mode_idx]}: {m_}/{n_}' if time_idx == 0 else None)
+            ax.add_patch(rect)
+    
+    ax.legend(fontsize=8, handlelength=1.5)
+    ax.set_xlim(ds['time'].values.min() * 1e3, ds['time'].values.max() * 1e3)
+    ax.set_ylim(ds['frequency'].values.min() * 1e-3, ds['frequency'].values.max() * 1e-3)
+    ax.set_xlabel('Time [ms]')
+    ax.set_ylabel('Frequency [kHz]')
+    ax.set_rasterization_zorder(-1)
+    
+    if mode_region_fLim is not None:
+        ax.set_ylim(mode_region_fLim[0], mode_region_fLim[1])
+    
+    if save_path:
+        os.makedirs(save_path, exist_ok=True)
+        fig.savefig(os.path.join(save_path, f'Debug_{sensor_to_plot}_Real_Spectrogram.pdf'),
+                   transparent=True)
+        print(f"Saved visualization to {os.path.join(save_path, f'Debug_{sensor_to_plot}_Real_Spectrogram.pdf')}")
+    
+
+    ##########################################################33
+    # Plot all real, imaginary values for all sensors, for one timepoint in store_indices
+
+    available = [str(v).replace('_real', '') for v in ds.data_vars if str(v).endswith('_real') and 'Mode' not in str(v)]
+    real_region = np.array( [ds[f"{base}_real"].values[store_indices[-1][2], store_indices[-1][0]] for base in available] )
+    imag_region = np.array( [ds[f"{base}_imag"].values[store_indices[-1][2], store_indices[-1][0]] for base in available] )
+
+    plt.close('Debug_Real_Imag_Matrix')
+    fig,ax=plt.subplots(1,2,num='Debug_Real_Imag_Matrix',tight_layout=True,figsize=(8,4),sharex=True,sharey=True)
+    # Storeindices: valid regions as (time_idx, mode_idx, freq_inds, sensor_inds)
+    im0 = ax[0].pcolormesh(store_indices[-1][3],ds['frequency'][store_indices[-1][2]]*1e-3,real_region.T,cmap='viridis')
+    fig.colorbar(im0,ax=ax[0],label=r'Synth Sig. [T/s]')
+    fig.suptitle('Mag/Arg Signal (Mode %s, Time %1.2e s)'%(F_mode_vars[store_indices[-1][1]],ds['time'][time_indices[store_indices[-1][0]]]))
+    
+    im1 = ax[1].pcolormesh(store_indices[-1][3],ds['frequency'][store_indices[-1][2]]*1e-3,imag_region.T,cmap='viridis')
+    fig.colorbar(im1,ax=ax[1],label=r'$\phi_{sig}$ [rad]')
+    # ax[1].set_title('Imag part of region')
+    ax[0].set_ylabel('Frequency [kHz]')
+    ax[0].set_xlabel('Sensor index')
+    if save_path: fig.savefig(save_path+'Debug_Real_Imag_Matrix.pdf',transparent=True)
+
+
+
+
+
+    plt.show()
+############################################################
+
+def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=True):
+    """
+    # Visualize cached data
+    # Plot y_m, y_n traces vs sample
+    # For two different y_n, y_m values, plot the distribution of real, imaginary values
+    """
+
+    # Plot y_m, y_n traces vs sample
+    plt.close('Debug_Cached_y_m_n_Traces')
+    fig, ax = plt.subplots(1, 1, num='Debug_Cached_y_m_n_Traces', tight_layout=True, figsize=(6, 4))
+    ax.plot(np.arange(len(y_m)), y_m, label='Mode m')
+    ax.plot(np.arange(len(y_n)), y_n, label='Mode n', alpha=.7)
+    ax.set_xlabel('Sample index')
+    ax.set_ylabel('Mode number')
+    ax.legend(fontsize=8)
+    ax.grid()
+    if cfg.viz_save_path:
+        fig.savefig(os.path.join(cfg.viz_save_path, 'Debug_Cached_y_m_n_Traces.pdf'),
+                    transparent=True)
+        print(f"Saved visualization to {os.path.join(cfg.viz_save_path, 'Debug_Cached_y_m_n_Traces.pdf')}")
+    plt.show()
+
+    ##############################################
+
+    # for (1/1), (2/1), and then (2/1), (2/2) overplot the real, imaginary signals on two axes
+    fig,ax=plt.subplots(2,2,num='Debug_Cached_Real_Imag_Distributions'+('_Delta' if doDelta else ''),\
+                        tight_layout=True,figsize=(6,5),sharex=True,sharey=False)
+    target_modes = [(1,1),(2,1),(2,1),(2,2)]
+
+    for i,(m_target,n_target) in enumerate(target_modes):
+        # Find indices matching target modes
+        indices = np.where((y_m == m_target) & (y_n == n_target))[0]
+        if len(indices) == 0:
+            print(f"Warning: No samples found for mode {m_target}/{n_target}. Skipping.")
+            continue
+        
+        # if len(indices) > 5: indices = indices[:5]  # limit to first 5 for clarity
+
+        real_vals = X_ri[indices, :, 0]
+        imag_vals = X_ri[indices, :, 1] + np.pi
+
+        for ind,imag in enumerate(imag_vals):
+
+            ax[0, i//2].plot((imag-imag[0]) % (2*np.pi),'-*', alpha=0.25, ms=5,
+                                color=plt.get_cmap('tab10')(i),
+                              label=f'Mode {m_target}/{n_target} (N={len(indices)})' if ind==0 else None)
+            ax[1, i//2].plot(real_vals[ind]-real_vals[ind][0],'-*', alpha=0.25, ms=5,
+                                color=plt.get_cmap('tab10')(i),)
+        
+        ax[np.unravel_index(i,(2,2))].grid()
+
+    ax[1,0].set_xlabel('Sensor Index')
+    ax[1,1].set_xlabel('Sensor Index')
+    ax[0,0].set_ylabel('Angle Component ['+(r'$\Delta$' if doDelta else '')+'rad]')
+    ax[1,0].set_ylabel('Magnitude Component ['+(r'$\Delta$' if doDelta else '')+'T]')
+    ax[0,0].legend(fontsize=8)
+    ax[0,1].legend(fontsize=8)
+    
+        
+    
+    if cfg.viz_save_path:
+        fig.savefig(os.path.join(cfg.viz_save_path, fig.canvas.manager.get_window_title()+'.pdf'),
+                    transparent=True)
+        print(f"Saved visualization to {os.path.join(cfg.viz_save_path,  fig.canvas.manager.get_window_title()+ '.pdf')}")
+    plt.show()
+    print("Visualization of cached data complete.")
+
+##############################################################################################
+##############################################################################################
 
 # -------------------------
 # Data extraction utilities
@@ -82,27 +308,36 @@ class CacheConfig:
     geometry_shot: Optional[int] = None  # If None and include_geometry, will try bp_k from this shot
     use_mode: str = 'n'  # 'n' or 'm'
     n_datasets: int = -1  # -1 => load all datasets
+    visualize_first: bool = False  # Whether to visualize first dataset regions
+    viz_save_path: Optional[str] = None  # Path to save visualization plots
+    viz_sensor: str = 'BP01_ABK'  # Sensor to visualize
+    viz_freq_lim: Optional[List[float]] = None  # Frequency limits [f_min, f_max] in kHz
+    load_saved_data: bool = False  # Whether to load existing cached data if available
+    t_window_width: int = 4  # Width in timepoints for visualization rectangles
 
 
-def _open_datasets(data_dir: str, n_datasets: int = -1) -> List[xr.Dataset]:
-    """Load NetCDF datasets from directory."""
+def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1) -> List[str]:
+    """Get sorted list of NetCDF dataset file paths from directory."""
     files = sorted([os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.nc')])
-    datasets = []
-    for fp in files:
-        if n_datasets > 0 and len(datasets) >= n_datasets:
-            break
-        try:
-            ds = xr.open_dataset(fp)
-            ds.load()  # bring into memory for speed
-            datasets.append(ds)
-        except Exception as e:
-            print(f"Warning: failed to open {fp}: {e}")
-    return datasets
+    if n_datasets > 0:
+        files = files[:n_datasets]
+    return files
+
+
+def _open_dataset(filepath: str) -> xr.Dataset:
+    """Load a single NetCDF dataset from filepath."""
+    try:
+        ds = xr.open_dataset(filepath)
+        ds.load()  # bring into memory for speed
+        return ds
+    except Exception as e:
+        raise RuntimeError(f"Failed to open {filepath}: {e}")
 
 
 def _extract_sensor_names(ds: xr.Dataset) -> List[str]:
     """Extract base sensor names from dataset variables (strip _real/_imag suffixes)."""
-    sn = [v for v in ds.data_vars if 'Mode' not in v]
+    # Cast names to str to avoid type issues from xarray's Hashable keys
+    sn = [str(v) for v in ds.data_vars if 'Mode' not in str(v)]
     # Keep base names by stripping suffix; preserve pairing order: take unique in order
     base = []
     seen = set()
@@ -116,15 +351,18 @@ def _extract_sensor_names(ds: xr.Dataset) -> List[str]:
 
 
 def _define_mode_regions_time(ds: xr.Dataset, F_mode_vars: List[str], time_indices: np.ndarray,
-                              freq_tolerance: float) -> List[List[Tuple[np.ndarray, np.ndarray]]]:
+                              freq_tolerance: float, debug: bool = False) -> List[List[Tuple[np.ndarray, np.ndarray]]]:
     """
     Return regions per mode per selected time index: regions[mode][time_idx] = (freq_inds, sensor_inds)
     If frequency at timepoint is zero, freq_inds will be empty. sensor_inds = all sensors by default.
     Expands tolerance until at least one frequency bin falls in the band.
+
+    The returned structure is a list of modes, each containing a list of time indices,
+    where each entry is a tuple of (freq_inds, sensor_inds).
     """
     n_sensors = len(_extract_sensor_names(ds))
     freq_vals = ds['frequency'].values
-    df = float(freq_vals[1] - freq_vals[0]) if len(freq_vals) > 1 else 0.0
+    df = float(freq_vals[2] - freq_vals[0]) if len(freq_vals) > 1 else 0.0
 
     regions = []
     for mode_var in F_mode_vars:
@@ -138,23 +376,38 @@ def _define_mode_regions_time(ds: xr.Dataset, F_mode_vars: List[str], time_indic
             tol = float(freq_tolerance)
             # ensure at least one bin
             fmin = fmax = f0
-            while (fmax - fmin) < max(df, 1e-12):
-                fmin = f0 * (1 - tol)
+            while (fmax - fmin) < df:
+                fmin = f0 * (1 - tol) if f0 * (1 - tol) > 0 else 0.0
                 fmax = f0 * (1 + tol)
                 tol *= 1.5
-                if tol > 1.0:  # safety
-                    break
+                # if tol > 1.0:  # safety
+                #     break
             freq_inds = np.where((freq_vals >= fmin) & (freq_vals <= fmax))[0]
             if freq_inds.size == 0:
                 mode_regions.append((np.array([], dtype=int), np.arange(n_sensors)))
             else:
                 mode_regions.append((freq_inds, np.arange(n_sensors)))
         regions.append(mode_regions)
+    
+    if debug:
+        plt.close('Debug_Mode_Regions')
+        fig,ax = plt.subplots(1,1,num='Debug_Mode_Regions',tight_layout=True,figsize=(5,3))
+        for mi, mode_var in enumerate(F_mode_vars):
+            ax.plot(ds['time'].values*1e3, ds[mode_var].values*1e-3, label=mode_var)
+            for ti_i, ti in enumerate(time_indices):ax.plot(ds['time'].values[ti]*1e3,
+                                                            ds[mode_var].values[ti]*1e-3,'o',
+                                                            color=plt.get_cmap('tab10')(mi))
+        ax.set_xlabel('Time [ms]')
+        ax.set_ylabel('Frequency [kHz]')
+        ax.legend()
+        ax.grid()
+        plt.show()
+    
     return regions
 
 
 def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
-                         sensor_bases: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+                         sensor_bases: List[str], t_window_width: int) -> Tuple[np.ndarray, np.ndarray]:
     """Select a single representative frequency within ``freq_inds`` and average over time.
 
     New behavior (modified as requested):
@@ -178,8 +431,9 @@ def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
 
     # Build a (S, F_sub) array of real parts for the candidate frequency window
     # This allows computing the global mean across sensors for each frequency at this timepoint.
+    # Only pulling one timepoint
     try:
-        real_stack = np.stack([ds[f"{base}_real"].values[time_index, freq_inds] for base in sensor_bases], axis=0)
+        real_stack = np.stack([ds[f"{base}_real"].values[freq_inds,time_index] for base in sensor_bases], axis=0)
     except KeyError as e:
         # In case a sensor variable is missing; return zeros gracefully
         print(f"Warning: missing sensor variable while stacking real components: {e}")
@@ -190,13 +444,21 @@ def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
     mean_freq = real_stack.mean(axis=0)  # (F_sub,)
     # Select frequency (within freq_inds) with maximum mean real value
     local_best = int(np.argmax(mean_freq))
-    chosen_freq_idx = int(freq_inds[local_best])
+    chosen_freq_idx = int(freq_inds[local_best]) 
+    # catch for zero begin the best frequency
+    if chosen_freq_idx <= 0: chosen_freq_idx = 1
+
 
     # Average real & imag over time at chosen frequency index per sensor
+    time_indicies = np.arange(time_index - t_window_width/2 , time_index + t_window_width/2)
+    if np.any(time_indicies < 0) or np.any(time_indicies >= ds.dims['time']):
+        time_indicies = np.clip(time_indicies, 0, ds.dims['time'] - 1).astype(int)
+    time_idx_arr = time_indicies.astype(int)
+
     for si, base in enumerate(sensor_bases):
         try:
-            real_vals = ds[f"{base}_real"].values[:, chosen_freq_idx]
-            imag_vals = ds[f"{base}_imag"].values[:, chosen_freq_idx]
+            real_vals = ds[f"{base}_real"].values[chosen_freq_idx, time_idx_arr]
+            imag_vals = ds[f"{base}_imag"].values[chosen_freq_idx, time_idx_arr]
         except KeyError:
             real_vals = np.array([])
             imag_vals = np.array([])
@@ -206,24 +468,31 @@ def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
     return real_out, imag_out
 
 
-def _get_mode_labels(ds: xr.Dataset, F_mode_vars: List[str], use_mode: str) -> List[int]:
-    """Return per-mode integer labels from dataset attrs for 'm' or 'n'."""
-    key = 'mode_n' if use_mode.lower() == 'n' else 'mode_m'
-    if key not in ds.attrs:
-        # Fallback: try variable or default zeros
-        print(f"Warning: {key} not found in attrs; using zeros")
-        return [0] * len(F_mode_vars)
-    vals = ds.attrs[key]
-    # Ensure list length equals number of modes
-    try:
-        vals_list = list(vals) if np.ndim(vals) > 0 else [int(vals)]
-    except Exception:
-        vals_list = [int(vals)]
-    if len(vals_list) == 1 and len(F_mode_vars) > 1:
-        vals_list = vals_list * len(F_mode_vars)
-    if len(vals_list) != len(F_mode_vars):
-        raise ValueError(f"Length of {key} in attrs ({len(vals_list)}) != number of modes ({len(F_mode_vars)})")
-    return [int(v) for v in vals_list]
+def _get_mode_labels(ds: xr.Dataset, F_mode_vars: List[str]) -> List[Tuple[int, int]]:
+    """Return per-mode label pairs (m, n) from dataset attrs.
+
+    Ensures lengths match number of modes, broadcasting single values when needed.
+    If attrs are missing, falls back to zeros.
+    """
+    def _normalize(vals_obj, n_modes: int) -> List[int]:
+        if vals_obj is None:
+            return [0] * n_modes
+        try:
+            vals_list = list(vals_obj) if np.ndim(vals_obj) > 0 else [int(vals_obj)]
+        except Exception:
+            vals_list = [int(vals_obj)]
+        if len(vals_list) == 1 and n_modes > 1:
+            vals_list = vals_list * n_modes
+        if len(vals_list) != n_modes:
+            raise ValueError(
+                f"Length of labels in attrs ({len(vals_list)}) != number of modes ({n_modes})"
+            )
+        return [int(v) for v in vals_list]
+
+    n_modes = len(F_mode_vars)
+    m_vals = _normalize(ds.attrs.get('mode_m', None), n_modes)
+    n_vals = _normalize(ds.attrs.get('mode_n', None), n_modes)
+    return list(zip(m_vals, n_vals))
 
 
 def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -252,10 +521,26 @@ def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.nda
         print(f"Warning: could not load geometry from bp_k: {e}")
     return th, ph
 
+def _geometry_from_gen_MAGX(geometry_shot: int, names_sorted: np.ndarray, r_magx: float = 0.68, z_magx : float = 0) \
+     -> Tuple[np.ndarray, np.ndarray]:
 
-# -------------------------
-# Main caching function
-# -------------------------
+    phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(geometry_shot)
+
+    th = np.zeros(len(names_sorted), dtype=np.float32)
+    ph = np.zeros(len(names_sorted), dtype=np.float32)      
+    for i, nm in enumerate(names_sorted):
+        name = str(nm).upper()
+        if name not in phi:
+            raise ValueError(f"Sensor name '{name}' not found in MAGX geometry for shot {geometry_shot}")
+        
+        R_s = R[nm]
+        Z_s = Z[nm]
+        th[i] = np.atan2(Z_s - z_magx, R_s - r_magx)
+        ph[i] = phi[nm]*np.pi/180.0  # convert to radians   
+
+    return th, ph
+
+
 def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
     """
     Build dataset from NetCDFs and cache to cfg.out_path (.npz).
@@ -268,43 +553,77 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
       - meta:  dict with bookkeeping (json string)
     Returns loaded dict of arrays.
     """
+    # Try to load existing cached data, if desired
     os.makedirs(os.path.dirname(cfg.out_path), exist_ok=True)
-    if os.path.exists(cfg.out_path):
+    if os.path.exists(cfg.out_path) and cfg.load_saved_data: 
         data = np.load(cfg.out_path, allow_pickle=True)
         print(f"Loaded cached dataset from {cfg.out_path} :: X_ri={data['X_ri'].shape}, y={data['y'].shape}")
         return {k: data[k] for k in data.files}
 
-    datasets = _open_datasets(cfg.data_dir, n_datasets=cfg.n_datasets)
-    if not datasets:
+    # Get list of dataset file paths
+    dataset_files = _get_dataset_filepaths(cfg.data_dir, n_datasets=cfg.n_datasets)
+    if not dataset_files:
         raise FileNotFoundError(f"No NetCDF datasets found in {cfg.data_dir}")
 
-    # Use the first dataset to determine sensor ordering, then apply globally
-    base_sensor_names = _extract_sensor_names(datasets[0])
+    print(f"Found {len(dataset_files)} dataset files to process")
+
+    # Open the first dataset to determine sensor ordering, then apply globally
+    print(f"Loading first dataset to determine sensor ordering: {dataset_files[0]}")
+    first_ds = _open_dataset(dataset_files[0])
+    base_sensor_names = _extract_sensor_names(first_ds)
     names_sorted, names_orig, order_idx = gen_sensor_ordering(base_sensor_names)
+    first_ds.close()  # Close the first dataset
+    del first_ds
 
     X_ri_list: List[np.ndarray] = []
-    y_list: List[int] = []
+    y_list: List[int] = []  # chosen training labels based on cfg.use_mode
+    y_m_list: List[int] = []  # raw m labels per sample
+    y_n_list: List[int] = []  # raw n labels per sample
     used_files: List[str] = []
     used_counts: List[int] = []
 
-    for ds in datasets:
+    # Flag to visualize only the first dataset
+    visualized_first = False
+
+    # Loop over dataset files, loading one at a time
+    for ds_idx, ds_filepath in enumerate(dataset_files):
+        print(f"Processing dataset {ds_idx+1}/{len(dataset_files)}: {os.path.basename(ds_filepath)}")
+        
+        try:
+            ds = _open_dataset(ds_filepath)
+        except Exception as e:
+            print(f"Warning: failed to open {ds_filepath}: {e}")
+            continue
         sensor_bases = _extract_sensor_names(ds)
+        
         # Reorder indices to match global sorted names; if any name missing, fill zeros later
         # Build mapping from sorted names to indices in this dataset
+        # This ensures consistent ordering across datasets, matching the sorting scheme
         idx_map = []
         name_to_idx = {b: i for i, b in enumerate(sensor_bases)}
         for nm in names_sorted:
             idx_map.append(name_to_idx.get(nm, -1))
 
+        # Determine time indices to use
         times = np.arange(len(ds['time']))
         if cfg.num_timepoints is not None and cfg.num_timepoints > 0 and cfg.num_timepoints < len(times):
             # random subset for caching speed
             rng = np.random.default_rng(42)
             times = np.sort(rng.choice(times, size=cfg.num_timepoints, replace=False))
 
-        F_mode_vars = [v for v in ds.data_vars if v.startswith('F_Mode_')]
-        mode_labels = _get_mode_labels(ds, F_mode_vars, cfg.use_mode)
+        F_mode_vars = [str(v) for v in ds.data_vars if str(v).startswith('F_Mode_')]
+        mode_label_pairs = _get_mode_labels(ds, F_mode_vars)
         regions = _define_mode_regions_time(ds, F_mode_vars, times, cfg.freq_tolerance)
+
+        # Visualize first dataset if requested
+        if cfg.visualize_first and not visualized_first:
+            print(f"Visualizing regions for first dataset...")
+            visualize_dataset_regions(ds, times, F_mode_vars, regions,
+                                    sensor_to_plot=cfg.viz_sensor,
+                                    save_path=cfg.viz_save_path,
+                                    mode_region_fLim=cfg.viz_freq_lim,
+                                    t_window_width=cfg.t_window_width)
+            visualized_first = True
 
         n_added = 0
         for ti_i, ti in enumerate(times):
@@ -312,7 +631,7 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
                 freq_inds, _sensor_inds = regions[m_i][ti_i]
                 if freq_inds.size == 0:
                     continue  # skip zero-frequency times
-                real_band, imag_band = _avg_band_per_sensor(ds, ti, freq_inds, sensor_bases)
+                real_band, imag_band = _avg_band_per_sensor(ds, int(ti), freq_inds, sensor_bases, t_window_width=cfg.t_window_width)
                 # Reorder to global sorted names; missing names -> 0
                 S = len(names_sorted)
                 real_sorted = np.zeros(S, dtype=np.float32)
@@ -322,21 +641,36 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
                         real_sorted[s_idx] = real_band[src]
                         imag_sorted[s_idx] = imag_band[src]
                 X_ri_list.append(np.stack([real_sorted, imag_sorted], axis=-1))  # (S, 2)
-                y_list.append(mode_labels[m_i])
+
+                # Choose which label to append based on cfg.use_mode while retaining both
+                m_label, n_label = mode_label_pairs[m_i]
+                chosen_label = n_label if cfg.use_mode.lower() == 'n' else m_label
+                y_list.append(chosen_label)
+                y_m_list.append(m_label)
+                y_n_list.append(n_label)
+
                 n_added += 1
-        used_files.append(getattr(ds, 'encoding', {}).get('source', ''))
+
+        used_files.append(ds_filepath)
         used_counts.append(n_added)
         print(f"Accumulated {n_added} samples from dataset")
+        
+        # Close the dataset to free memory
+        ds.close()
+        del ds
 
     if not X_ri_list:
         raise RuntimeError("No samples accumulated. Check frequency bands and tolerance.")
 
     X_ri = np.stack(X_ri_list, axis=0)  # (N, S, 2)
     y = np.array(y_list, dtype=np.int64)
+    y_m = np.array(y_m_list, dtype=np.int64)
+    y_n = np.array(y_n_list, dtype=np.int64)
 
     theta = phi = None
     if cfg.include_geometry:
-        theta, phi = _maybe_geometry_from_bp_k(cfg.geometry_shot, names_sorted)
+        # theta, phi = _maybe_geometry_from_bp_k(cfg.geometry_shot, names_sorted)
+        theta, phi = _geometry_from_gen_MAGX(cfg.geometry_shot, names_sorted) 
 
     meta = {
         'data_dir': cfg.data_dir,
@@ -349,7 +683,9 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
 
     save_dict = {
         'X_ri': X_ri,
-        'y': y,
+        'y': y,  # training labels chosen by cfg.use_mode
+        'y_m': y_m,  # raw m labels
+        'y_n': y_n,  # raw n labels
         'sensor_names': names_sorted,
         'meta': np.array(json.dumps(meta)),
     }
@@ -369,7 +705,11 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
 def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = 'n',
                                  include_geometry: bool = True, geometry_shot: Optional[int] = None,
                                  num_timepoints: int = -1, freq_tolerance: float = 0.1,
-                                 n_datasets: int = -1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
+                                 n_datasets: int = -1, visualize_first: bool = False,
+                                 viz_save_path: Optional[str] = None,
+                                 viz_sensor: str = 'BP01_ABK',
+                                 viz_freq_lim: Optional[List[float]] = None,
+                                 load_saved_data : bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
                                                                   Optional[np.ndarray], Optional[np.ndarray]]:
     """
     High-level function to build or load a cached training dataset.
@@ -383,6 +723,10 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
         num_timepoints: Number of timepoints per dataset (-1 for all)
         freq_tolerance: Fractional tolerance for frequency band
         n_datasets: Number of datasets to load (-1 for all)
+        visualize_first: Whether to visualize frequency-time regions for first dataset
+        viz_save_path: Path to save visualization plots (e.g., '../output_plots/')
+        viz_sensor: Sensor name to visualize (default: 'BP01_ABK')
+        viz_freq_lim: Frequency limits [f_min, f_max] in kHz for visualization y-axis
         
     Returns:
         X_ri: (N, S, 2) array of [real, imag] features
@@ -393,17 +737,51 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
     """
     cfg = CacheConfig(data_dir=data_dir, out_path=out_path, num_timepoints=num_timepoints,
                       freq_tolerance=freq_tolerance, include_geometry=include_geometry,
-                      geometry_shot=geometry_shot, use_mode=use_mode, n_datasets=n_datasets)
+                      geometry_shot=geometry_shot, use_mode=use_mode, n_datasets=n_datasets,
+                      visualize_first=visualize_first, viz_save_path=viz_save_path,
+                      viz_sensor=viz_sensor, viz_freq_lim=viz_freq_lim,load_saved_data=load_saved_data)
     dat = cache_training_dataset(cfg)
     X_ri = dat['X_ri'] if isinstance(dat, dict) else dat.get('X_ri')
     y = dat['y'] if isinstance(dat, dict) else dat.get('y')
+    y_m = dat['y_m'] if isinstance(dat, dict) else dat.get('y_m')
+    y_n = dat['y_n'] if isinstance(dat, dict) else dat.get('y_n')
     sensor_names = dat['sensor_names'] if isinstance(dat, dict) else dat.get('sensor_names')
     theta = dat.get('theta', None) if isinstance(dat, dict) else None
     phi = dat.get('phi', None) if isinstance(dat, dict) else None
-    return X_ri, y, sensor_names, theta, phi
+    
+    
+    visualize_cached_data(cfg, y_m, y_n, X_ri)
+
+    return X_ri, y, y_m, y_n, sensor_names, theta, phi
 
 
 if __name__ == "__main__":
     # Quick test/example
     print("Data caching module for synthetic spectrogram datasets.")
     print("Import this module and use build_or_load_cached_dataset() to prepare training data.")
+    print("\nExample usage with visualization:")
+    print("X_ri, y, sensor_names, theta, phi = build_or_load_cached_dataset(")
+    print("    data_dir='../data_output/synthetic_spectrograms/',")
+    print("    out_path='cached_data.npz',")
+    print("    visualize_first=True,  # Enable visualization")
+    print("    viz_save_path='../output_plots/',  # Save plots here")
+    print("    viz_sensor='BP01_ABK',  # Sensor to visualize")
+    print("    viz_freq_lim=[0, 300]  # Frequency limits in kHz")
+    print(")")
+
+
+    X_ri, y, y_m, y_n, sensor_names, theta, phi = build_or_load_cached_dataset(
+        data_dir='../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/',
+        out_path='../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/cached_data_-1.npz',
+        visualize_first=False,  # Enable visualization
+        viz_save_path='../output_plots/',  # Save plots here
+        viz_sensor='BP01_ABK',  # Sensor to visualize
+        viz_freq_lim=[0, 300],  # Frequency limits in kHz
+        n_datasets=-1,  # Limit to first 2 datasets for testing
+        num_timepoints=10,  # Limit to 10 timepoints per dataset for testing
+        load_saved_data=False, # Force load existing cached data if available
+        include_geometry=True,
+        geometry_shot=1160714026,
+    )
+
+    print('Cached dataset shapes:   X_ri=', X_ri.shape, ', y_m=', y_m.shape, ', y_n=', y_n.shape)

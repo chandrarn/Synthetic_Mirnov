@@ -39,7 +39,7 @@ plt.ion()
 def linear_phase_fit(doPlot_Z_phi_map=True):
     
     # Load in one dataset
-    data_directory = "../data_output/synthetic_spectrograms/low_m-n_testing/" 
+    data_directory = "../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/" 
     ds = load_xarray_datasets(data_directory,n_files=1)
     
     # Load sensor locations (necessary for n# determination)
@@ -72,7 +72,7 @@ def linear_phase_fit(doPlot_Z_phi_map=True):
 
     plot_phase_by_group(phase_measured,ordered_phi,dPhi,y_n,Z_levels,n_opt,X_ind=1)
     # Plot results
-    build_plot(ds,n_opt,all_F_mode_vars,all_time_indices,'',y_n,ds_ind=1)
+    build_plot(ds,n_opt,all_F_mode_vars,all_time_indices,'',y_n,ds_ind=0)
 
     # Build Confusion Matrix
     create_confusion_matrix(n_opt, y_n, error, np.arange(1,16))  # Assuming x_range is accessible or pass it
