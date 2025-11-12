@@ -84,9 +84,16 @@ class SensorFourChannelDataset(Dataset):
         if self.is_train and self.mask_prob > 0:
             mask = torch.rand(S) < self.mask_prob
             x[mask] = 0.0
-            # amplitude jitter on real/imag only
-            noise = torch.randn_like(x[:, :2]) * 0.05
+            # Enhanced amplitude jitter on real/imag only
+            noise = torch.randn_like(x[:, :2]) * 0.08
             x[:, :2] += noise
+            # Add small rotation-like mixing between real and imag channels
+            if torch.rand(1).item() < 0.3:
+                angle = (torch.rand(1).item() - 0.5) * 0.2  # small angle
+                cos_a, sin_a = np.cos(angle), np.sin(angle)
+                x_real = x[:, 0].clone()
+                x[:, 0] = cos_a * x_real - sin_a * x[:, 1]
+                x[:, 1] = sin_a * x_real + cos_a * x[:, 1]
         return x, y
 from sklearn.preprocessing import StandardScaler
 
@@ -149,18 +156,21 @@ class SpectralConv1d(nn.Module):
         return x_out
 
 class FNOBlock1d(nn.Module):
-    def __init__(self, width: int, modes: int):
+    def __init__(self, width: int, modes: int, dropout: float = 0.1):
         super().__init__()
         self.spectral = SpectralConv1d(width, width, modes)
         self.w = nn.Conv1d(width, width, kernel_size=1)
         self.act = nn.GELU()
         self.bn = nn.BatchNorm1d(width)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         # x: (B, C, S)
         y = self.spectral(x) + self.w(x)
         y = self.bn(y)
-        return self.act(y)
+        y = self.act(y)
+        y = self.dropout(y)
+        return y
 
 class FNO1dClassifier(nn.Module):
     """
@@ -169,26 +179,28 @@ class FNO1dClassifier(nn.Module):
     def __init__(self, in_channels=4, width=128, modes=16, depth=4, n_classes=10, dropout=0.3):
         super().__init__()
         self.lift = nn.Conv1d(in_channels, width, kernel_size=1)
-        self.blocks = nn.ModuleList([FNOBlock1d(width, modes) for _ in range(depth)])
+        self.blocks = nn.ModuleList([FNOBlock1d(width, modes, dropout=dropout*0.5) for _ in range(depth)])
         self.pool = nn.AdaptiveAvgPool1d(1)
         self.head = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(dropout),
             nn.Linear(width, width),
             nn.GELU(),
+            nn.BatchNorm1d(width),
             nn.Dropout(dropout),
             nn.Linear(width, n_classes),
         )
 
     def forward(self, x):
         # x: (B, S, 4) -> (B, 4, S)
-        x = x.permute(0, 2, 1)
-        x = self.lift(x)
+        # Verify: S is the sensor dimension (last dim after permute becomes sensor axis)
+        x = x.permute(0, 2, 1)  # Now (B, 4, S) - channels first, sensors last
+        x = self.lift(x)  # (B, width, S)
         for blk in self.blocks:
-            x = blk(x)
-        x = self.pool(x)
-        x = x.squeeze(-1)
-        return self.head(x)
+            x = blk(x)  # Still (B, width, S) - FFT happens over sensor dimension (dim=-1)
+        x = self.pool(x)  # (B, width, 1)
+        x = x.squeeze(-1)  # (B, width)
+        return self.head(x)  # (B, n_classes)
 
 # -------------------------
 # Training / evaluation
@@ -200,47 +212,69 @@ class TrainConfig:
     n_epochs: int = 200
     lr: float = 1e-3
     weight_decay: float = 1e-4
-    patience: int = 20
-    mask_prob: float = 0.1
+    patience: int = 15  # Reduced from 20 to stop sooner when accuracy peaks
+    mask_prob: float = 0.15  # Increased for better regularization
     modes: int = 16
     width: int = 128
     depth: int = 4
-    dropout: float = 0.3
+    dropout: float = 0.4  # Increased dropout
+    label_smoothing: float = 0.1  # Add label smoothing
+    num_workers: int = 4  # Multi-core data loading
+    grad_clip: float = 1.0  # Gradient clipping for stability
 
 
 def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.ndarray], phi: Optional[np.ndarray],
                          n_classes: Optional[int] = None, cfg: TrainConfig = TrainConfig(),
                          device: Optional[torch.device] = None,
                          plot_confusion: bool = False,
-                         class_names: Optional[np.ndarray] = None) -> Tuple[FNO1dClassifier, LabelEncoder, float, float]:
+                         class_names: Optional[np.ndarray] = None,
+                         scaler: Optional[StandardScaler] = None) -> Tuple[FNO1dClassifier, LabelEncoder, float, float]:
+   
     le = LabelEncoder()
     y_enc = np.array(le.fit_transform(y))
     n_classes = n_classes or int(np.max(y_enc)) + 1
 
-    ds = SensorFourChannelDataset(X_ri, y_enc, theta=theta, phi=phi, mask_prob=cfg.mask_prob, is_train=True)
-    N = len(ds)
+    # Split data indices first
+    N = len(X_ri)
     n_val = max(1, int(N * cfg.val_split))
     n_train = max(1, N - n_val)
-    train_ds, val_idx = random_split(ds, [n_train, n_val])
-    # Build val dataset without masking
-    val_X_ri = ds.diff_features[val_idx.indices]
-    val_y = y_enc[val_idx.indices]
-    val_ds = SensorFourChannelDataset(val_X_ri, val_y, theta=theta, phi=phi, mask_prob=0.0, is_train=False)
+    indices = np.arange(N)
+    np.random.shuffle(indices)
+    train_indices = indices[:n_train]
+    val_indices = indices[n_train:]
+    
+    # Create training and validation datasets directly from splits
+    train_ds = SensorFourChannelDataset(X_ri[train_indices], y_enc[train_indices], theta=theta, phi=phi, 
+                                        mask_prob=cfg.mask_prob, is_train=True, scaler=scaler)
+    val_ds = SensorFourChannelDataset(X_ri[val_indices], y_enc[val_indices], theta=theta, phi=phi, 
+                                      mask_prob=0.0, is_train=False, scaler=scaler)
 
-    train_dl = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True)
-    val_dl = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False)
+    # Use multiple workers for parallel data loading
+    train_dl = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, 
+                         num_workers=cfg.num_workers, pin_memory=True, 
+                         persistent_workers=True if cfg.num_workers > 0 else False)
+    val_dl = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False,
+                       num_workers=cfg.num_workers, pin_memory=True, 
+                       persistent_workers=True if cfg.num_workers > 0 else False)
 
     device = device or (torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
     model = FNO1dClassifier(in_channels=4, width=cfg.width, modes=cfg.modes, depth=cfg.depth,
                             n_classes=n_classes, dropout=cfg.dropout).to(device)
-    opt = optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=5, verbose=True)
-    criterion = nn.CrossEntropyLoss()
+    opt = optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    
+    # Improved learning rate scheduling with warmup and cosine annealing
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=10, T_mult=2, eta_min=1e-6)
+    
+    # Label smoothing for better generalization
+    criterion = nn.CrossEntropyLoss(label_smoothing=cfg.label_smoothing)
 
-    best_val = 1e9
+    best_val_loss = 1e9
+    best_val_acc = 0.0  # Track best accuracy
     best_state = None
     patience_counter = 0
     val_acc_hist = []
+    val_loss_hist = []
+    train_loss_hist = []
 
     for epoch in range(1, cfg.n_epochs + 1):
         # train
@@ -252,10 +286,16 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
             yb = yb.to(device)
             out = model(xb)
             loss = criterion(out, yb)
-            opt.zero_grad(); loss.backward(); opt.step()
+            opt.zero_grad()
+            loss.backward()
+            # Gradient clipping for training stability
+            if cfg.grad_clip > 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+            opt.step()
             train_loss += loss.item() * xb.size(0)
             n_seen += xb.size(0)
         train_loss /= max(1, n_seen)
+        train_loss_hist.append(train_loss)
 
         # val
         model.eval()
@@ -276,26 +316,31 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
                 all_probs.append(torch.softmax(out, dim=1).cpu().numpy())
                 all_trues.append(yb.cpu().numpy())
         val_loss /= max(1, n_seen)
+        val_loss_hist.append(val_loss)
         probs = np.concatenate(all_probs) if all_probs else np.zeros((0, n_classes))
         trues = np.concatenate(all_trues) if all_trues else np.zeros((0,), dtype=int)
         val_acc = (correct / n_seen) if n_seen else 0.0
         val_acc_hist.append(val_acc)
-        scheduler.step(val_loss)
+        scheduler.step()  # CosineAnnealingWarmRestarts doesn't need val_loss
 
         print(f"Epoch {epoch:03d} train_loss={train_loss:.4f} val_loss={val_loss:.4f} val_acc={val_acc:.4f}")
 
-        if val_loss < best_val:
-            best_val = val_loss
+        # Save best model based on VALIDATION ACCURACY (not loss)
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            best_val_loss = val_loss
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
             patience_counter = 0
+            print(f"  → New best val_acc: {best_val_acc:.4f}")
         else:
             patience_counter += 1
             if patience_counter >= cfg.patience:
-                print("Early stopping")
+                print(f"Early stopping at epoch {epoch}. Best val_acc: {best_val_acc:.4f} (at epoch {epoch - patience_counter})")
                 break
 
     if best_state is not None:
         model.load_state_dict(best_state)
+        print(f"Loaded best model with val_acc={best_val_acc:.4f}, val_loss={best_val_loss:.4f}")
 
     # final eval on val set
     model.eval()
@@ -315,7 +360,36 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
     trues = np.concatenate(trues_list) if trues_list else np.zeros((0,), dtype=int)
     auc = roc_auc_score(trues, probs, multi_class='ovr', average='macro') if total else 0.0
 
-    # plot acc curve
+    # Plot training curves showing overfitting pattern
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+    epochs_range = range(1, len(train_loss_hist) + 1)
+    
+    # Loss curves
+    ax1.plot(epochs_range, train_loss_hist, 'b-', label='Train Loss')
+    ax1.plot(epochs_range, val_loss_hist, 'r-', label='Val Loss')
+    ax1.axvline(len(epochs_range) - patience_counter, color='g', linestyle='--', alpha=0.7, label='Best Model')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Loss')
+    ax1.set_title('Training \& Validation Loss')
+    ax1.legend()
+    ax1.grid(True)
+    
+    # Accuracy curve
+    ax2.plot(epochs_range, val_acc_hist, 'r-', label='Val Accuracy')
+    ax2.axvline(len(epochs_range) - patience_counter, color='g', linestyle='--', alpha=0.7, label='Best Model')
+    ax2.axhline(best_val_acc, color='g', linestyle=':', alpha=0.5)
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('Accuracy')
+    ax2.set_title(f'Validation Accuracy (Best: {best_val_acc:.3f})')
+    ax2.legend()
+    ax2.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig('../output_plots/fno_training_curves.pdf', transparent=True)
+    print(f"Saved training curves to ../output_plots/fno_training_curves.pdf")
+    plt.close()
+
+    # Original accuracy history plot (now redundant but keep for compatibility)
     plt.figure(figsize=(5, 4))
     plt.plot(range(1, len(val_acc_hist) + 1), val_acc_hist, '-o')
     plt.xlabel('Epoch'); plt.ylabel('Val Acc'); plt.grid(True)
@@ -347,19 +421,36 @@ def example_usage():
     geometry_shot = 1160714026  # for bp_k geometry; set None to skip
 
     # Cache or load
-    X_ri, y, y_m, y_n, sensor_names, theta, phi = build_or_load_cached_dataset(
+    result = build_or_load_cached_dataset(
         data_dir=data_dir, out_path=out_path, use_mode='n', include_geometry=True,
         geometry_shot=geometry_shot, num_timepoints=10, freq_tolerance=0.1, n_datasets=-1,
         load_saved_data=True, visualize_first=False)
+    X_ri, y, y_m, y_n, sensor_names, theta, phi = result
 
     # Compute difference features and fit scaler
     diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi)
 
-    # Train FNO (4 channels constructed inside Dataset)
+    # Train FNO with improved hyperparameters for better generalization
     model, le, val_acc, auc = train_fno_classifier(
-        diff_features_scaled, y, theta=None, phi=None, n_classes=None,
-        cfg=TrainConfig(batch_size=64, n_epochs=300, patience=30, modes=24, width=192, depth=4, dropout=0.3),
-        plot_confusion=True, class_names=le.classes_ if hasattr(le, 'classes_') else None)
+        X_ri, y, theta=theta, phi=phi, n_classes=None,
+        cfg=TrainConfig(
+            batch_size=32,  # Smaller batch for better generalization with small dataset
+            n_epochs=300, 
+            patience=15,  # Stop sooner when accuracy plateaus (was 40)
+            modes=20,  # Slightly more modes
+            width=160,  # Reasonable width
+            depth=4, 
+            dropout=0.4,  # Higher dropout for small dataset
+            mask_prob=0.15,  # More aggressive masking
+            label_smoothing=0.1,  # Label smoothing
+            lr=5e-4,  # Lower learning rate
+            weight_decay=1e-3,  # Stronger L2 regularization
+            num_workers=4,  # Multi-core data loading
+            grad_clip=1.0  # Gradient clipping for stability
+        ),
+        plot_confusion=True, 
+        class_names=np.arange(np.min(y), np.max(y)+1), 
+        scaler=scaler)
 
     # Save model bundle and scaler
     os.makedirs('../output_models', exist_ok=True)

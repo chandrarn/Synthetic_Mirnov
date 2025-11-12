@@ -487,7 +487,7 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno, doS
 #################################################################
 def __load_in_RLC_Spline_Fit(filename='Empirical_Bode_Fits_RLC.npz'):
     # Load RLC spline fit data
-    fit_data = np.load(filename)
+    fit_data = np.load('../C-Mod/'+filename)
     spline_fit_mag = BSpline(t=fit_data['t_mag'],c=fit_data['c_mag'],k=fit_data['k_mag'],axis=0)
     spline_fit_phase = BSpline(t=fit_data['t_phase'],c=fit_data['c_phase'],k=fit_data['k_phase'],axis=0)
     return spline_fit_mag, spline_fit_phase, fit_data['sensor_names']

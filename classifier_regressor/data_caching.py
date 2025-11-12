@@ -709,7 +709,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                                  viz_save_path: Optional[str] = None,
                                  viz_sensor: str = 'BP01_ABK',
                                  viz_freq_lim: Optional[List[float]] = None,
-                                 load_saved_data : bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
+                                 load_saved_data : bool = True,
+                                 doVisualize : bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
                                                                   Optional[np.ndarray], Optional[np.ndarray]]:
     """
     High-level function to build or load a cached training dataset.
@@ -750,7 +751,7 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
     phi = dat.get('phi', None) if isinstance(dat, dict) else None
     
     
-    visualize_cached_data(cfg, y_m, y_n, X_ri)
+    if doVisualize: visualize_cached_data(cfg, y_m, y_n, X_ri)
 
     return X_ri, y, y_m, y_n, sensor_names, theta, phi
 

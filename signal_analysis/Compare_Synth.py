@@ -367,37 +367,39 @@ if __name__ == '__main__':
     #     'f': 7e3,
     #     'save_Ext': '_FAR3D_NonLinear_Scale_30_3D_Tiles'
     # # # }
-    # cmod_shot=1051202011
-    # time_point=1
 
-    # target_freq=567e3
-    # time_window=40e-3#7e-3 # Window for FFT
     # comparison_sensor_names =['BP02_GHK', 'BP1T_ABK']
 
 
     synthDataFileNameInfo = {
         'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',#'vacuum_mesh.h5',#'C_Mod_ThinCurr_Combined-homology.h5',
         'sensor_set':'C_MOD_ALL',
-        'calibration_frequency_limits':(665e3,665e3),
+        'calibration_frequency_limits':(655e3,655e3),
         'save_ext_input':'_FAR3D_NonLinear_Surface_Current',
         'm': [13,12,11,10,9,8,7],
-        'n': 12,
-        'f': 665e3,
+        'n': 10,
+        'f': 655e3,
         'rho': 0.25,
         'lambda_merezhkin': 0.0,
         'save_Ext': '_FAR3D_NonLinear',
-        'file_geqdsk' : 'g1160930034.1200'
+        'file_geqdsk' : 'g1051202011.1000'#'g1160930034.1200'
     }
     synthDataFileNameInfo['save_ext_input'] = f'_n={synthDataFileNameInfo["n"]}'+\
         f'_rho={synthDataFileNameInfo["rho"]:1.1f}_lambda={synthDataFileNameInfo["lambda_merezhkin"]:1.2f}'+\
             f'{synthDataFileNameInfo["save_ext_input"]}'
 
 
+    cmod_shot=1051202011
+    time_point=1
+
+    target_freq=567e3
+    time_window=40e-3#7e-3 # Window for FFT
+
     # time_point=1.2#198
-    cmod_shot=1160930034
-    time_point = [[1.1,1.11],[1.128,1.141], [1.164,1.175], [1.191,1.205], [1.223,1.237]]
-    target_freq=657e3
-    time_window=10e-3#7e-3 # Window for FFT
+    # cmod_shot=1160930034
+    # time_point = [[1.1,1.11],[1.128,1.141], [1.164,1.175], [1.191,1.205], [1.223,1.237]]
+    # target_freq=657e3
+    # time_window=10e-3#7e-3 # Window for FFT
 
     comparison_sensor_names =['BP02_GHK', 'BP1T_ABK']
 

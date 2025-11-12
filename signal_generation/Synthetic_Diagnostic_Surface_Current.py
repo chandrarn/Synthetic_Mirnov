@@ -454,29 +454,29 @@ if __name__=='__main__':
     
     # FAR3D files for 1051202011
     # [9,10,11,12]
-    # cmod_shot=1051202011
-    # file_geqdsk = 'g1051202011.1000'
-    # params={'m':[13,12,11,10,9,8,7],'n':10,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
-    # 'f':655e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
-    # FAR3D_br_file = 'br_1073';FAR3D_bth_file='bth_1073'
+    cmod_shot=1051202011
+    file_geqdsk = 'g1051202011.1000'
+    params={'m':[13,12,11,10,9,8,7],'n':10,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
+    'f':655e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    FAR3D_br_file = 'br_1073';FAR3D_bth_file='bth_1073'
 
     # # FAR3D files for 1160930034
-    cmod_shot=1160930033
-    file_geqdsk='g1160930034.1200'
-    params={'m':[15,14,13,12,11,10,9],'n':12,'n_pts':28,'m_pts':60,'f':665e3,'n_threads':28,\
-    }#'r':.25,'R':1,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
-    # FAR3D_br_file = 'br_1087';FAR3D_bth_file='bth_1087'
-    # FAR3D_br_file = 'br_7029';FAR3D_bth_file='bth_7029'
-    FAR3D_br_file = 'br_1221';FAR3D_bth_file='bth_1221'
+    # cmod_shot=1160930033
+    # file_geqdsk='g1160930034.1200'
+    # params={'m':[15,14,13,12,11,10,9],'n':12,'n_pts':28,'m_pts':60,'f':665e3,'n_threads':28,\
+    # }#'r':.25,'R':1,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    # # FAR3D_br_file = 'br_1087';FAR3D_bth_file='bth_1087'
+    # # FAR3D_br_file = 'br_7029';FAR3D_bth_file='bth_7029'
+    # FAR3D_br_file = 'br_1221';FAR3D_bth_file='bth_1221'
 
     doPlot=True; plotOnly=False
-    C1_file=None#'/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'
+    C1_file=''#'/nobackup1/wenhaw42/SPARC_dir/Linear/01_n1_test_cases/1000_bate1.0_constbz_0_cp0501/C1.h5'
     
 
     doSave_Bode=True
     scan_in_freq=True
     psi_contour_select=0.25
-    lambda_merezhkin= 0.00
+    lambda_merezhkin= 0.20
 
     Synthetic_Mirnov_Surface(mesh_file=mesh_file,doSave=doSave,save_ext=save_ext,file_geqdsk=file_geqdsk,\
                              sensor_set=sensor_set,xml_filename=xml_filename,params=params,doPlot=doPlot,\

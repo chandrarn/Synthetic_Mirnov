@@ -31,7 +31,7 @@ from header_Cmod import __doFilter, remove_freq_band
 def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
               tLim_orig=[.75,1.1],fLim_orig=[0,625],shotno=1051202011,
               f_band=[],doSave='',saveExt='',cLim=[], use_nn=False,\
-                 min_contour_w=5, min_contour_h=5,doPlot=False, **kwargs):  # Add use_nn parameter
+                 min_contour_w=5, min_contour_h=5,doPlot=False,CNN=False, **kwargs):  # Add use_nn parameter
     # Identify n# from segmented spectrogram associated with a shot
     
     # Load in png
@@ -52,7 +52,11 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
         
         if use_nn:
             # Use NN predictor instead of run_n
-            n_opt = predict_n_with_nn(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
+            if CNN:
+                n_opt = predict_n_with_nn(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
+                                       lims['Freq'][1] * 1e3, bp_k, **kwargs)
+            else: 
+                n_opt = predict_n_with_fno(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
                                        lims['Freq'][1] * 1e3, bp_k, **kwargs)
         else:
             # Original run_n call
@@ -177,34 +181,10 @@ def open_wavy_xarray(wave_file_nc):
     fLim = dataset.coords['frequency'].values*1e-3
     wavy = dataset.binary.values
     return wavy, tLim, fLim
-###############################################3
-def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output_plots/trained_mode_classifier_n.pth',
-                      sensor_set='C_MOD_LIM', r_maj=0.68, cmod_shot=1051202011):
-    """
-    Helper function to predict n# using the trained NN model.
-    Loads shot data, filters it, computes FFT real/imag, and predicts n.
-    """
-    # Load the PyTorch model
-    # Weights_only=False to load scaler as well
-    checkpoint = torch.load(model_path, map_location=torch.device('cpu'),weights_only=False)
-    print('Loaded model from ', model_path)
-    model_state = checkpoint['model_state']
-    label_classes = checkpoint['label_classes']
-    sensor_names = checkpoint.get('sensor_names', None) # Pull sensor names associated with model
-    le = LabelEncoder()
-    le.classes_ = np.array(label_classes)
-    n_classes = len(label_classes)
-    
-    # Initialize model (assuming ConvSpatialNet from cnn_predictor.py)
-    model = ConvSpatialNet(in_channels=4, hidden_channels=128, n_classes=n_classes, dropout=0.4)  # Match training params
-    model.load_state_dict(model_state)
-    model.eval()
-    
-    # Load sensor coordinates (phi, theta_pol, R, Z)
-    # phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
-    # theta_dict = {sensor_name: np.arctan2(Z[sensor_name] - 0, R[sensor_name] - r_maj) for sensor_name in R}  # Adjust zmagx/rmagx as needed
-    
-    # Load and filter data (similar to estimate_n_improved.py)
+
+####################################################
+def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None):
+        # Load and filter data (similar to estimate_n_improved.py)
     bp_k = __loadData(shotno, pullData='bp_k', forceReload=['bp_k'] * False)['bp_k'] if bp_k is None else bp_k
     data = bp_k.data
     f_samp = bp_k.f_samp
@@ -246,6 +226,37 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
     real_comp = np.abs(fft_out[:, target_freq_idx])
     real_comp /= np.max(real_comp)  # Normalize real part
     imag_comp = np.angle(fft_out[:, target_freq_idx])
+
+    return real_comp, imag_comp, phi, theta_dict
+###############################################3
+def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output_plots/trained_mode_classifier_n.pth',
+                      sensor_set='C_MOD_LIM', r_maj=0.68, cmod_shot=1051202011):
+    """
+    Helper function to predict n# using the trained NN model.
+    Loads shot data, filters it, computes FFT real/imag, and predicts n.
+    """
+    # Load the PyTorch model
+    # Weights_only=False to load scaler as well
+    checkpoint = torch.load(model_path, map_location=torch.device('cpu'),weights_only=False)
+    print('Loaded model from ', model_path)
+    model_state = checkpoint['model_state']
+    label_classes = checkpoint['label_classes']
+    sensor_names = checkpoint.get('sensor_names', None) # Pull sensor names associated with model
+    le = LabelEncoder()
+    le.classes_ = np.array(label_classes)
+    n_classes = len(label_classes)
+    
+    # Initialize model (assuming ConvSpatialNet from cnn_predictor.py)
+    model = ConvSpatialNet(in_channels=4, hidden_channels=128, n_classes=n_classes, dropout=0.4)  # Match training params
+    model.load_state_dict(model_state)
+    model.eval()
+    
+    # Load sensor coordinates (phi, theta_pol, R, Z)
+    # phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
+    # theta_dict = {sensor_name: np.arctan2(Z[sensor_name] - 0, R[sensor_name] - r_maj) for sensor_name in R}  # Adjust zmagx/rmagx as needed
+    
+    # Load and filter raw signal
+    real_comp, imag_comp, phi, theta_dict, R, Z = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
 
     # Filter to common sensors between sensor_names (upper) and bp_k.names (lower)
     common_sensors_lower = [name.lower() for name in sensor_names if name.lower() in bp_k.names]
@@ -294,14 +305,157 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
     return predicted_n
 
 
+###############################################
+def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, model_path='../output_models/fno_classifier_n.pth',
+                       r_maj: float = 0.68):
+    """
+    Predict toroidal mode number n using the trained FNO classifier on real C-Mod data.
+
+    Steps:
+    - Load checkpoint (expects keys: 'state_dict', 'classes', 'sensor_names', 'scaler').
+    - Load and bandpass/filter raw Mirnov data, then take dominant FFT component in band.
+    - Align sensors to the model's expected order; fill missing sensors with zeros if needed.
+    - Build difference features relative to the first sensor and apply saved StandardScaler.
+    - Run FNO model and map predicted class back to physical n via LabelEncoder(classes).
+
+    Args:
+        shotno: C-Mod shot number
+        tLim: (t_start, t_end) time window in seconds
+        HP_Freq: high-pass frequency (Hz)
+        LP_Freq: low-pass frequency (Hz)
+        bp_k: bp_k structure from __loadData (must include .names)
+        model_path: path to saved FNO checkpoint
+        r_maj: major radius used for theta computation consistency
+
+    Returns:
+        predicted_n (int)
+    """
+    import os
+    import sys
+    import numpy as np
+    import torch
+    from sklearn.preprocessing import LabelEncoder
+
+    # Import FNO model definition from classifier_regressor
+    here = os.path.abspath(os.path.dirname(__file__))
+    repo_root = os.path.abspath(os.path.join(here, '..'))
+    cls_reg_path = os.path.join(repo_root, 'classifier_regressor')
+    if cls_reg_path not in sys.path:
+        sys.path.append(cls_reg_path)
+    try:
+        from fno_predictor import FNO1dClassifier  # type: ignore
+    except Exception as e:
+        raise ImportError(f"Could not import FNO1dClassifier from {cls_reg_path}: {e}")
+
+    # Load checkpoint (contains model weights, classes, scaler, and expected sensor order)
+    checkpoint = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
+    print(f"Loaded FNO checkpoint from {model_path}")
+
+    state_dict = checkpoint.get('state_dict', None)
+    classes = checkpoint.get('classes', None)
+    model_sensor_names = checkpoint.get('sensor_names', None)
+    scaler = checkpoint.get('scaler', None)
+    if state_dict is None or classes is None or model_sensor_names is None or scaler is None:
+        raise ValueError("Checkpoint missing one of required keys: 'state_dict', 'classes', 'sensor_names', 'scaler'")
+
+    # Infer architecture hyperparameters from the state_dict
+    try:
+        width = int(state_dict['lift.weight'].shape[0])
+        # Determine depth by counting unique block indices
+        block_indices = set()
+        for k in state_dict.keys():
+            if k.startswith('blocks.'):
+                parts = k.split('.')
+                if len(parts) > 1 and parts[1].isdigit():
+                    block_indices.add(int(parts[1]))
+        depth = max(block_indices) + 1 if block_indices else 4
+        # Modes from first spectral conv weight
+        # Find a key like 'blocks.0.spectral.weight'
+        spectral_keys = [k for k in state_dict.keys() if k.endswith('spectral.weight')]
+        if spectral_keys:
+            modes = int(state_dict[spectral_keys[0]].shape[-1])
+        else:
+            modes = 16
+        n_classes = int(state_dict['head.6.weight'].shape[0]) if 'head.6.weight' in state_dict else len(classes)
+    except Exception as e:
+        # Fallback to common defaults if shape introspection fails
+        print(f"Warning: could not infer all hyperparameters from state_dict: {e}. Using defaults.")
+        width, depth, modes = 128, 4, 16
+        n_classes = len(classes)
+
+    # Build model and load weights
+    model = FNO1dClassifier(in_channels=4, width=width, modes=modes, depth=depth,
+                            n_classes=n_classes, dropout=0.4)
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    # Pull real data features
+    # Note: load_and_filter_raw_signal returns (real_comp, imag_comp, phi, theta_dict)
+    real_comp, imag_comp, phi, theta_dict = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
+
+    # Align to model's expected sensor order; fill missing with zeros, warn once
+    bp_names_lower = [nm for nm in bp_k.names]
+    S = len(model_sensor_names)
+    real_aligned = np.zeros(S, dtype=np.float32)
+    imag_aligned = np.zeros(S, dtype=np.float32)
+    theta_aligned = np.zeros(S, dtype=np.float32)
+    phi_aligned = np.zeros(S, dtype=np.float32)
+    missing = []
+    for i, nm in enumerate(model_sensor_names):
+        nml = str(nm).lower()
+        if nml in bp_names_lower:
+            j = bp_names_lower.index(nml)
+            real_aligned[i] = float(real_comp[j]) * 1e-4
+            imag_aligned[i] = float(imag_comp[j])
+        else:
+            missing.append(nml)
+        # Geometry lookups
+        theta_aligned[i] = float(theta_dict.get(nml, 0.0))
+        phi_aligned[i] = float(phi.get(nml, 0.0)) * np.pi / 180.0  # Convert to radians
+    if missing:
+        print(f"Warning: {len(missing)} sensors missing in bp_k; filled with zeros: {missing[:4]}{'...' if len(missing)>4 else ''}")
+
+    # Build difference features relative to the first sensor (S, 4)
+    diffs_real = real_aligned - real_aligned[0]
+    diffs_imag = imag_aligned - imag_aligned[0]
+    diffs_theta = theta_aligned - theta_aligned[0]
+    diffs_phi = phi_aligned - phi_aligned[0]
+    feats = np.stack([diffs_real, diffs_imag, diffs_theta, diffs_phi], axis=1)  # (S,4)
+    raw_min = feats.min(axis=0); raw_max = feats.max(axis=0); raw_med = np.median(feats, axis=0)
+    print("Raw diffs stats per channel: min", raw_min, "max", raw_max, "median", raw_med)
+
+    z = (feats - scaler.mean_) / scaler.scale_
+    z_min = z.min(axis=0); z_max = z.max(axis=0); z_med = np.median(z, axis=0)
+    print("Z-score stats per channel: min", z_min, "max", z_max, "median", z_med)
+    print("Fraction |z|>6 per channel:", np.mean(np.abs(z) > 6, axis=0))
+    # Apply saved scaler (fit on flattened (N*S, 4))
+    feats_scaled = scaler.transform(feats)
+    X = feats_scaled[np.newaxis, :, :]  # (1, S, 4)
+
+    # Predict
+    with torch.no_grad():
+        logits = model(torch.from_numpy(X).float())
+        probs = torch.softmax(logits, dim=1).cpu().numpy().squeeze()
+        pred_idx = int(np.argmax(probs))
+    le = LabelEncoder(); le.classes_ = np.array(classes)
+    predicted_n = int(le.inverse_transform([pred_idx])[0])
+    print('Output Probabilities: ', [f"n={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
+    return predicted_n
+
+
 if __name__ == '__main__':
     # Example usage with NN
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
     cmod_shot = 1160714026#1110316018#1160930033
-    save_ext = '_test_Dropout0.2_Hidden256_Mask0.1'
+    # save_ext = '_test_Dropout0.2_Hidden256_Mask0.1'
+    # out= mode_id_n(wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
+    #           f's{cmod_shot}.nc', shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
+    #           model_path=data_dir+f'trained_mode_classifier_C-Mod_Sensors_Shot_{cmod_shot}_n{save_ext}.pth',
+    #           doPlot=False)
+    
+    save_ext = ''
     out= mode_id_n(wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
               f's{cmod_shot}.nc', shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
-              model_path=data_dir+f'trained_mode_classifier_C-Mod_Sensors_Shot_{cmod_shot}_n{save_ext}.pth',
-              doPlot=False)
-    
+              model_path='../output_models/fno_classifier_n.pth',
+              doPlot=True,f_band=[])
     print('Finished example usage.')
