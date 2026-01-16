@@ -51,3 +51,12 @@ from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh,\
     build_torus_bnorm_grid, ThinCurr_periodic_toroid, build_periodic_mesh,\
     write_periodic_mesh
 
+# Bulk resistivities
+Mo = 53.4e-9 # Ohm * m at 20c
+SS = 690e-9 # Ohm * m at 20c
+w_tile_lim = 1.5e-2  # Tile limiter thickness
+w_tile_arm = 1.5e-2 *1 # Tile extention thickness
+w_vv = 3e-2 # Vacuum vessel thickness
+w_ss = 1e-2  # Support structure thickness
+w_shield = 0.43e-3 
+

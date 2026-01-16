@@ -313,25 +313,6 @@ def get_psi_grid(eqdsk_file):
 
     return psi_normalized, R, Z, eqdsk_obj['rmagx'], eqdsk_obj['zmagx'], psi,eqdsk_obj
 ########################################################################################
-def normalize_Br_to_Bnorm(B0,a,q_rz,rho,psi):
-
-    # # Normalize Br to B-norm, for a given equilibrium
-    # # B0 = toroidal field at R0 [T]
-    # # a = minor radius [m]
-    # # rho = minor radius at given psi [m]
-    # # psi = normalized psi (0-1)
-    # # From Wesson, Tokamaks, 4th Ed, Eqn 3.7.5
-    # B_norm = B0 * (1 - rho**2/a**2) / (R0 * np.sqrt(1 + psi))
-    # return B_norm
-    
-    # Calculate gradient of psi, to get |grad(psi)|
-    # d(psi)/dr, d(psi)/dz
-    dpsi_dr = np.gradient(psi,axis=0)
-    dpsi_dz = np.gradient(psi,axis=1)
-    # |grad(psi)| = sqrt( (d(psi)/dr)^2 + (d(psi)/dz)^2 )
-    grad_psi = np.sqrt(dpsi_dr**2 + dpsi_dz**2)
-    
-    # Sample
 
     
 ####################3

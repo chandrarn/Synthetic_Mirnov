@@ -10,7 +10,7 @@ Created on Sun Jun  8 16:27:44 2025
 @author: rian
 """
 
-from header_Cmod import plt, np, cv2, iio, sys, xr
+from header_Cmod import plt, np, cv2, iio, sys, xr, os
 from get_Cmod_Data import __loadData
 sys.path.append('../signal_analysis/')
 
@@ -24,6 +24,8 @@ from cnn_predictor import ConvSpatialNet, build_input_tensor,plot_feature_stats 
 from sklearn.preprocessing import LabelEncoder
 from mirnov_Probe_Geometry import Mirnov_Geometry as Mirnov_Geometry_C_Mod  # Assuming this is available for sensor coords
 
+from scipy.fft import fft
+
 sys.path.append('../C-Mod/')
 from header_Cmod import __doFilter, remove_freq_band
 
@@ -31,12 +33,14 @@ from header_Cmod import __doFilter, remove_freq_band
 def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
               tLim_orig=[.75,1.1],fLim_orig=[0,625],shotno=1051202011,
               f_band=[],doSave='',saveExt='',cLim=[], use_nn=False,\
-                 min_contour_w=5, min_contour_h=5,doPlot=False,CNN=False, **kwargs):  # Add use_nn parameter
+                 min_contour_w=5, min_contour_h=5,doPlot=False,CNN=False,\
+                     t_band=[],shotno_model=None, **kwargs):  # Add use_nn parameter
     # Identify n# from segmented spectrogram associated with a shot
     
     # Load in png
     wavy, contour, hierarchy, c_out, tLim, fLim = \
-        gen_contours(wavy_file,tLim_orig,fLim_orig, f_band, min_contour_w,min_contour_h)
+        gen_contours(wavy_file,tLim_orig,fLim_orig, f_band,  t_band, \
+                     min_contour_w,min_contour_h, )
     
     # step through contours, set filtering range
     filter_limits = gen_filter_ranges(c_out, tLim, fLim, wavy.shape[:2])
@@ -45,8 +49,13 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
     # if use_nn:
     bp_k = __loadData(shotno, pullData=['bp_k'], forceReload=['bp_k'] * False)['bp_k']
 
+    # Get model sensor names if using NN
+    if use_nn:
+        sensor_names_model_order = __loadData(shotno_model, pullData=['bp_k'])['bp_k'].names
+
     # Calculate n# in the filterbands identified
     n_opt_out = []
+    features_out = []
     for ind, lims in enumerate(filter_limits):
         print('Time: %3.3f-%3.3f, Freq: %3.3f-%3.3f' % (*lims['Time'], *lims['Freq']))
         
@@ -56,8 +65,10 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
                 n_opt = predict_n_with_nn(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
                                        lims['Freq'][1] * 1e3, bp_k, **kwargs)
             else: 
-                n_opt = predict_n_with_fno(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
-                                       lims['Freq'][1] * 1e3, bp_k, **kwargs)
+                n_opt, feats = predict_n_with_fno(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
+                                       lims['Freq'][1] * 1e3, bp_k, sensor_names_model_order,
+                                         **kwargs)
+                features_out.append(feats)
         else:
             # Original run_n call
             n_opt = run_n(shotno=shotno, tLim=lims['Time'], fLim=None, 
@@ -67,12 +78,16 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
                           bp_k=bp_k, doPlot=doPlot)[-1]
         filter_limits[ind]['n_opt'] = n_opt
         n_opt_out.append(n_opt)
+        
         # if ind > 10: break
     
     # color contours (fill in? step through contour horizontally, fill vertically?)
     overplot_n(filter_limits,wavy, tLim, fLim,n_opt_out,doSave,
                saveExt+('_nn' if use_nn else '_linear'),shotno,cLim)
     
+    # diagnose feature distributions
+    plot_data_distributions(features_out,n_opt_out, saveExt='_%d'%shotno)
+
     return wavy, contour, hierarchy, c_out,filter_limits,n_opt_out
 ############################################################
 def overplot_n(filter_limits,wavy,tRange,fRange,n_opt,doSave,saveExt,
@@ -111,6 +126,78 @@ def overplot_n(filter_limits,wavy,tRange,fRange,n_opt,doSave,saveExt,
     if doSave: 
         fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',transparent=True)
     plt.show()
+        
+############################################################
+def plot_data_distributions(features_out,n_opt, saveData=True,  saveExt=''):
+    # Plot feature distributions for each predicted n#
+    features_out = np.array(features_out)
+    if features_out.size == 0:
+        print('plot_data_distributions: no features to plot')
+        return
+    n_opt_arr = np.array(n_opt)
+    if len(n_opt_arr) != features_out.shape[0]:
+        print('plot_data_distributions: length mismatch between n_opt and features_out; skipping plot')
+        return
+
+    n_features = features_out.shape[2]
+    
+    plt.close('Scaled_Feature_Distributions'+saveExt)
+    n_rows = 3
+    n_cols = 2
+    fig,ax = plt.subplots(n_rows,n_cols,num='Scaled_Feature_Distributions'+saveExt,
+                         tight_layout=True,figsize=(7,6),sharex=True)
+    ax = ax.flatten()
+
+    # Feature labels
+    feature_labels = [r'$\Delta$Mag FFT', r'$\sin(\Delta\angle\mathrm{FFT})$', r'$\cos(\Delta\angle\mathrm{FFT})$', r'$\Delta\theta$', r'$\Delta\phi$']
+    # Unique n groups and color map
+    # Filter out NaNs but keep index mapping
+    unique_ns = [int(v) if np.isfinite(v) else np.nan for v in np.unique(n_opt_arr)]
+    # Build color map for groups (skip NaN group coloring if present)
+    cmap = plt.get_cmap('tab10')
+    colors = {}
+    color_i = 0
+    for n_val in unique_ns:
+        if np.isnan(n_val):
+            continue
+        colors[n_val] = cmap(color_i % 10)
+        color_i += 1
+
+    for i in range(n_features):
+        # Plot each group in its own color
+        handles = []
+        labels = []
+        for n_val in unique_ns:
+            if np.isnan(n_val):
+                # Optional: gray for NaNs
+                idx = np.where(~np.isfinite(n_opt_arr))[0]
+                color = (0.6,0.6,0.6,0.6)
+                label = 'n=NaN'
+            else:
+                idx = np.where(n_opt_arr == n_val)[0]
+                color = colors.get(n_val, cmap(0))
+                label = f'n={int(n_val)}'
+            if idx.size == 0:
+                continue
+            ax[i].plot(features_out[idx, :, i].T, color=color, alpha=0.7)
+            # Add a proxy handle for legend once per group
+            h, = ax[i].plot([], [], color=color, label=label)
+            handles.append(h); labels.append(label)
+
+        ax[i].set_xlabel(f'Feature {feature_labels[i]}')
+        ax[i].set_ylabel('Value')
+        ax[i].grid()
+        if handles:
+            ax[i].legend(handles=handles, labels=labels, fontsize=8, frameon=True, handlelength=1.5)
+    # Hide unused axes
+    for j in range(n_features, len(ax)):
+        ax[j].set_visible(False)
+    
+    if saveExt:
+        fig.savefig('../output_plots/Feature_Distributions'+saveExt+'.pdf',transparent=True)
+    
+    if saveData: np.savez('../data_output/wavy_n_features.npz',features_scaled=features_out,n_opt=n_opt)
+    plt.show()
 ############################################################
 def gen_filter_ranges(c_out,tLim,fLim,dimImage):
     # Convert coordinates from pixels to time, freq
@@ -130,7 +217,7 @@ def gen_filter_ranges(c_out,tLim,fLim,dimImage):
     return filter_limits
 ############################################################
 def gen_contours(wavy_file,tLim_orig=[],fLim_orig=[],f_band = [],
-                 min_contour_w=5,min_contour_h=5,
+                 t_band = [], min_contour_w=5,min_contour_h=5,
                  doPlot=True,):
     # Load in the wavystar segmented data (in .png or .netcdf format)
     if '.png' in wavy_file: wavy, tLim, fLim = open_wavy_png(wavy_file, tLim_orig,fLim_orig)
@@ -155,6 +242,9 @@ def gen_contours(wavy_file,tLim_orig=[],fLim_orig=[],f_band = [],
         if f_band:
             if fLim[np.min(c[:,1])] < f_band[0]: continue
             if fLim[np.max(c[:,1])] > f_band[1]: continue
+        if t_band:
+            if tLim[np.min(c[:,0])] < t_band[0]: continue
+            if tLim[np.max(c[:,0])] > t_band[1]: continue
     
         if doPlot: 
             ax.plot(tLim[c[:,0]],fLim[c[:,1]],'r-',lw=1)
@@ -183,7 +273,7 @@ def open_wavy_xarray(wave_file_nc):
     return wavy, tLim, fLim
 
 ####################################################
-def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None):
+def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None,doDebug=False):
         # Load and filter data (similar to estimate_n_improved.py)
     bp_k = __loadData(shotno, pullData='bp_k', forceReload=['bp_k'] * False)['bp_k'] if bp_k is None else bp_k
     data = bp_k.data
@@ -191,7 +281,7 @@ def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None)
     inds = np.arange(*[np.argmin(np.abs(bp_k.time - t)) for t in tLim])
     data = data[:, inds]
     time = bp_k.time[inds]
-    phi = {sensor_name: bp_k.Phi[ind] for ind, sensor_name in enumerate(bp_k.names)}
+    phi = {sensor_name: bp_k.Phi[ind] * np.pi/180 for ind, sensor_name in enumerate(bp_k.names)}
     theta_dict = {sensor_name: np.arctan2(bp_k.Z[ind] - 0, bp_k.R[ind] - r_maj) for ind,sensor_name in enumerate(bp_k.names)}    # 
     R = {sensor_name: bp_k.R[ind] for ind, sensor_name in enumerate(bp_k.names)}
     Z = {sensor_name: bp_k.Z[ind] for ind, sensor_name in enumerate(bp_k.names)}
@@ -210,13 +300,19 @@ def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None)
     # check lengths
     if data.shape[1] != len(time):
         time = time[:data.shape[1]]
+
     # Compute FFT (real and imag components)
-    from scipy.fft import fft
-    fft_out = fft(data, axis=1) / len(time)
-    freqs = np.fft.fftfreq(len(time), d=1/f_samp)
-    
+    fft_out = np.fft.rfft(data,axis=1)
+    freqs = np.fft.rfftfreq(data.shape[1], time[1]-time[0])
+
     # Find dominant frequency in the FFT band (HP_Freq to LP_Freq)
     band_mask = (freqs >= HP_Freq) & (freqs <= LP_Freq)
+    while not np.any(band_mask):
+        HP_Freq *= 0.9
+        LP_Freq *= 1.1
+        band_mask = (freqs >= HP_Freq) & (freqs <= LP_Freq)
+        print(f'Adjusted filter band to {HP_Freq}-{LP_Freq} Hz to find valid frequencies.')
+
     mag = np.abs(fft_out)  # Magnitude of FFT
     avg_mag = np.mean(mag, axis=0)  # Average magnitude across sensors
     band_avg_mag = avg_mag[band_mask]
@@ -226,6 +322,22 @@ def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None)
     real_comp = np.abs(fft_out[:, target_freq_idx])
     real_comp /= np.max(real_comp)  # Normalize real part
     imag_comp = np.angle(fft_out[:, target_freq_idx])
+
+    if doDebug:
+        plt.close('Debug_Loaded_Signals')
+        fig,ax = plt.subplots(1,1,num='Debug_Loaded_Signals',tight_layout=True,figsize=(6,2.5))
+        ax.plot(freqs*1e-3,avg_mag); 
+        ax.plot(freqs[band_mask]*1e-3,band_avg_mag,alpha=.6);
+        ax.plot(freqs[target_freq_idx]*1e-3,np.mean(np.abs(fft_out[:,target_freq_idx])),'k*',\
+                label=r'Chosen Freq: %2.1f kHz, $\Delta$T: %1.3f-%1.3f'%\
+                    (freqs[target_freq_idx]*1e-3,tLim[0],tLim[1]));
+        ax.grid()
+        ax.set_xlabel('Frequency [Hz]')
+        ax.set_ylabel('Avg FFT Magnitude')
+        ax.set_xlim([0,LP_Freq*1.5*1e-3])
+        ax.legend(fontsize=8)
+        fig.savefig('../output_plots/Debug_Loaded_Signals_FFT.pdf',transparent=True)
+        plt.show()
 
     return real_comp, imag_comp, phi, theta_dict
 ###############################################3
@@ -256,7 +368,7 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
     # theta_dict = {sensor_name: np.arctan2(Z[sensor_name] - 0, R[sensor_name] - r_maj) for sensor_name in R}  # Adjust zmagx/rmagx as needed
     
     # Load and filter raw signal
-    real_comp, imag_comp, phi, theta_dict, R, Z = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
+    real_comp, imag_comp, phi, theta_dict = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
 
     # Filter to common sensors between sensor_names (upper) and bp_k.names (lower)
     common_sensors_lower = [name.lower() for name in sensor_names if name.lower() in bp_k.names]
@@ -274,7 +386,11 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
 
     # Compute pairwise differences relative to the first sensor
     diffs_real = real_comp[1:] - real_comp[0]
-    diffs_imag = imag_comp[1:] - imag_comp[0]
+    delta_imag = imag_comp[1:] - imag_comp[0]
+    delta_imag = np.angle(np.exp(1j * delta_imag))  # wrap-aware to (-pi, pi]
+    sin_imag = np.sin(delta_imag)
+    cos_imag = np.cos(delta_imag)
+
     theta_diff = theta[1:] - theta[0]
     phi_diff = phi_arr[1:] - phi_arr[0]
 
@@ -284,13 +400,13 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
 
     # After computing diffs_real, diffs_imag, theta_diff, phi_diff
     # Stack diffs
-    diffs = np.stack([diffs_real, diffs_imag, theta_diff, phi_diff], axis=-1)  # (S-1, 4)
+    diffs = np.stack([diffs_real, sin_imag, cos_imag, theta_diff, phi_diff], axis=-1)  # (S-1, 5)
 
     # Apply the same standard scaling as in training
     scaled_diffs = scaler.transform(diffs)
 
     # Set X to the scaled diffs
-    X = scaled_diffs[np.newaxis, :, :]  # (1, S-1, 4)
+    X = scaled_diffs[np.newaxis, :, :]  # (1, S-1, 5)
 
     # Plot feature stats after scaling
     # plot_feature_stats(X, sensor_names, do_n=True, save_ext=f'_data_{shotno}')
@@ -304,38 +420,8 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
                     for i,p in enumerate(torch.softmax(output,dim=1).squeeze())])        
     return predicted_n
 
-
-###############################################
-def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, model_path='../output_models/fno_classifier_n.pth',
-                       r_maj: float = 0.68):
-    """
-    Predict toroidal mode number n using the trained FNO classifier on real C-Mod data.
-
-    Steps:
-    - Load checkpoint (expects keys: 'state_dict', 'classes', 'sensor_names', 'scaler').
-    - Load and bandpass/filter raw Mirnov data, then take dominant FFT component in band.
-    - Align sensors to the model's expected order; fill missing sensors with zeros if needed.
-    - Build difference features relative to the first sensor and apply saved StandardScaler.
-    - Run FNO model and map predicted class back to physical n via LabelEncoder(classes).
-
-    Args:
-        shotno: C-Mod shot number
-        tLim: (t_start, t_end) time window in seconds
-        HP_Freq: high-pass frequency (Hz)
-        LP_Freq: low-pass frequency (Hz)
-        bp_k: bp_k structure from __loadData (must include .names)
-        model_path: path to saved FNO checkpoint
-        r_maj: major radius used for theta computation consistency
-
-    Returns:
-        predicted_n (int)
-    """
-    import os
-    import sys
-    import numpy as np
-    import torch
-    from sklearn.preprocessing import LabelEncoder
-
+########################################################################################################3
+def load_fno_model(model_path='../output_models/fno_classifier_n.pth'):
     # Import FNO model definition from classifier_regressor
     here = os.path.abspath(os.path.dirname(__file__))
     repo_root = os.path.abspath(os.path.join(here, '..'))
@@ -383,18 +469,18 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, model_path='../outp
         width, depth, modes = 128, 4, 16
         n_classes = len(classes)
 
-    # Build model and load weights
-    model = FNO1dClassifier(in_channels=4, width=width, modes=modes, depth=depth,
+    # Infer input channels from checkpoint (lift.weight shape = [width, in_channels, 1])
+    in_channels = int(state_dict.get('lift.weight', torch.empty(width, 5, 1)).shape[1])
+    model = FNO1dClassifier(in_channels=in_channels, width=width, modes=modes, depth=depth,
                             n_classes=n_classes, dropout=0.4)
     model.load_state_dict(state_dict)
     model.eval()
 
-    # Pull real data features
-    # Note: load_and_filter_raw_signal returns (real_comp, imag_comp, phi, theta_dict)
-    real_comp, imag_comp, phi, theta_dict = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
-
-    # Align to model's expected sensor order; fill missing with zeros, warn once
-    bp_names_lower = [nm for nm in bp_k.names]
+    return model, classes, model_sensor_names, scaler
+####################################################################################################
+def align_sensors_to_model(real_comp, imag_comp, phi, theta_dict, model_sensor_names, bp_k_names):
+      # Align to model's expected sensor order; fill missing with zeros, warn once
+    bp_names_lower = [nm for nm in bp_k_names]
     S = len(model_sensor_names)
     real_aligned = np.zeros(S, dtype=np.float32)
     imag_aligned = np.zeros(S, dtype=np.float32)
@@ -405,22 +491,101 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, model_path='../outp
         nml = str(nm).lower()
         if nml in bp_names_lower:
             j = bp_names_lower.index(nml)
-            real_aligned[i] = float(real_comp[j]) * 1e-4
+            real_aligned[i] = float(real_comp[j]) 
             imag_aligned[i] = float(imag_comp[j])
         else:
-            missing.append(nml)
+            missing.append([nml,i])
         # Geometry lookups
         theta_aligned[i] = float(theta_dict.get(nml, 0.0))
-        phi_aligned[i] = float(phi.get(nml, 0.0)) * np.pi / 180.0  # Convert to radians
+        phi_aligned[i] = float(phi.get(nml, 0.0)) #* np.pi / 180.0  # Convert to radians
     if missing:
         print(f"Warning: {len(missing)} sensors missing in bp_k; filled with zeros: {missing[:4]}{'...' if len(missing)>4 else ''}")
 
-    # Build difference features relative to the first sensor (S, 4)
+    # Build difference features relative to the first sensor (S, 5)
     diffs_real = real_aligned - real_aligned[0]
-    diffs_imag = imag_aligned - imag_aligned[0]
+    delta_imag = imag_aligned - imag_aligned[0]
+    delta_imag = np.angle(np.exp(1j * delta_imag))
+    delta_imag *= __check_angle_slope(delta_imag)  # Ensure consistent slope direction
+
+    sin_imag = np.sin(delta_imag)
+    cos_imag = np.cos(delta_imag)
     diffs_theta = theta_aligned - theta_aligned[0]
     diffs_phi = phi_aligned - phi_aligned[0]
-    feats = np.stack([diffs_real, diffs_imag, diffs_theta, diffs_phi], axis=1)  # (S,4)
+    feats = np.stack([diffs_real, sin_imag, cos_imag, diffs_theta, diffs_phi], axis=1)  # (S,5)
+
+    # Ensure that missing sensors are zeroed out in features
+    for nml, i in missing: feats[i, :] = 0.0
+
+    return feats
+
+def __check_angle_slope(delta_imag: np.ndarray, n_sensors: int = 5) -> int:
+    # Check if angle differences are on-average increasing or decreasing
+    diffs = np.diff(delta_imag)[:n_sensors]
+    return np.sign(np.mean(diffs)) * -1 
+#######################################################################################################
+def plot_features_raw(feats, savePath=''):
+    plt.close('Raw_Features_Debug')
+    fig,ax = plt.subplots(3,2,num='Raw_Features_Debug',tight_layout=True,figsize=(7,6))
+    feature_labels = [r'$\Delta$Mag FFT', r'$\sin(\Delta\angle\mathrm{FFT})$', r'$\cos(\Delta\angle\mathrm{FFT})$', r'$\Delta\theta$', r'$\Delta\phi$']
+    ax = ax.flatten()
+    for i in range(min(feats.shape[1], len(ax))):
+        ax[i].plot(feats[:,i], '-')
+        ax[i].set_xlabel('Sensor Index')
+        ax[i].set_ylabel(feature_labels[i])
+        ax[i].grid()
+    for j in range(feats.shape[1], len(ax)):
+        ax[j].set_visible(False)
+    plt.show()
+
+    if savePath:  fig.savefig(savePath,transparent=True)
+####################################################################################################
+###################################################################################################33
+def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_order,\
+                       model_path='../output_models/fno_classifier_n.pth',
+                       r_maj: float = 0.68):
+    """
+    Predict toroidal mode number n using the trained FNO classifier on real C-Mod data.
+
+    Steps:
+    - Load checkpoint (expects keys: 'state_dict', 'classes', 'sensor_names', 'scaler').
+    - Load and bandpass/filter raw Mirnov data, then take dominant FFT component in band.
+    - Align sensors to the model's expected order; fill missing sensors with zeros if needed.
+    - Build difference features relative to the first sensor and apply saved StandardScaler.
+    - Run FNO model and map predicted class back to physical n via LabelEncoder(classes).
+
+    Args:
+        shotno: C-Mod shot number
+        tLim: (t_start, t_end) time window in seconds
+        HP_Freq: high-pass frequency (Hz)
+        LP_Freq: low-pass frequency (Hz)
+        bp_k: bp_k structure from __loadData (must include .names)
+        model_path: path to saved FNO checkpoint
+        r_maj: major radius used for theta computation consistency
+
+    Returns:
+        predicted_n (int)
+    """
+
+
+
+    # Load FNO model and associated info
+    model, classes, model_sensor_names, scaler = load_fno_model(model_path)
+
+
+    # Pull real data features
+    # Note: load_and_filter_raw_signal returns (real_comp, imag_comp, phi, theta_dict)
+    real_comp, imag_comp, phi, theta_dict = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
+    real_comp *= .5e-4 / np.max(real_comp)  # Scale real part to match training data range
+
+
+    # Align sensors to model's expected order; fill missing with zeros
+    feats = align_sensors_to_model(real_comp, imag_comp, phi, theta_dict, model_sensor_names,\
+                                    sensor_names_model_order)
+    
+    ## Debug plots
+    # plot_features_raw(feats,'../output_plots/Debug_FNO_Features_Shot_%d.pdf'%shotno)
+
+    # Debug: print feature stats before scaling
     raw_min = feats.min(axis=0); raw_max = feats.max(axis=0); raw_med = np.median(feats, axis=0)
     print("Raw diffs stats per channel: min", raw_min, "max", raw_max, "median", raw_med)
 
@@ -432,6 +597,10 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, model_path='../outp
     feats_scaled = scaler.transform(feats)
     X = feats_scaled[np.newaxis, :, :]  # (1, S, 4)
 
+
+    
+
+
     # Predict
     with torch.no_grad():
         logits = model(torch.from_numpy(X).float())
@@ -440,22 +609,33 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, model_path='../outp
     le = LabelEncoder(); le.classes_ = np.array(classes)
     predicted_n = int(le.inverse_transform([pred_idx])[0])
     print('Output Probabilities: ', [f"n={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
-    return predicted_n
-
+    return predicted_n, feats_scaled
+######################################################################################################
+######################################################################################################
 
 if __name__ == '__main__':
     # Example usage with NN
-    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
+    # data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
+    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/new_hlicity_low_mn/"
     cmod_shot = 1160714026#1110316018#1160930033
+    cmod_shot_model = 1160930034
+    # cmod_shot = 1110316031#1051202011 
     # save_ext = '_test_Dropout0.2_Hidden256_Mask0.1'
     # out= mode_id_n(wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
     #           f's{cmod_shot}.nc', shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
     #           model_path=data_dir+f'trained_mode_classifier_C-Mod_Sensors_Shot_{cmod_shot}_n{save_ext}.pth',
     #           doPlot=False)
-    
+    wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
+              f's{cmod_shot}.nc'
+    save_ext = '_FNO_C-Mod_Sensors_Reduced_n'
+
+    f_band = [15,40]
+    t_band = [1.1,1.5]#[1.03,1.09]#[1.391,1.41]
+
     save_ext = ''
-    out= mode_id_n(wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
-              f's{cmod_shot}.nc', shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
-              model_path='../output_models/fno_classifier_n.pth',
-              doPlot=True,f_band=[])
+    out= mode_id_n(wavy_file=wavy_file, shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
+              model_path=f'../output_models/fno_classifier_m_Sensor_Reduced_{cmod_shot_model}.pth',
+              doPlot=True,f_band=f_band,t_band=t_band,min_contour_w=2, min_contour_h=3, saveExt=save_ext,
+              shotno_model=cmod_shot_model)
+    
     print('Finished example usage.')

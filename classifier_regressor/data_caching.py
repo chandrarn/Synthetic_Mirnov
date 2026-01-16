@@ -33,7 +33,8 @@ plt.rcParams['lines.markeredgewidth']=2
 rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
-matplotlib.use('TkAgg')
+try: matplotlib.use('TkAgg')
+except: matplotlib.use('pdf')
 plt.ion()
 
 # Allow importing C-Mod utilities for geometry (optional)
@@ -263,17 +264,25 @@ def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=True):
         # if len(indices) > 5: indices = indices[:5]  # limit to first 5 for clarity
 
         real_vals = X_ri[indices, :, 0]
-        imag_vals = X_ri[indices, :, 1] + np.pi
+        imag_vals = X_ri[indices, :, 1] 
+
 
         for ind,imag in enumerate(imag_vals):
+            # Do delta, check for negative real part, trim imag to [0, 2pi]
+            real_tmp = real_vals[ind] - real_vals[ind][0]
+            imag -= imag[0]
 
-            ax[0, i//2].plot((imag-imag[0]) % (2*np.pi),'-*', alpha=0.25, ms=5,
+            imag[real_tmp < 0] += np.pi
+            real_tmp[real_tmp < 0 ] *= -1
+            imag %= 2*np.pi 
+
+            ax[0, i//2].plot(imag,'-*', alpha=0.01, ms=5,
                                 color=plt.get_cmap('tab10')(i),
                               label=f'Mode {m_target}/{n_target} (N={len(indices)})' if ind==0 else None)
-            ax[1, i//2].plot(real_vals[ind]-real_vals[ind][0],'-*', alpha=0.25, ms=5,
+            ax[1, i//2].plot(real_tmp,'-*', alpha=0.01, ms=5,
                                 color=plt.get_cmap('tab10')(i),)
         
-        ax[np.unravel_index(i,(2,2))].grid()
+    for i in range(4):ax[np.unravel_index(i,(2,2))].grid()
 
     ax[1,0].set_xlabel('Sensor Index')
     ax[1,1].set_xlabel('Sensor Index')
@@ -290,7 +299,62 @@ def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=True):
         print(f"Saved visualization to {os.path.join(cfg.viz_save_path,  fig.canvas.manager.get_window_title()+ '.pdf')}")
     plt.show()
     print("Visualization of cached data complete.")
+##############################################################################################
+def visualize_contours(cfg: CacheConfig, y_m, y_n, X_ri,theta,phi,doDelta=False):
+    # Plot reconstructed signal for a given mode (Real * cos(Imag)) over contours of theta, phi
+    from scipy.interpolate import griddata
+    
+    plt.close('Debug_Cached_Contour_Plots'+('_Delta' if doDelta else ''))
+    m,n = __optimal_subplot_grid(len(y_m))
 
+    fig,ax=plt.subplots(m,n,num='Debug_Cached_Contour_Plots'+('_Delta' if doDelta else ''),\
+                        tight_layout=True,figsize=(5,4),sharex=True,sharey=True)
+    ax = ax.flatten() if m*n > 1 else [ax]
+    theta *= 180.0/np.pi  # convert to degrees
+
+    for i in range(len(y_m)):
+        # Reconstruct signal
+        real_part = X_ri[i,:,0] - (X_ri[i,0,0] if doDelta else 0)
+        imag_part = X_ri[i,:,1] - (X_ri[i,0,1] if doDelta else 0)
+        signal_reconstructed = real_part * np.cos(imag_part)
+
+        # Create regular grid for interpolation
+        phi_grid = np.linspace(phi.min(), phi.max(), 50)
+        theta_grid = np.linspace(theta.min(), theta.max(), 50) 
+        Phi_grid, Theta_grid = np.meshgrid(phi_grid, theta_grid)
+        
+        # Interpolate irregular data to regular grid
+        signal_grid = griddata((phi, theta), signal_reconstructed, 
+                              (Phi_grid, Theta_grid), method='linear')
+        
+        # Plot filled contours on regular grid
+        c = ax[i].contourf(Phi_grid, Theta_grid, signal_grid, levels=20, cmap='viridis')
+        # Overlay original sensor locations
+        ax[i].scatter(phi, theta, c='red', s=20, marker='x', linewidths=1, alpha=0.5)
+        fig.colorbar(c, ax=ax[i], label='Signal [T]')
+        ax[i].set_title(f'Sample {i}: Mode {y_m[i]}/{y_n[i]}', fontsize=8)
+
+        ax[i].set_rasterization_zorder(-1)
+        # ax[i].set_aspect('equal', adjustable='box')
+        ax[i].set_xlim(-360,0)
+    # Hide unused subplots
+    for j in range(len(y_m), len(ax)):
+        ax[j].set_visible(False)
+
+    for axi in ax[::n]:
+        if axi.get_visible():
+            axi.set_ylabel(r'$\theta$ [rad]')
+    for axi in ax[-n:]:
+        if axi.get_visible():
+            axi.set_xlabel(r'$\phi$ [rad]')
+
+    if cfg.viz_save_path:
+        fig.savefig(os.path.join(cfg.viz_save_path, fig.canvas.manager.get_window_title()+'.pdf'),
+                    transparent=True)
+        print(f"Saved visualization to {os.path.join(cfg.viz_save_path,  fig.canvas.manager.get_window_title()+ '.pdf')}")  
+    
+    plt.show()
+    print("Visualization of cached contour data complete.")
 ##############################################################################################
 ##############################################################################################
 
@@ -313,7 +377,8 @@ class CacheConfig:
     viz_sensor: str = 'BP01_ABK'  # Sensor to visualize
     viz_freq_lim: Optional[List[float]] = None  # Frequency limits [f_min, f_max] in kHz
     load_saved_data: bool = False  # Whether to load existing cached data if available
-    t_window_width: int = 4  # Width in timepoints for visualization rectangles
+    t_window_width: int = 0  # Width in timepoints for visualization rectangles
+    saveDataset: bool = True  # Whether to save the cached dataset to disk
 
 
 def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1) -> List[str]:
@@ -405,6 +470,7 @@ def _define_mode_regions_time(ds: xr.Dataset, F_mode_vars: List[str], time_indic
     
     return regions
 
+#####################################################################################################
 
 def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
                          sensor_bases: List[str], t_window_width: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -450,7 +516,10 @@ def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
 
 
     # Average real & imag over time at chosen frequency index per sensor
-    time_indicies = np.arange(time_index - t_window_width/2 , time_index + t_window_width/2)
+    if t_window_width > 0:
+        time_indicies = np.arange(time_index - t_window_width/2 , time_index + t_window_width/2)
+    else: 
+        time_indicies = np.array([time_index])
     if np.any(time_indicies < 0) or np.any(time_indicies >= ds.dims['time']):
         time_indicies = np.clip(time_indicies, 0, ds.dims['time'] - 1).astype(int)
     time_idx_arr = time_indicies.astype(int)
@@ -464,7 +533,9 @@ def _avg_band_per_sensor(ds: xr.Dataset, time_index: int, freq_inds: np.ndarray,
             imag_vals = np.array([])
         real_out[si] = float(real_vals.mean()) if real_vals.size else 0.0
         imag_out[si] = float(imag_vals.mean()) if imag_vals.size else 0.0
-
+        if real_out[si] < 0: # Check for negative amplitude [This needs to be repeated after first-sensor subtraction]
+            real_out[si] = np.abs(real_out[si])
+            imag_out[si] = (imag_out[si] + np.pi) % (2 * np.pi)
     return real_out, imag_out
 
 
@@ -495,7 +566,8 @@ def _get_mode_labels(ds: xr.Dataset, F_mode_vars: List[str]) -> List[Tuple[int, 
     return list(zip(m_vals, n_vals))
 
 
-def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.ndarray)\
+      -> Tuple[np.ndarray, np.ndarray, List[int]]:
     """
     Attempt to compute theta, phi per sensor using bp_k geometry for a given shot.
     Theta here is arctan2(Z, R - r_maj) with r_maj ~ 0.68 (C-Mod); Phi comes from bp_k.Phi.
@@ -506,6 +578,7 @@ def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.nda
     ph = np.zeros(S, dtype=np.float32)
     if __loadData is None or geometry_shot is None:
         return th, ph
+    matching_sensor_inds = [] # For use extracting correct sensors from X_ri later
     try:
         bp_k = __loadData(int(geometry_shot), pullData='bp_k', forceReload=['bp_k'] * False)['bp_k']
         name_map = {str(n).upper(): i for i, n in enumerate(bp_k.names)}
@@ -516,10 +589,11 @@ def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.nda
                 j = name_map[u]
                 R = float(bp_k.R[j]); Z = float(bp_k.Z[j]); Phi = float(bp_k.Phi[j])
                 th[i] = math.atan2(Z, R - rmaj)
-                ph[i] = Phi
+                ph[i] = Phi * np.pi / 180.0 # convert to radians
+                matching_sensor_inds.append(i)
     except Exception as e:
         print(f"Warning: could not load geometry from bp_k: {e}")
-    return th, ph
+    return th, ph, matching_sensor_inds 
 
 def _geometry_from_gen_MAGX(geometry_shot: int, names_sorted: np.ndarray, r_magx: float = 0.68, z_magx : float = 0) \
      -> Tuple[np.ndarray, np.ndarray]:
@@ -636,11 +710,13 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
                 S = len(names_sorted)
                 real_sorted = np.zeros(S, dtype=np.float32)
                 imag_sorted = np.zeros(S, dtype=np.float32)
-                for s_idx, src in enumerate(idx_map):
+                # Loop over ordered sensor name indicies to maintain consistant ordering
+                for s_idx, src in enumerate(idx_map): 
                     if src >= 0:
                         real_sorted[s_idx] = real_band[src]
                         imag_sorted[s_idx] = imag_band[src]
                 X_ri_list.append(np.stack([real_sorted, imag_sorted], axis=-1))  # (S, 2)
+                # Check for negative magnitude
 
                 # Choose which label to append based on cfg.use_mode while retaining both
                 m_label, n_label = mode_label_pairs[m_i]
@@ -693,11 +769,23 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         save_dict['theta'] = theta
         save_dict['phi'] = phi
 
-    np.savez(cfg.out_path, **save_dict)
-    print(f"Saved cached dataset to {cfg.out_path} :: X_ri={X_ri.shape}, y={y.shape}")
+    if cfg.saveDataset:
+        np.savez(cfg.out_path, **save_dict)
+        print(f"Saved cached dataset to {cfg.out_path} :: X_ri={X_ri.shape}, y={y.shape}")
 
     return save_dict
+###############################################################################################
+def sensor_reduction(X_ri: np.ndarray, sensor_names: np.ndarray, theta: Optional[np.ndarray],
+                     phi: Optional[np.ndarray], geometry_shot: int)\
+                          -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:  
+    
+    th, ph, matching_sensor_inds = _maybe_geometry_from_bp_k(geometry_shot, sensor_names)
 
+    theta = theta[matching_sensor_inds]; phi = phi[matching_sensor_inds]
+    X_ri_reduced = X_ri[:, matching_sensor_inds, :]
+    sensor_names_reduced = sensor_names[matching_sensor_inds]
+
+    return X_ri_reduced, sensor_names_reduced, theta, phi
 
 # -------------------------
 # High-level interface
@@ -710,7 +798,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                                  viz_sensor: str = 'BP01_ABK',
                                  viz_freq_lim: Optional[List[float]] = None,
                                  load_saved_data : bool = True,
-                                 doVisualize : bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
+                                 doVisualize : bool = False,
+                                 saveDataset: bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
                                                                   Optional[np.ndarray], Optional[np.ndarray]]:
     """
     High-level function to build or load a cached training dataset.
@@ -740,7 +829,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                       freq_tolerance=freq_tolerance, include_geometry=include_geometry,
                       geometry_shot=geometry_shot, use_mode=use_mode, n_datasets=n_datasets,
                       visualize_first=visualize_first, viz_save_path=viz_save_path,
-                      viz_sensor=viz_sensor, viz_freq_lim=viz_freq_lim,load_saved_data=load_saved_data)
+                      viz_sensor=viz_sensor, viz_freq_lim=viz_freq_lim,\
+                        load_saved_data=load_saved_data, saveDataset=saveDataset)
     dat = cache_training_dataset(cfg)
     X_ri = dat['X_ri'] if isinstance(dat, dict) else dat.get('X_ri')
     y = dat['y'] if isinstance(dat, dict) else dat.get('y')
@@ -750,10 +840,17 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
     theta = dat.get('theta', None) if isinstance(dat, dict) else None
     phi = dat.get('phi', None) if isinstance(dat, dict) else None
     
-    
-    if doVisualize: visualize_cached_data(cfg, y_m, y_n, X_ri)
+    # Process sensor reduction if needed
+    if geometry_shot is not None and include_geometry:
+        X_ri, sensor_names, theta, phi = \
+            sensor_reduction(X_ri, sensor_names, theta, phi, geometry_shot) 
 
-    return X_ri, y, y_m, y_n, sensor_names, theta, phi
+    if doVisualize: 
+        visualize_cached_data(cfg, y_m, y_n, X_ri)
+        # visualize_contours(cfg, y_m, y_n, X_ri,theta,phi)
+
+
+    return X_ri, (y_n if use_mode == 'n' else y_m), y_m, y_n, sensor_names, theta, phi
 
 
 if __name__ == "__main__":
@@ -773,8 +870,9 @@ if __name__ == "__main__":
 
     X_ri, y, y_m, y_n, sensor_names, theta, phi = build_or_load_cached_dataset(
         data_dir='../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/',
-        out_path='../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/cached_data_-1.npz',
-        visualize_first=False,  # Enable visualization
+        out_path='../data_output/synthetic_spectrograms/low_m-n_testing/'+\
+            'new_Mirnov_set/cached_data_-1.npz',
+        visualize_first=True,  # Enable visualization
         viz_save_path='../output_plots/',  # Save plots here
         viz_sensor='BP01_ABK',  # Sensor to visualize
         viz_freq_lim=[0, 300],  # Frequency limits in kHz
@@ -783,6 +881,48 @@ if __name__ == "__main__":
         load_saved_data=False, # Force load existing cached data if available
         include_geometry=True,
         geometry_shot=1160714026,
+        doVisualize=False,
     )
 
     print('Cached dataset shapes:   X_ri=', X_ri.shape, ', y_m=', y_m.shape, ', y_n=', y_n.shape)
+
+############################################################################################    
+############################################################################################
+def __optimal_subplot_grid(num_datasets: int) -> Tuple[int, int]:
+    """
+    Find optimal subplot grid dimensions (rows, cols) for num_datasets.
+    
+    Minimizes wasted space by finding m, n such that:
+    - m * n >= num_datasets
+    - m * n is minimized
+    - m and n are as close as possible (prefer m <= n for landscape orientation)
+    
+    Args:
+        num_datasets: Number of datasets to plot
+        
+    Returns:
+        (rows, cols) tuple for optimal subplot grid
+    """
+    if num_datasets <= 0:
+        return (1, 1)
+    
+    # Start with square root and search nearby values
+    sqrt_j = int(np.sqrt(num_datasets))
+    
+    best_waste = float('inf')
+    best_m, best_n = 1, num_datasets
+    
+    # Search from sqrt down to 1 for number of rows
+    for m in range(max(1, sqrt_j - 2), sqrt_j + 3):
+        n = int(np.ceil(num_datasets / m))
+        waste = m * n - num_datasets
+        
+        # Prefer solutions closer to square (m closer to n)
+        aspect_ratio_penalty = abs(m - n) * 0.01
+        total_cost = waste + aspect_ratio_penalty
+        
+        if total_cost < best_waste:
+            best_waste = total_cost
+            best_m, best_n = m, n
+    
+    return (best_m, best_n)

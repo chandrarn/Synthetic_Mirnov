@@ -21,6 +21,7 @@ import cv2
 import pickle as pk
 import sys
 from os import getlogin
+import os
 import xarray as xr
 import json
 from pathlib import Path
@@ -44,9 +45,10 @@ plt.rcParams['lines.markeredgewidth']=2
 rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
-matplotlib.use('TkAgg')
-plt.ion()
-
+try:
+    matplotlib.use('TkAgg')
+    plt.ion()
+except:pass
 from rolling_spectrogram import rolling_spectrogram, rolling_spectrogram_improved
 
 # TODO: verift atht this works for other users

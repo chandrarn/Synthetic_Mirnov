@@ -178,6 +178,10 @@ def correct_frequency_response(sensors_bode, sensor_freq_response, freq, mode, d
     if doSave: 
         sensors_bode.to_netcdf(working_files_directory+'probe_signals_%s_m%02d_n%02d_f%1.1ekHz%s.nc'%(
         probe_details.attrs['probe_set_name'],mode['m'],mode['n'],freq/1e3,save_Ext),auto_complex=True)
+        fName = 'Frequency_Scan_for_g1051202011.1000_on_C_Mod_ThinCurr_Combined-homology.h5_using_C_MOD_ALL_from_6.55e+05-6.55e+05Hz_n=10_rho=0.2_lambda=0.20_FAR3D_NonLinear_Filament.npz'
+        np.savez('../data_output/'+fName, probe_signals=sensors_bode.to_dataarray().to_numpy(), freqs=[freq],\
+                 sensor_names=sensors_bode.sensor.coords['sensor'].to_numpy()) 
+        
         if debug: print('Saved probe signals to %s'%(working_files_directory+'probe_signals_%s_m%02d_n%02d_f%1.1ekHz%s.nc'
             %(probe_details.attrs['probe_set_name'],mode['m'],mode['n'],freq/1e3,save_Ext)) )
 

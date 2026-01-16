@@ -21,7 +21,7 @@ import eqtools as eq
 
 def gen_M3DC1_CMod_Input(shotno,timePoint,
              saveDataFile='/home/rianc/Documents/Synthetic_Mirnov/data_output/',
-                         doPlot=False, doSavePlot='',dropChansTS=[3,10],
+                         doPlot=False, doSavePlot='',dropChansTS=[],
                          dropChansTS_Edge=[0,1,2,3]):
     '''
     
@@ -112,8 +112,8 @@ def __verify_Psi(eqfile,shotno,timePoint,doSavePlot):
     
 ################################################
 if __name__ == '__main__': #Command line operations
-    shotno = int(sys.argv[1])
-    timePoint = float(sys.argv[2])
+    shotno = 1051202011#int(sys.argv[1])
+    timePoint = 1.0#float(sys.argv[2])
     
     gen_M3DC1_CMod_Input(shotno, timePoint, doPlot=True,
              doSavePlot='/home/rianc/Documents/Synthetic_Mirnov/output_plots/')

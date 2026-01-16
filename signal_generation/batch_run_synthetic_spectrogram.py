@@ -22,7 +22,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
                                     Mode_params={'dt':1e-6,'T':10e-3,'periods':3},
                                     spectrogram_params={'pad':230,'fft_window':230,'block_reduce':(230,0)},
                                     save_Ext='',max_modes=5,max_m=15,max_n=5,
-                                    doSave=False,doPlot=False,training_shots=1):
+                                    doSave=False,doPlot=False,training_shots=1,doPerturbation=True):
     """
     Batch run synthetic spectrogram generation for given parameters.
     
@@ -45,7 +45,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
 
     # Generate frequencies and mode numbers
     per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
-                                doPlot=doPlot,save_ext=save_Ext+'_')
+                                doPlot=doPlot*False,save_ext=save_Ext+'_',doPerturbation=doPerturbation)
 
     # Initialize OFT environment
     oft_env = OFT_env(nthreads=ThinCurr_params['n_threads'],abort_callback=True)
@@ -53,53 +53,53 @@ def batch_run_synthetic_spectrogram(output_directory='',
     for mode_param in per_shot_mode_params:
         print(f"Running simulation for mode: {mode_param['m']}/{mode_param['n']} at frequency {mode_param['f']} Hz")
         
-        try:
-            # Generate synthetic Mirnov signals
-            # # Need sensor list output for sensor names
-            gen_synthetic_Mirnov(
-                mesh_file=ThinCurr_params['mesh_file'],
-                sensor_set=ThinCurr_params['sensor_set'],
-                params=mode_param,
-                save_ext=ThinCurr_params['save_ext'],
-                doSave=doSave,
-                archiveExt='training_data/',
-                doPlot=doPlot,
-                plotOnly=False,
-                wind_in=ThinCurr_params['wind_in'],
-                eta = ThinCurr_params['eta'],
-                file_geqdsk=mode_param['file_geqdsk'],
-                cmod_shot=ThinCurr_params['cmod_shot'],
-                oft_env=oft_env
-            )
-            
-            # Calculate spectrogram
-            # Needs to return complex valued spectrogram for each sensor, shape (n_sensors, n_freq, n_time)
-            diag,signals,time,out_spect,out_spect_all_cplx, freq, sensor_name = signal_spectrogram_C_Mod(
-                shotno=None,  # No shot number for synthetic data
-                params=mode_param,
-                sensor_name=None,
-                sensor_set=ThinCurr_params['sensor_set'],
-                pad=spectrogram_params['pad'],
-                fft_window=spectrogram_params['fft_window'],
-                doSave=doSave,
-                save_Ext=save_Ext,
-                doPlot=doPlot,
-                mesh_file = ThinCurr_params['mesh_file'],
-                archiveExt='training_data/',
-                tLim=[0,Mode_params['T']],
-                block_reduce=spectrogram_params['block_reduce'],
-                plot_reduce=(1,1),filament=True, use_rolling_fft=True,
-                f_lim=None,cLim=None,tScale=1e3,doSave_data=True # Set frequency limits and color limits
-            )
-            
-            # Save results in an xarray dataset
-            if doSave:
-                xarray_file = save_xarray_results(output_directory, mode_param, time, freq, out_spect_all_cplx,ThinCurr_params,save_Ext,sensor_name)
+        # try:
+        # Generate synthetic Mirnov signals
+        # # # Need sensor list output for sensor names
+        gen_synthetic_Mirnov(
+            mesh_file=ThinCurr_params['mesh_file'],
+            sensor_set=ThinCurr_params['sensor_set'],
+            params=mode_param,
+            save_ext=ThinCurr_params['save_ext'],
+            doSave=doSave,
+            archiveExt='training_data/',
+            doPlot=doPlot,
+            plotOnly=False,
+            wind_in=ThinCurr_params['wind_in'],
+            eta = ThinCurr_params['eta'],
+            file_geqdsk=mode_param['file_geqdsk'],
+            cmod_shot=ThinCurr_params['cmod_shot'],
+            oft_env=oft_env
+        )
+        
+        # Calculate spectrogram
+        # Needs to return complex valued spectrogram for each sensor, shape (n_sensors, n_freq, n_time)
+        diag,signals,time,out_spect,out_spect_all_cplx, freq, sensor_name = signal_spectrogram_C_Mod(
+            shotno=None,  # No shot number for synthetic data
+            params=mode_param,
+            sensor_name=None,
+            sensor_set=ThinCurr_params['sensor_set'],
+            pad=spectrogram_params['pad'],
+            fft_window=spectrogram_params['fft_window'],
+            doSave=doSave,
+            save_Ext=save_Ext,
+            doPlot=doPlot,
+            mesh_file = ThinCurr_params['mesh_file'],
+            archiveExt='training_data/',
+            tLim=[0,Mode_params['T']],
+            block_reduce=spectrogram_params['block_reduce'],
+            plot_reduce=(1,1),filament=True, use_rolling_fft=True,
+            f_lim=[0,150],cLim=None,tScale=1e3,doSave_data=True # Set frequency limits and color limits
+        )
+        
+        # Save results in an xarray dataset
+        if doSave:
+            xarray_file = save_xarray_results(output_directory, mode_param, time, freq, out_spect_all_cplx,ThinCurr_params,save_Ext,sensor_name)
 
-                convert_spectrogram_to_training_data(xarray_file, timepoint_index=20,doSave=doSave,doPlot=doPlot)
-        except Exception as e:
-            print(f"Error occurred for mode {mode_param['m']}/{mode_param['n']} at frequency {mode_param['f']} Hz: {e}")
-            continue
+            convert_spectrogram_to_training_data(xarray_file, timepoint_index=2,doSave=doSave,doPlot=doPlot)
+        # except Exception as e:
+        #     print(f"Error occurred for mode {mode_param['m']}/{mode_param['n']} at frequency {mode_param['f']} Hz: {e}")
+        #     continue
 #######################################################################################
 ######################################################################################
 def save_xarray_results(output_directory, mode_param, time, freq, out_spect,ThinCurr_params,save_Ext,sensor_names):
@@ -165,7 +165,7 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
 
 #####################################################################################
 # Function to convert spectrogram output into training data format
-def convert_spectrogram_to_training_data(xarray_f_name, timepoint_index=20,\
+def convert_spectrogram_to_training_data(xarray_f_name, timepoint_index=2,\
                 cLim=None,ylim=[0,500], doSave='',doPlot=True):
     """
     Convert spectrogram output into training data format.
@@ -240,7 +240,8 @@ def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, senso
 ##################################################################3
 if __name__ == '__main__':
     # Example usage
-    output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
+    # output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
+    output_directory = '../data_output/synthetic_spectrograms/new_helicity_low_mn/'
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -264,21 +265,23 @@ if __name__ == '__main__':
         'cmod_shot' : 1160930034,#1051202011,
         'save_ext': '',
         'doNoise': False,
-        'wind_in' : 'phi',
+        'wind_in' : 'theta',
         'file_geqdsk' : 'g1051202011.1000',
         'eta' : eta,
-        'n_threads' : 24,
+        'n_threads' : 20,
     }
 
-    Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':100,'m_pts':60,'R':None,'r':None,\
-                   'noise_envelope':0.00,'max_modes':1,'max_m':6,'max_n':6,'n_threads' : 28} 
+    Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
+                   'noise_envelope':0.00,'max_modes':1,'max_m':4,'max_n':4,'n_threads' : 20} 
 
-    spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
+    # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 
-    save_Ext = '_Synth_low-n'
-    doSave = '../output_plots/low_m-n_spectrograms'
+    spectrogram_params = {'pad':0,'fft_window':None,'block_reduce':(800,800)}
+    save_Ext = '_Synth_low-n_New_Helicity'
+    doSave = '../output_plots/low_m-n_spectrograms'*True
     doPlot = False
-    training_shots = 400
+    training_shots = 200
+    doPerturbation = False
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,
@@ -288,7 +291,8 @@ if __name__ == '__main__':
         save_Ext=save_Ext,
         doSave=doSave,
         doPlot=doPlot,
-        training_shots=training_shots
+        training_shots=training_shots,
+        doPerturbation=doPerturbation
     )
 
 

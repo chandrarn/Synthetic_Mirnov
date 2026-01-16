@@ -63,7 +63,7 @@ def gen_mode_params(training_shots=1,params={'T': 10, 'dt': 0.01},doPlot=False,s
 ######################################################################################################
 def gen_mode_params_for_training(training_shots=1,\
         params={'T': 1e-3, 'dt': 1e-7,'m_pts':60,'n_pts':60,'periods':1,'R':None,'r':None,\
-                   'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext=''):
+                   'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext='',doPerturbation=True):
     """
     Generate mode parameters for training.
     :param training_shots: Number of training shots
@@ -104,9 +104,9 @@ def gen_mode_params_for_training(training_shots=1,\
         f_plot = []
         for n in params['n']:
             # Generate frequency evolution for each mode
-            f_local = gen_frequency_evolutions(n, params['m'][params['n'].index(n)]) 
+            f_local = gen_frequency_evolutions(n, params['m'][params['n'].index(n)],doPerturbation=doPerturbation) 
             # Generate amplitude evolution for each mode
-            I_local = gen_amplitude_evolution(np.mean(f_local(np.array([0,1]))))  # Use the average frequency for amplitude scaling
+            I_local = gen_amplitude_evolution(np.mean(f_local(np.array([0,1]))),doPerturbation)  # Use the average frequency for amplitude scaling
 
             # Generate the time-dependent frequency and amplitude
             dead_fraction = np.random.uniform(0.1, 0.5) 
@@ -132,7 +132,7 @@ def gen_mode_params_for_training(training_shots=1,\
                                          params['f'][2],params['I'][2],params['f_Hz'][2],save_ext)
     return params_per_shot # Params now include frequency bands, structured as list of dicts for each shot
 ######################################################################################################
-def gen_frequency_evolutions(n, m, v_phi_0=[5, 30], v_a=[200, 400]):
+def gen_frequency_evolutions(n, m, v_phi_0=[20, 40], v_a=[200, 400], doPerturbation=True):
     """
     Generates a time-dependent frequency evolution f(t) with a base frequency,
     a smooth evolution (linear or polynomial), and a smooth perturbation.
@@ -183,12 +183,12 @@ def gen_frequency_evolutions(n, m, v_phi_0=[5, 30], v_a=[200, 400]):
         f_pert = lambda time: rand_pert(time)  # Apply filter (zero-phase)
 
     # 4. Combine Evolution and Perturbation
-    f_t = lambda time: f_evol(time) + f_pert(time)
+    f_t = lambda time: f_evol(time) + ( f_pert(time) if doPerturbation else 0)
 
     return f_t
 
 ########################################################################################################
-def gen_amplitude_evolution(freq_avg):
+def gen_amplitude_evolution(freq_avg,doPerturbation=True):
     """
     Generates a smooth, time-dependent amplitude evolution I(t).
     Args:
@@ -229,7 +229,7 @@ def gen_amplitude_evolution(freq_avg):
         I_pert = lambda time: rand_pert(time)
 
     # 4. Combine Evolution and Perturbation
-    I_t = lambda time: np.abs(I_evol(time) + I_pert(time))
+    I_t = lambda time: np.abs(I_evol(time) + ( I_pert(time) if doPerturbation else 0) )
 
     return I_t
 

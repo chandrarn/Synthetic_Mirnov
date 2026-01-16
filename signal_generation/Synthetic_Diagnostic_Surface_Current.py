@@ -426,13 +426,13 @@ def __do_plot_B_J(output,nfp,nphi,ntheta,bnorm,tw_mode,tw_mesh,sensor_set,doSave
 if __name__=='__main__':
     # SPARC Side
     # mesh_file='SPARC_Sept2023_noPR.h5';
-    doSave='../output_plots/';save_ext='_FAR3D_NonLinear';
+    doSave='../output_plots/';save_ext='_FAR3D_NonLinear_Low_Mesh_Resolution';
     sensor_set='BP';xml_filename='oft_in.xml';
     # params={'m':2,'n':1,'r':.25,'R':1,'n_pts':40,'m_pts':60,\
     # 'f':F_KM,'dt':1e-6,'periods':3,'n_threads':8,'I':I_KM,'T':1e-3}
 
     # C-Mod Side
-    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file='C_Mod_ThinCurr_VV-homology.h5'#'C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file = 'vacuum_mesh.h5'
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined_3D_Tiles-homology.h5'
 
@@ -454,19 +454,19 @@ if __name__=='__main__':
     
     # FAR3D files for 1051202011
     # [9,10,11,12]
-    cmod_shot=1051202011
-    file_geqdsk = 'g1051202011.1000'
-    params={'m':[13,12,11,10,9,8,7],'n':10,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
-    'f':655e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
-    FAR3D_br_file = 'br_1073';FAR3D_bth_file='bth_1073'
+    # cmod_shot=1051202011
+    # file_geqdsk = 'g1051202011.1000'
+    # params={'m':[13,12,11,10,9,8,7],'n':10,'r':.25,'R':1,'n_pts':30,'m_pts':57,\
+    # 'f':655e3,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    # FAR3D_br_file = 'br_1073';FAR3D_bth_file='bth_1073'
 
     # # FAR3D files for 1160930034
-    # cmod_shot=1160930033
-    # file_geqdsk='g1160930034.1200'
-    # params={'m':[15,14,13,12,11,10,9],'n':12,'n_pts':28,'m_pts':60,'f':665e3,'n_threads':28,\
-    # }#'r':.25,'R':1,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
-    # # FAR3D_br_file = 'br_1087';FAR3D_bth_file='bth_1087'
-    # # FAR3D_br_file = 'br_7029';FAR3D_bth_file='bth_7029'
+    cmod_shot=1160930033
+    file_geqdsk='g1160930034.1200'
+    params={'m':[10,9,8,7,6,5,4],'n':7,'n_pts':14,'m_pts':30,'f':665e3,'n_threads':28,\
+    }#'r':.25,'R':1,'dt':1e-7,'periods':2,'n_threads':28,'I':I_KM,'T':1e-5}
+    # FAR3D_br_file = 'br_1087';FAR3D_bth_file='bth_1087'
+    FAR3D_br_file = 'br_7029';FAR3D_bth_file='bth_7029'
     # FAR3D_br_file = 'br_1221';FAR3D_bth_file='bth_1221'
 
     doPlot=True; plotOnly=False
@@ -475,8 +475,8 @@ if __name__=='__main__':
 
     doSave_Bode=True
     scan_in_freq=True
-    psi_contour_select=0.25
-    lambda_merezhkin= 0.20
+    psi_contour_select=0.2
+    lambda_merezhkin= 0.15
 
     Synthetic_Mirnov_Surface(mesh_file=mesh_file,doSave=doSave,save_ext=save_ext,file_geqdsk=file_geqdsk,\
                              sensor_set=sensor_set,xml_filename=xml_filename,params=params,doPlot=doPlot,\

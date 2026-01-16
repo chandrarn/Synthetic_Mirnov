@@ -22,7 +22,9 @@
 '''
 ########################################################################################
 from header_synthetic_mirnov_generation import np, plt, pyvista, ThinCurr,\
-    Mirnov, save_sensors, OFT_env, mu0, histfile, geqdsk, xr
+    Mirnov, save_sensors, OFT_env, mu0, histfile, geqdsk, xr, Mo, SS, w_tile_lim,\
+          w_tile_arm, w_vv, w_ss, w_shield
+
 
 from prep_ThinCurr_input import gen_coil_currs_sin_cos, gen_filament_coords, calc_filament_coords_field_lines,\
       gen_OFT_sensors_file, gen_OFT_filement_and_eta_file
@@ -140,19 +142,19 @@ if __name__ == '__main__':
     probe_details = xr.load_dataset(f"input_data/sensor_details_{sensor_set}.nc")
 
     # Load example equilibrium
-    file_geqdsk = 'g1051202011.1000'
+    file_geqdsk = 'g1160930034.1200'#'g1051202011.1000'
     
     # Define mode to simulate
-    mode = {'m': 11, 'n': 3, 'm_pts': 20, 'n_pts': 40}
+    mode = {'m': 1, 'n': 1, 'm_pts': 48, 'n_pts': 40}
 
     # Resistivity of the conducting structure in Ohm-m
-    eta = [1e-6]
+    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
 
     # Path to the mesh model file for ThinCurr
     mesh_model = 'C_Mod_ThinCurr_VV-homology.h5'
 
     # Frequency to simulate
-    freq = 10000  # Hz
+    freq = 700e3  # Hz
 
     #####################
     # Frequency response correction [ leave as a flat response if this is unknown: H = lambda w: 1 ]
@@ -167,7 +169,7 @@ if __name__ == '__main__':
     Z_C =  lambda w:1 / (1j * w * C)
     Z_total =  lambda w: Z_R(w) + Z_L(w) + Z_C(w)
 
-    H =  lambda w: Z_C(w) / Z_total(w)  # Voltage across capacitor / input voltage
+    H =  lambda w: np.ones(w.shape)#Z_C(w) / Z_total(w)  # Voltage across capacitor / input voltage
     # Frequency response dictionary for each sensor
     freq_response_dict = {name: H for name in probe_details.coords['sensor'].values}
     
@@ -175,7 +177,7 @@ if __name__ == '__main__':
     debug = True
     working_files_directory='input_data/'
     save_Ext='_CMod'
-    n_threads=12
+    n_threads=20
     doSave = True
     doPlot = True
     plotParams = {'clim_J':[0,.5]}

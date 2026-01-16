@@ -27,7 +27,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 doSave='',save_ext='',file_geqdsk='g1051202011.1000',
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
-                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=True,
+                                eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=False,
                                 scan_in_freq=False,clim_J=None,doSave_Bode=False,oft_env=None):
     
     os.chdir('../signal_generation/')
@@ -164,7 +164,8 @@ def gen_coil_currs(param,debug=True,doSave=False,wind_in='theta',scan_in_freq=Fa
     time=np.linspace(0,param['T'],nsteps)
     
     # assume that m_pts can be a list
-    if type(m_pts) == int: num_filaments = m_pts*len(starting_angle)
+    pts = m_pts if wind_in == 'phi' else n_pts
+    if type(pts) == int: num_filaments = pts*len(starting_angle)
     else: num_filaments = sum([len(theta) for theta in starting_angle])
     if debug:print('Number of filaments: %d'%num_filaments)
     coil_currs = np.zeros((time.size,num_filaments+1))
@@ -318,7 +319,7 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
 ################################################################################################
 ################################################################################################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
-              filament_coords,file_geqdsk, sensor_set,t_pt=0,plot_B_surf=True,debug=True,
+              filament_coords,file_geqdsk, sensor_set,t_pt=1,plot_B_surf=True,debug=True,
               clim_J=None,scan_in_freq=False):
     # Generate plots of mesh, filaments, sensors, and currents
     # Will plot induced current on the mesh if plot_B_surf is True
@@ -349,10 +350,10 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 
     # Plot Mesh
     if plot_B_surf: 
-        p.add_mesh(grid,color="white",opacity=.6,show_edges=True, \
+        p.add_mesh(grid,color="white",opacity=.1,show_edges=True, \
                    scalars=Jfull,clim=clim_J,smooth_shading=True,\
                        scalar_bar_args={'title':'Eddy Current [A/m]'})
-    else: p.add_mesh(grid,color="white",opacity=.9,show_edges=True)
+    else: p.add_mesh(grid,color="white",opacity=.1,show_edges=True)
     
     tmp=[]
     if debug:print('Plotted Mesh')
@@ -364,6 +365,8 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     # Modify to accept filament_coords as a list
     cumulative_filament_coords = np.cumsum([len(filament) for filament in filament_coords])
     cumulative_filament_coords = np.insert(cumulative_filament_coords, 0, 0) # prepend 0 to cumulative coords
+    while not np.any(coil_currs[t_pt,:]):t_pt+=1 # Check for first non-zero timepoint
+
     for ind_mn, filament_list in enumerate(filament_coords):
        
         for ind,filament in enumerate(filament_list):
@@ -415,7 +418,7 @@ if __name__=='__main__':
     # C-Mod Side
     # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
-    file_geqdsk='g1051202011.1000'
+    # file_geqdsk='g1051202011.1000'
 
      #'1.8E-5, 1.8E-5, 3.6E-5'#'1.8E-5, 3.6E-5, 2.4E-5'#, 6.54545436E-5, 2.4E-5' ) #3.5
     # Bulk resistivities
@@ -430,9 +433,9 @@ if __name__=='__main__':
     # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
     # For more accuracy, could break up filaments into different eta values based on position
     #
-    # eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
     # eta = f'{SS/2e-2}, {SS/15e-2}'
-    eta = '1E-6'
+    # eta = '1E-6'
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
     # sensor_set='C_MOD_LIM';cmod_shot=1051202011
     # sensor_set = 'C_MOD_ALL'
@@ -440,18 +443,18 @@ if __name__=='__main__':
     
     # C-Mod Frequency Scan
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
-    mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
+    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    # mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
     # mesh_file='C_Mod_ThinCurr_VV_Improved-homology.h5'
     
     # mesh_file = 'vacuum_mesh.h5'
-    params={'m':[4],'n':[2],'r':0,'R':0.8,'n_pts':[20],'m_pts':[20],\
-        'f':np.linspace(1e3,1e3,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':1,'noise_envelope':0.00}
-    params={'m':[10],'n':[4],'r':0,'R':0.8,'n_pts':[40],'m_pts':[20],\
-        'f':1e4,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
+    # params={'m':[12],'n':[10],'r':0,'R':0.8,'n_pts':[20],'m_pts':[20],\
+    #     'f':np.linspace(1e3,1e3,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':1,'noise_envelope':0.00}
+    params={'m':[12],'n':[10],'r':0,'R':0.8,'n_pts':[60],'m_pts':[61],\
+        'f':700e3,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
     sensor_set = 'C_MOD_ALL'
     file_geqdsk='g1160930034.1200'#'g1051202011.1000' # Not used for frequency scan
-    cmod_shot = 1160930034#1151208900 	
+    cmod_shot = 1160714026#1160930034#1151208900 	
     wind_in = 'theta' # Note: advanced `theta' winding does not work for single filament m/n=1 case
     scan_in_freq = False # Set to True to run frequency scan, False to run time dependent simulation
     clim_J = [0,.5] # Color limits for eddy current plot
@@ -468,8 +471,9 @@ if __name__=='__main__':
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext='_f-sweep_All-Release_Comparison'
+    save_ext='_f-sweep_All-Release_Comparison_FAR3d_Filaments'
     doSave='../output_plots/'*True
+    plotOnly = True
 
     # # Frequency, amplitude modulation
     # # Note: If the amplitude and frequency are not set correctly for LF signals, 
@@ -527,6 +531,6 @@ if __name__=='__main__':
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
          save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
-           plotOnly=True, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode)
+           plotOnly=plotOnly, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode)
     
     print('Run complete')

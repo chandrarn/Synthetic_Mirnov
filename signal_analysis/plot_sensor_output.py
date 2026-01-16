@@ -230,7 +230,7 @@ def plot_single_sensor(hist_file_name,sensor_name,coil_currs=None,coil_inds=None
             sig = hist_file[name][:-1]
             time = hist_file['time'][:-1]*1e3
             ax[0,0].set_ylabel(r'B [T]')
-        ax[0,0].plot(time*1e3,sig,label=name,\
+        ax[0,0].plot(time,sig,label=name,\
                      alpha=1-.5*sensor_name.index(name)/len(sensor_name))
     
     # ax[0,0].set_ylabel(r'B [G]')

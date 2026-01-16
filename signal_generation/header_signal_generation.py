@@ -35,8 +35,11 @@ plt.rcParams['lines.markeredgewidth']=2
 rc('font',**{'family':'serif','serif':['Palatino']})
 rc('font',**{'size':11})
 rc('text', usetex=True)
-import matplotlib;matplotlib.use('TkAgg') # Use TkAgg backend for plotting
-plt.ion()
+import matplotlib;
+try:
+    matplotlib.use('TkAgg') # Use TkAgg backend for plotting
+    plt.ion()
+except:pass # TkAgg can't be assigned in headless operations
 
 print(getcwd())
 #sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')

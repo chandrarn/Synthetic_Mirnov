@@ -136,7 +136,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
 
         # Debug plots
         if debug:
-            if calculate_old_way:
+            if False: #Old way
                 plt.close('filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
                 fig,ax = plt.subplots(1,3,tight_layout=True,figsize=(7,4),
                         num='filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
@@ -169,7 +169,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
                 plt.close('filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
                 fig,ax = plt.subplots(1,1,tight_layout=True,figsize=(7,4),subplot_kw={'projection':'3d'},
                         num='filament_debug_%d-%d%s'%(m,n,debug if type(debug) is str else ''))
-                ax.plot(coords[ind_m][:,0],coords[ind_m][:,1],coords[ind_m][:,2])
+                ax.plot(coords[ind_m][0][0],coords[ind_m][0][1],coords[ind_m][0][2])
                 plt.show()
     return coords
 
@@ -182,6 +182,8 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
 
 #########################################################################
 # Initial phi positions for filaments to launch from
+# TODO: Check if x n_local or / n_local changed based on winding scheme
+# ratio_npts = np.gcd(n_local,n_pts)
 def starting_phi(m,n,m_pts,n_pts):
     ratio = Fraction(m,n)
     m_local=ratio.numerator;n_local=ratio.denominator

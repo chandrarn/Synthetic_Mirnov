@@ -4,7 +4,7 @@
 Fourier Neural Operator (FNO) based classifier/regressor for mode numbers (m or n).
 
 This script focuses on the FNO neural network architecture and training:
-- 4-channel input per sensor: [real, imag, theta, phi]
+- 5-channel input per sensor: [real, sin(Δimag), cos(Δimag), theta, phi]
 - 1D Fourier Neural Operator over the sensor axis (sorted consistently)
 - Classification/regression for mode numbers (m or n)
 - Training with early stopping, validation, and confusion matrix plotting
@@ -35,7 +35,7 @@ from data_caching import build_or_load_cached_dataset
 # Dataset wrapper
 # -------------------------
 class SensorFourChannelDataset(Dataset):
-    """Holds (N, S, 4) with per-sensor channels: difference from first sensor for [real, imag, theta, phi]."""
+    """Holds (N, S, 5) with per-sensor channels: [Δreal, sin(Δimag), cos(Δimag), Δtheta, Δphi]."""
     def __init__(self, X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.ndarray]=None,
                  phi: Optional[np.ndarray]=None, mask_prob: float = 0.1, is_train: bool = True,
                  scaler: Optional['StandardScaler']=None):
@@ -55,17 +55,29 @@ class SensorFourChannelDataset(Dataset):
 
         # Precompute difference features for all samples
         # For each sample: (S, 2) real/imag, (S,) theta, (S,) phi
-        # Output: (S, 4) where each channel is value - value[0]
+        # Output: (S, 5) where channels are [Δreal, sin(Δimag), cos(Δimag), Δtheta, Δphi]
         diff_features = []
         for i in range(N):
             xri = self.X_ri[i]  # (S, 2)
             real_diff = xri[:, 0] - xri[0, 0]
-            imag_diff = xri[:, 1] - xri[0, 1]
+            delta_imag = xri[:, 1] - xri[0, 1]
+
+            # optional: handle negative amplitudes as you do
+            arg_neg  = xri[:,0] < 0
+            if np.any(arg_neg):
+                real_diff[arg_neg] = np.abs(real_diff[arg_neg])
+                delta_imag[arg_neg] += np.pi
+
+            # wrap-aware signed difference in (-pi, pi]
+            delta_imag = np.angle(np.exp(1j*delta_imag))
+            sin_imag = np.sin(delta_imag)
+            cos_imag = np.cos(delta_imag)
+
             th_diff = self.theta - self.theta[0]
             ph_diff = self.phi - self.phi[0]
-            x = np.stack([real_diff, imag_diff, th_diff, ph_diff], axis=1)  # (S, 4)
+            x = np.stack([real_diff, sin_imag, cos_imag, th_diff, ph_diff], axis=1)
             diff_features.append(x)
-        self.diff_features = np.stack(diff_features, axis=0)  # (N, S, 4)
+        self.diff_features = np.stack(diff_features, axis=0)  # (N, S, 5)
 
         # Apply scaler if provided
         if self.scaler is not None:
@@ -78,48 +90,87 @@ class SensorFourChannelDataset(Dataset):
         return self.diff_features.shape[0]
 
     def __getitem__(self, idx):
-        x = torch.from_numpy(self.diff_features[idx])  # (S, 4)
+        x = torch.from_numpy(self.diff_features[idx])  # (S, 5)
         y = torch.tensor(int(self.y[idx]), dtype=torch.long)
         S = x.shape[0]
         if self.is_train and self.mask_prob > 0:
             mask = torch.rand(S) < self.mask_prob
             x[mask] = 0.0
-            # Enhanced amplitude jitter on real/imag only
-            noise = torch.randn_like(x[:, :2]) * 0.08
-            x[:, :2] += noise
-            # Add small rotation-like mixing between real and imag channels
-            if torch.rand(1).item() < 0.3:
-                angle = (torch.rand(1).item() - 0.5) * 0.2  # small angle
-                cos_a, sin_a = np.cos(angle), np.sin(angle)
-                x_real = x[:, 0].clone()
-                x[:, 0] = cos_a * x_real - sin_a * x[:, 1]
-                x[:, 1] = sin_a * x_real + cos_a * x[:, 1]
+            # Light jitter on real channel only to avoid corrupting sin/cos encoding
+            noise = torch.randn_like(x[:, 0]) * 0.08
+            x[:, 0] += noise
         return x, y
 from sklearn.preprocessing import StandardScaler
 
 def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray, phi: np.ndarray) -> Tuple[np.ndarray, StandardScaler]:
     """
     Compute difference features and fit StandardScaler, then transform and return scaled features.
-    Returns scaled difference features (N, S, 4) and fitted scaler.
+    Returns scaled difference features (N, S, 5) and fitted scaler.
     """
     N, S, _ = X_ri.shape
     diff_features = []
     for i in range(N):
         xri = X_ri[i]
         real_diff = xri[:, 0] - xri[0, 0]
-        imag_diff = xri[:, 1] - xri[0, 1]
+        delta_imag = xri[:, 1] - xri[0, 1]
+        delta_imag = np.angle(np.exp(1j*delta_imag ))  # wrap-aware, with sign check
+        # delta_imag *= __check_angle_slope(delta_imag)
+        # if __check_angle_slope(delta_imag) < 0 : raise  ValueError("Angle differences are decreasing, check sensor ordering!")
+        sin_imag = np.sin(delta_imag)
+        cos_imag = np.cos(delta_imag)
         th_diff = theta - theta[0]
         ph_diff = phi - phi[0]
-        x = np.stack([real_diff, imag_diff, th_diff, ph_diff], axis=1)
+        x = np.stack([real_diff, sin_imag, cos_imag, th_diff, ph_diff], axis=1)
         diff_features.append(x)
     diff_features = np.stack(diff_features, axis=0)
     scaler = StandardScaler()
     N, S, C = diff_features.shape
-    flat = diff_features.reshape(-1, C)
+    flat = diff_features.reshape(-1, C) # (N*S, C)
     scaler.fit(flat)
-    flat_scaled = scaler.transform(flat)
+    flat_scaled = scaler.transform(flat) 
     diff_features_scaled = flat_scaled.reshape(N, S, C)
     return diff_features_scaled, scaler
+
+def __check_angle_slope(delta_imag: np.ndarray, n_sensors: int = 5) -> int:
+    # Check if angle differences are on-average increasing or decreasing
+    diffs = np.diff(delta_imag)[:n_sensors]
+    return np.sign(np.mean(diffs)) * -1 
+def plot_scaled_features(diff_features_scaled: np.ndarray, save_path: str, saveData: bool = True):
+    # For some set of samples, plot all five channels after scaling
+    N, S, C = diff_features_scaled.shape
+
+    plt.close('Scaled_Features')
+    n_rows = 3
+    n_cols = 2
+    fig, ax = plt.subplots(n_rows,n_cols,figsize=(6,6), tight_layout=True,num='Scaled_Features',
+                           sharex=True)
+    ax = ax.flatten()
+
+    for i in range(C):
+        channel_data = diff_features_scaled[:, :, i]
+        ax[i].plot(channel_data.T, alpha=0.3)
+        labels = [r'$\Delta||\mathcal{F}||$', r'$\sin(\Delta\angle\mathcal{F})$',
+                  r'$\cos(\Delta\angle\mathcal{F})$', r'$\Delta\theta$', r'$\Delta\phi$']
+        ax[i].set_ylabel(labels[i])
+        if i >= (n_rows-1)*n_cols:
+            ax[i].set_xlabel('Sample Index')
+        ax[i].grid()
+
+    # Hide any unused axes
+    for j in range(C, len(ax)):
+        ax[j].set_visible(False)
+
+    if save_path:
+        plt.savefig(save_path, transparent=True)
+        print(f"Saved scaled features plot to {save_path}")
+
+    if saveData:
+        np.savez('../data_output/scaled_features.npz', features_scaled=diff_features_scaled, \
+                 channel_data=channel_data)
+        print(f"Saved scaled features data to ../data_output/scaled_features.npz")
+
+###############################################################################################
+###############################################################################################
 
 # -------------------------
 # FNO 1D modules
@@ -174,9 +225,9 @@ class FNOBlock1d(nn.Module):
 
 class FNO1dClassifier(nn.Module):
     """
-    1D FNO over sensor dimension with 4 input channels -> width -> blocks -> pooling -> head.
+    1D FNO over sensor dimension with 5 input channels -> width -> blocks -> pooling -> head.
     """
-    def __init__(self, in_channels=4, width=128, modes=16, depth=4, n_classes=10, dropout=0.3):
+    def __init__(self, in_channels=5, width=128, modes=16, depth=4, n_classes=10, dropout=0.3):
         super().__init__()
         self.lift = nn.Conv1d(in_channels, width, kernel_size=1)
         self.blocks = nn.ModuleList([FNOBlock1d(width, modes, dropout=dropout*0.5) for _ in range(depth)])
@@ -192,15 +243,19 @@ class FNO1dClassifier(nn.Module):
         )
 
     def forward(self, x):
-        # x: (B, S, 4) -> (B, 4, S)
+        # x: (B, S, C=5) -> (B, 5, S)
         # Verify: S is the sensor dimension (last dim after permute becomes sensor axis)
-        x = x.permute(0, 2, 1)  # Now (B, 4, S) - channels first, sensors last
+        x = x.permute(0, 2, 1)  # Now (B, 5, S) - channels first, sensors last
         x = self.lift(x)  # (B, width, S)
         for blk in self.blocks:
             x = blk(x)  # Still (B, width, S) - FFT happens over sensor dimension (dim=-1)
         x = self.pool(x)  # (B, width, 1)
         x = x.squeeze(-1)  # (B, width)
         return self.head(x)  # (B, n_classes)
+
+
+###############################################################################################
+###############################################################################################
 
 # -------------------------
 # Training / evaluation
@@ -258,7 +313,7 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
                        persistent_workers=True if cfg.num_workers > 0 else False)
 
     device = device or (torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
-    model = FNO1dClassifier(in_channels=4, width=cfg.width, modes=cfg.modes, depth=cfg.depth,
+    model = FNO1dClassifier(in_channels=5, width=cfg.width, modes=cfg.modes, depth=cfg.depth,
                             n_classes=n_classes, dropout=cfg.dropout).to(device)
     opt = optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     
@@ -281,11 +336,11 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
         model.train()
         train_loss = 0.0
         n_seen = 0
-        for xb, yb in train_dl:
+        for xb, yb in train_dl: # Run model on every sample in training set
             xb = xb.to(device)
             yb = yb.to(device)
             out = model(xb)
-            loss = criterion(out, yb)
+            loss = criterion(out, yb) # Calculate loss
             opt.zero_grad()
             loss.backward()
             # Gradient clipping for training stability
@@ -370,7 +425,7 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
     ax1.axvline(len(epochs_range) - patience_counter, color='g', linestyle='--', alpha=0.7, label='Best Model')
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel('Loss')
-    ax1.set_title('Training \& Validation Loss')
+    ax1.set_title(r'Training \& Validation Loss')
     ax1.legend()
     ax1.grid(True)
     
@@ -407,6 +462,10 @@ def train_fno_classifier(X_ri: np.ndarray, y: np.ndarray, theta: Optional[np.nda
 
     return model, le, val_acc, auc
 
+###############################################################################################
+
+###############################################################################################
+###############################################################################################
 
 # -------------------------
 # Example usage
@@ -416,19 +475,25 @@ def example_usage():
     Example: cache dataset and train FNO classifier on 'n' labels.
     Adjust paths as needed.
     """
-    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
-    out_path = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/cached_data_-1.npz"
-    geometry_shot = 1160714026  # for bp_k geometry; set None to skip
+    # data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
+    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/new_helicity_low_mn/testing/"
+    out_path = data_dir + "cached_data_-1.npz"
+    geometry_shot = 1160930034#1160714026#1110316031# 1051202011# # for bp_k geometry; set None to skip
+    model_save_ext = f'_Sensor_Reduced_{geometry_shot}'*True
+    viz_save_path = '../output_plots/'
 
     # Cache or load
     result = build_or_load_cached_dataset(
         data_dir=data_dir, out_path=out_path, use_mode='n', include_geometry=True,
-        geometry_shot=geometry_shot, num_timepoints=10, freq_tolerance=0.1, n_datasets=-1,
-        load_saved_data=True, visualize_first=False)
+        geometry_shot=geometry_shot, num_timepoints=10, freq_tolerance=0.1, n_datasets=1,
+        load_saved_data=False, visualize_first=True,doVisualize=True,\
+            viz_save_path=viz_save_path, saveDataset=False)
     X_ri, y, y_m, y_n, sensor_names, theta, phi = result
+
 
     # Compute difference features and fit scaler
     diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi)
+    plot_scaled_features(diff_features_scaled, save_path=viz_save_path + 'scaled_features.pdf')
 
     # Train FNO with improved hyperparameters for better generalization
     model, le, val_acc, auc = train_fno_classifier(
@@ -436,11 +501,11 @@ def example_usage():
         cfg=TrainConfig(
             batch_size=32,  # Smaller batch for better generalization with small dataset
             n_epochs=300, 
-            patience=15,  # Stop sooner when accuracy plateaus (was 40)
-            modes=20,  # Slightly more modes
+            patience=50,  # Stop sooner when accuracy plateaus (was 40)
+            modes=32,  # Slightly more modes
             width=160,  # Reasonable width
             depth=4, 
-            dropout=0.4,  # Higher dropout for small dataset
+            dropout=0.35,  # Higher dropout for small dataset
             mask_prob=0.15,  # More aggressive masking
             label_smoothing=0.1,  # Label smoothing
             lr=5e-4,  # Lower learning rate
@@ -455,8 +520,12 @@ def example_usage():
     # Save model bundle and scaler
     os.makedirs('../output_models', exist_ok=True)
     torch.save({'state_dict': model.state_dict(), 'classes': le.classes_.tolist(), 'sensor_names': sensor_names,
-                'scaler': scaler, 'theta': theta, 'phi': phi}, '../output_models/fno_classifier_n.pth')
+                'scaler': scaler, 'theta': theta, 'phi': phi},\
+                      f'../output_models/fno_classifier_m{model_save_ext}.pth')
+    plt.show()
     print(f"Done. Val Acc={val_acc:.3f}, AUC={auc:.3f}")
+
+    print(f"Saved trained model to ../output_models/fno_classifier_m{model_save_ext}.pth")
 
 
 if __name__ == "__main__":

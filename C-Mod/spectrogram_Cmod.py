@@ -476,8 +476,8 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
             # 3. Stack the FFT results to form the spectrogram for the current signal
             current_spectrogram = np.column_stack(current_signal_ffts)
             all_individual_spectrograms.append(current_spectrogram)
-            # averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
-            averaged_spectrogram_magnitude = np.abs(np.prod(np.array(all_individual_spectrograms), axis=0) )
+            averaged_spectrogram_magnitude = np.mean(np.abs(np.array(all_individual_spectrograms)), axis=0)
+            # averaged_spectrogram_magnitude = np.abs(np.prod(np.array(all_individual_spectrograms), axis=0) )
 
     if not all_individual_spectrograms:
         return np.array([]), np.array([]), np.array([]) # Return empty if no spectrograms were computed
@@ -512,22 +512,23 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos = [1160930034]#[1160714026]#[1160930033]#[1050615011]
+    shotnos =[1160714026]##[1160930034]#[1110316031]#[1160930033]#[1050615011]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
-    tLims=[[1.,1.5]]
+    tLims=[.7,1.5]
     # Break up into two frequency bins[.5,.8],
     # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
     #               'f_lim':[[0,100],[100,600]]}
     
-    dataRanges = {'tLim':[[0.9,1.5]], 'signal_reduce':2,\
-                  'block_reduce':[10000,0],'sigma':(2,2),'plot_reduce':(1,1)}
-    f_lim=[0,900]; c_lim=[0,.15]
+    dataRanges = {'tLim':[[0.8,1.5]], 'signal_reduce':2,\
+                  'block_reduce':[4000,4000],'sigma':(3,3),'plot_reduce':(1,1)}
+    f_lim=[0,100]; c_lim=None#[0,1]
     pad = 1400;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
     save_Ext= '_Training_Coherance'
+    use_rolling_fft = True
 
     for ind,shot in enumerate(shotnos):
         diag = None
@@ -546,11 +547,12 @@ def gen_lf_signals():
                              params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
                              batch=True,sigma_plot_reduce=dataRanges['sigma'],\
                                  plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
-                                    doSave_data=True)
+                                    doSave_data=True, use_rolling_fft=use_rolling_fft)
                 except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
     
     print('Finished Batch')
 
+###############################################################################
 # fix xarray
 import os
 import glob
@@ -561,8 +563,12 @@ def fix_xarray(directory_path='../data_output/Spectrogram_Xarrays/',pattern='*.n
     for f in matching_files:
         print(f)
         dat=xr.open_dataset(f)
-        try:data = dat.__xarray_dataarray_variable__.values
-        except:continue
+        try:
+            # data = dat.__xarray_dataarray_variable__.values
+            data = dat.Sxx.values
+        except Exception as e:
+            print(e)
+            continue
         try:
             time =dat.coords['Time'].values
             frequency = dat.coords['Frequency'].values
@@ -570,7 +576,7 @@ def fix_xarray(directory_path='../data_output/Spectrogram_Xarrays/',pattern='*.n
             time =dat.coords['time'].values
             frequency = dat.coords['frequency'].values
 
-        spect_xr = xr.Dataset({  "Sxx": (['frequency','time'],data.T) },
+        spect_xr = xr.Dataset({  "Sxx_dB": (['frequency','time'],data) },
             coords = {'frequency':frequency,'time':time},
             attrs = {'sampling_frequency':1/(time[1]-time[0])}
         )
@@ -601,7 +607,7 @@ def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 # Batch launch
 if __name__ == '__main__':
     # signal_spectrogram_C_Mod(     )
-    # fix_xarray()
-    gen_lf_signals()
+    fix_xarray()
+    # gen_lf_signals()
     print('Finished All')
 

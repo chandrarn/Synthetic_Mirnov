@@ -17,9 +17,9 @@ from eqtools import CModEFITTree
 
 def plot_Current_Surface(shotno=1160930034,sensor_set='BP_T', doVoltage=False,
                          phi_sensor=0,doSave='/home/rianc/Documents/Synthetic_Mirnov/output_plots/',save_Ext='',timeScale=1,
-                         file_geqdsk='g1051202011.1000',tLim=[1.2,1.2+5e-5],
-                         HP_Freq=300e3, LP_Freq=800e3,cLims=None,
-                         doBode=False,calc_n=True,n=[-12],chan='BP1T_ABK'):
+                         file_geqdsk='g1051202011.1000',tLim=[0.3,1.1],
+                         HP_Freq=.2e3, LP_Freq=30e3,cLims=None,
+                         doBode=False,calc_n=True,n=[-1],chan='BP1T_ABK'):
     
     # Generate data
     # Select usable sensors from set
@@ -147,3 +147,4 @@ def doSpect(X,Y,Z,doSave,save_Ext):
 if __name__ == '__main__':
     
     plot_Current_Surface()
+    print('Done')
