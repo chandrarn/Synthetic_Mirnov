@@ -34,7 +34,7 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
               tLim_orig=[.75,1.1],fLim_orig=[0,625],shotno=1051202011,
               f_band=[],doSave='',saveExt='',cLim=[], use_nn=False,\
                  min_contour_w=5, min_contour_h=5,doPlot=False,CNN=False,\
-                     t_band=[],shotno_model=None, **kwargs):  # Add use_nn parameter
+                     t_band=[],shotno_model=None, use_lr=False, fno_model_path=None, lr_model_path=None, **kwargs):  # Add use_lr parameter
     # Identify n# from segmented spectrogram associated with a shot
     
     # Load in png
@@ -46,11 +46,10 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
     filter_limits = gen_filter_ranges(c_out, tLim, fLim, wavy.shape[:2])
     
     # Get raw signal data (only if using NN, to avoid redundant loading)
-    # if use_nn:
     bp_k = __loadData(shotno, pullData=['bp_k'], forceReload=['bp_k'] * False)['bp_k']
 
-    # Get model sensor names if using NN
-    if use_nn:
+    # Get model sensor names if using NN or LR
+    if use_nn or use_lr:
         sensor_names_model_order = __loadData(shotno_model, pullData=['bp_k'])['bp_k'].names
 
     # Calculate n# in the filterbands identified
@@ -67,8 +66,16 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
             else: 
                 n_opt, feats = predict_n_with_fno(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
                                        lims['Freq'][1] * 1e3, bp_k, sensor_names_model_order,
-                                         **kwargs)
+                                   fno_model_path=fno_model_path or '../output_models/fno_classifier_n.pth',
+                                   **kwargs)
                 features_out.append(feats)
+        elif use_lr:
+            # Use logistic regression predictor
+            n_opt, feats = predict_n_with_lr(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
+                                       lims['Freq'][1] * 1e3, bp_k, sensor_names_model_order,
+                                   lr_model_path=lr_model_path or '../output_models/logistic_regression_n.pkl',
+                                   **kwargs)
+            features_out.append(feats)
         else:
             # Original run_n call
             n_opt = run_n(shotno=shotno, tLim=lims['Time'], fLim=None, 
@@ -83,7 +90,7 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
     
     # color contours (fill in? step through contour horizontally, fill vertically?)
     overplot_n(filter_limits,wavy, tLim, fLim,n_opt_out,doSave,
-               saveExt+('_nn' if use_nn else '_linear'),shotno,cLim)
+               saveExt+('_fno' if use_nn else ('_lr' if use_lr else '_linear')),shotno,cLim)
     
     # diagnose feature distributions
     plot_data_distributions(features_out,n_opt_out, saveExt='_%d'%shotno)
@@ -125,6 +132,7 @@ def overplot_n(filter_limits,wavy,tRange,fRange,n_opt,doSave,saveExt,
     
     if doSave: 
         fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',transparent=True)
+        print('Saved: '+ doSave+fig.canvas.manager.get_window_title()+'.pdf')
     plt.show()
         
 ############################################################
@@ -195,6 +203,7 @@ def plot_data_distributions(features_out,n_opt, saveData=True,  saveExt=''):
     
     if saveExt:
         fig.savefig('../output_plots/Feature_Distributions'+saveExt+'.pdf',transparent=True)
+        print('Saving: '+'../output_plots/Feature_Distributions'+saveExt+'.pdf')
     
     if saveData: np.savez('../data_output/wavy_n_features.npz',features_scaled=features_out,n_opt=n_opt)
     plt.show()
@@ -342,7 +351,7 @@ def load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k=None,
     return real_comp, imag_comp, phi, theta_dict
 ###############################################3
 def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output_plots/trained_mode_classifier_n.pth',
-                      sensor_set='C_MOD_LIM', r_maj=0.68, cmod_shot=1051202011):
+                      sensor_set='C_MOD_LIM', r_maj=0.68, cmod_shot=1051202011, zero_basing=False):
     """
     Helper function to predict n# using the trained NN model.
     Loads shot data, filters it, computes FFT real/imag, and predicts n.
@@ -382,11 +391,11 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
     # Build input tensor (N=1, S=num_sensors, 4)
     # sensor_names = list(R.keys())  # Assuming R.keys() are sensor names
     theta = np.array([theta_dict[name.lower()] for name in sensor_names if name.lower() in theta_dict])
-    phi_arr = np.array([phi[name.lower()] for name in sensor_names if name.lower() in phi])
+    phi_arr = np.array([load_and_filter_raw_signalphi[name.lower()] for name in sensor_names if name.lower() in phi])
 
     # Compute pairwise differences relative to the first sensor
     diffs_real = real_comp[1:] - real_comp[0]
-    delta_imag = imag_comp[1:] - imag_comp[0]
+    delta_imag = imag_comp[1:] - imag_comp[0] *(1 if  zero_basing else 0)
     delta_imag = np.angle(np.exp(1j * delta_imag))  # wrap-aware to (-pi, pi]
     sin_imag = np.sin(delta_imag)
     cos_imag = np.cos(delta_imag)
@@ -478,7 +487,10 @@ def load_fno_model(model_path='../output_models/fno_classifier_n.pth'):
 
     return model, classes, model_sensor_names, scaler
 ####################################################################################################
-def align_sensors_to_model(real_comp, imag_comp, phi, theta_dict, model_sensor_names, bp_k_names):
+def align_sensors_to_model(real_comp, imag_comp, phi, theta_dict,\
+                            model_sensor_names, bp_k_names,\
+                            sincos_imag: bool = False,\
+                            sincos_only: bool = True, zero_baseline: bool = True) -> np.ndarray:
       # Align to model's expected sensor order; fill missing with zeros, warn once
     bp_names_lower = [nm for nm in bp_k_names]
     S = len(model_sensor_names)
@@ -503,16 +515,20 @@ def align_sensors_to_model(real_comp, imag_comp, phi, theta_dict, model_sensor_n
 
     # Build difference features relative to the first sensor (S, 5)
     diffs_real = real_aligned - real_aligned[0]
-    delta_imag = imag_aligned - imag_aligned[0]
+    delta_imag = imag_aligned - imag_aligned[0] * (1 if zero_baseline else 0)
     delta_imag = np.angle(np.exp(1j * delta_imag))
-    delta_imag *= __check_angle_slope(delta_imag)  # Ensure consistent slope direction
+    # delta_imag *= __check_angle_slope(delta_imag)  # Ensure consistent slope direction
 
     sin_imag = np.sin(delta_imag)
     cos_imag = np.cos(delta_imag)
     diffs_theta = theta_aligned - theta_aligned[0]
     diffs_phi = phi_aligned - phi_aligned[0]
-    feats = np.stack([diffs_real, sin_imag, cos_imag, diffs_theta, diffs_phi], axis=1)  # (S,5)
-
+    if sincos_only: 
+        feats = np.stack([ sin_imag, cos_imag], axis=1)  # (S,2)
+    elif sincos_imag:
+        feats = np.stack([diffs_real, sin_imag, cos_imag, diffs_theta, diffs_phi], axis=1)  # (S,5)
+    else: 
+        feats = np.stack([diffs_real, delta_imag, diffs_theta, diffs_phi], axis=1)  # (S,4)
     # Ensure that missing sensors are zeroed out in features
     for nml, i in missing: feats[i, :] = 0.0
 
@@ -541,7 +557,7 @@ def plot_features_raw(feats, savePath=''):
 ####################################################################################################
 ###################################################################################################33
 def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_order,\
-                       model_path='../output_models/fno_classifier_n.pth',
+                       fno_model_path='../output_models/fno_classifier_n.pth',
                        r_maj: float = 0.68):
     """
     Predict toroidal mode number n using the trained FNO classifier on real C-Mod data.
@@ -569,7 +585,7 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_
 
 
     # Load FNO model and associated info
-    model, classes, model_sensor_names, scaler = load_fno_model(model_path)
+    model, classes, model_sensor_names, scaler = load_fno_model(fno_model_path)
 
 
     # Pull real data features
@@ -611,13 +627,73 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_
     print('Output Probabilities: ', [f"n={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
     return predicted_n, feats_scaled
 ######################################################################################################
+def load_lr_model(lr_model_path='../output_models/logistic_regression_n.pkl'):
+    """Load logistic regression model checkpoint."""
+    import joblib, os
+    if not os.path.exists(lr_model_path):
+        raise FileNotFoundError(f"LR model not found: {lr_model_path}")
+    if not lr_model_path.endswith('.pkl'):
+        raise ValueError(f"LR model must be a .pkl saved with joblib.dump, got: {lr_model_path}")
+    checkpoint = joblib.load(lr_model_path)
+    return checkpoint['model'], checkpoint['scaler'], checkpoint['label_encoder'], checkpoint['sensor_names']
+
+def predict_n_with_lr(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_order,
+                      lr_model_path='../output_models/logistic_regression_n.pkl',
+                      r_maj: float = 0.68):
+    """
+    Predict toroidal mode number n using logistic regression on real C-Mod data.
+    
+    Args:
+        shotno: C-Mod shot number
+        tLim: (t_start, t_end) time window in seconds
+        HP_Freq: high-pass frequency (Hz)
+        LP_Freq: low-pass frequency (Hz)
+        bp_k: bp_k structure from __loadData (must include .names)
+        sensor_names_model_order: Sensor names in model's expected order
+        model_path: path to saved logistic regression checkpoint
+        r_maj: major radius used for theta computation
+        
+    Returns:
+        predicted_n (int), feats_scaled (array)
+    """
+    # Load model and scaler
+    lr_model, scaler, le, model_sensor_names = load_lr_model(lr_model_path)
+    
+    # Pull real data features
+    real_comp, imag_comp, phi, theta_dict = load_and_filter_raw_signal(shotno, tLim, r_maj, HP_Freq, LP_Freq, bp_k)
+    real_comp *= .5e-4 / np.max(real_comp)  # Scale real part to match training data range
+    
+    # Align sensors to model's expected order; fill missing with zeros
+    feats = align_sensors_to_model(real_comp, imag_comp, phi, theta_dict, model_sensor_names,
+                                    sensor_names_model_order)
+    
+    # Debug: print feature stats before scaling
+    raw_min = feats.min(axis=0); raw_max = feats.max(axis=0); raw_med = np.median(feats, axis=0)
+    print("Raw diffs stats per channel: min", raw_min, "max", raw_max, "median", raw_med)
+    
+    z = (feats - scaler.mean_) / scaler.scale_
+    z_min = z.min(axis=0); z_max = z.max(axis=0); z_med = np.median(z, axis=0)
+    print("Z-score stats per channel: min", z_min, "max", z_max, "median", z_med)
+    print("Fraction |z|>6 per channel:", np.mean(np.abs(z) > 6, axis=0))
+    
+    # Apply scaler (flatten for sklearn)
+    feats_scaled = scaler.transform(feats)  # (S, 4)
+    X_flat = feats_scaled.reshape(1, -1)  # (1, S*4)
+    
+    # Predict
+    pred_idx = int(lr_model.predict(X_flat)[0])
+    predicted_n = int(le.inverse_transform([pred_idx])[0])
+    probs = lr_model.predict_proba(X_flat)[0]
+    
+    print('Output Probabilities: ', [f"n={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
+    return predicted_n, feats_scaled
 ######################################################################################################
 
 if __name__ == '__main__':
     # Example usage with NN
     # data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/new_hlicity_low_mn/"
-    cmod_shot = 1160714026#1110316018#1160930033
+    cmod_shot = 1160714026#1110316018#1160930034
     cmod_shot_model = 1160930034
     # cmod_shot = 1110316031#1051202011 
     # save_ext = '_test_Dropout0.2_Hidden256_Mask0.1'
@@ -629,13 +705,16 @@ if __name__ == '__main__':
               f's{cmod_shot}.nc'
     save_ext = '_FNO_C-Mod_Sensors_Reduced_n'
 
-    f_band = [15,40]
-    t_band = [1.1,1.5]#[1.03,1.09]#[1.391,1.41]
+    f_band = [1,40]
+    t_band =[]# [1.1,1.5]#[1.03,1.09]#[1.391,1.41]
 
     save_ext = ''
-    out= mode_id_n(wavy_file=wavy_file, shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
-              model_path=f'../output_models/fno_classifier_m_Sensor_Reduced_{cmod_shot_model}.pth',
-              doPlot=True,f_band=f_band,t_band=t_band,min_contour_w=2, min_contour_h=3, saveExt=save_ext,
-              shotno_model=cmod_shot_model)
+    out = mode_id_n(
+        wavy_file=wavy_file, shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
+        fno_model_path=f'../output_models/fno_classifier_n_Sensor_Reduced_{cmod_shot_model}.pth',
+        lr_model_path=f'../output_models/logistic_regression_n_Sensor_Reduced_{cmod_shot_model}.pkl',
+        doPlot=True, f_band=f_band, t_band=t_band, min_contour_w=2, min_contour_h=3, saveExt=save_ext,
+        shotno_model=cmod_shot_model, use_lr=False,
+    )
     
     print('Finished example usage.')

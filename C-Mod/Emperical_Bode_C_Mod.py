@@ -836,3 +836,4 @@ if __name__ == '__main__':
         synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds = out
     
     print('Done')
+signal_spectrogram_C_Mod

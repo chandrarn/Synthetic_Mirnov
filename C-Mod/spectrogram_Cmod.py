@@ -154,7 +154,7 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim,params,m
             params['tLim']=tLim
             forceReload='bp_k'
         else:forceReload=[]
-        forceReload=[]
+        # forceReload=[]
         if diag is None: diag = gC.__loadData(shotno,pullData=['bp_k'],
                    data_archive=data_archive,params=params,forceReload=forceReload)['bp_k']
         signals = diag.data 
@@ -210,7 +210,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
                      save_Ext,f_lim,shotno=None,
                      doSave_Extractor=False,tScale=1e3,doColorbar=False,
                      clabel='',cLim=None,cmap='viridis',figsize=(6,6),
-                     batch=False,doSave_data=False,doLog=False):
+                     batch=False,doSave_data=False,doLog=True):
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
@@ -223,7 +223,9 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     f_inds = np.arange(*[np.argmin((freq*1e-3-f)**2) for f in f_lim]) if f_lim\
         else np.arange(*[0,len(freq)])
     
-    if doLog: out_spect= 10*np.log(out_spect)
+    if doLog: 
+
+        out_spect= 10*np.log(out_spect*100)
     vmin,vmax = cLim if cLim else [0,5*np.std(out_spect[f_inds])]
     #if not cLim and vmax < 1: vmax = 1 # protect against noise dominated signals
     ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],
@@ -260,13 +262,14 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         print('Saved: '+doSave+'Spectrogram_%s.pdf'%fName)
     
     if doSave_data:
-        spect_xr = xr.Dataset({  "Sxx": (['frequency','time'],out_spect[f_inds]) },
+        spect_xr = xr.Dataset({  "Sxx_dB": (['frequency','time'],out_spect[f_inds]) },
             coords = {'frequency':freq[f_inds],'time':time},
             attrs = {'sampling_frequency':1/(time[1]-time[0])}
         )
         # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
         #                         coords={'time':time,'frequency':freq[f_inds]})
         spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName)
+        print('Saved Data To: '+ '../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName)
 
     if batch: 
         plt.close(fName) # terminal blocks untill plot is closed for some reason    
@@ -512,19 +515,20 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos =[1160714026]##[1160930034]#[1110316031]#[1160930033]#[1050615011]
+    shotnos = [1160826008]#[1160714026]##[1160930034]#[1110316031]#[1160930033]#[1050615011]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
-    tLims=[.7,1.5]
+    tLims=[.5,1.8]
     # Break up into two frequency bins[.5,.8],
     # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
     #               'f_lim':[[0,100],[100,600]]}
     
-    dataRanges = {'tLim':[[0.8,1.5]], 'signal_reduce':2,\
-                  'block_reduce':[4000,4000],'sigma':(3,3),'plot_reduce':(1,1)}
-    f_lim=[0,100]; c_lim=None#[0,1]
-    pad = 1400;fft_window=5000;HP_Freq=2e3
+    # Block reduce: [keep samples, drop samples]
+    dataRanges = {'tLim':[[0.5,1.9]], 'signal_reduce':2,\
+                  'block_reduce':[2000,1000],'sigma':(2,2),'plot_reduce':(1,1)}
+    f_lim=[0,100]; c_lim=[0,60]
+    pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
     save_Ext= '_Training_Coherance'
@@ -607,7 +611,7 @@ def gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 # Batch launch
 if __name__ == '__main__':
     # signal_spectrogram_C_Mod(     )
-    fix_xarray()
-    # gen_lf_signals()
+    # fix_xarray()
+    gen_lf_signals()
     print('Finished All')
 

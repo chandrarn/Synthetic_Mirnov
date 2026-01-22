@@ -225,7 +225,7 @@ def visualize_dataset_regions(ds: xr.Dataset, time_indices: np.ndarray,
     plt.show()
 ############################################################
 
-def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=True):
+def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=False):
     """
     # Visualize cached data
     # Plot y_m, y_n traces vs sample
@@ -270,7 +270,7 @@ def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=True):
         for ind,imag in enumerate(imag_vals):
             # Do delta, check for negative real part, trim imag to [0, 2pi]
             real_tmp = real_vals[ind] - real_vals[ind][0]
-            imag -= imag[0]
+            imag -= imag[0] * (1 if doDelta else 0)
 
             imag[real_tmp < 0] += np.pi
             real_tmp[real_tmp < 0 ] *= -1
