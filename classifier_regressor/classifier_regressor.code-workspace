@@ -4,5 +4,7 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"python.defaultInterpreterPath": "/home/rianc/Documents/venv_tensorflow/bin/python3.12"
+	}
 }

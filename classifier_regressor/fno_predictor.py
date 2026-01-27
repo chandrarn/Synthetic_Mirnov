@@ -140,8 +140,8 @@ class SensorFourChannelDataset(Dataset):
 from sklearn.preprocessing import StandardScaler
 
 def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray, phi: np.ndarray, \
-                         zero_baseline: bool = False, sincos_channels: bool = False,\
-                             sincos_only: bool = True ) -> \
+                         zero_baseline: bool = False, sincos_channels: bool = True,\
+                             sincos_only: bool = False ) -> \
             Tuple[np.ndarray, StandardScaler]:
     """
     Compute difference features and fit StandardScaler, then transform and return scaled features.
@@ -630,18 +630,24 @@ def example_usage():
     Adjust paths as needed.
     """
     # data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
+
+    use_mode='m'
+    n_datasets = -1
+    num_timepoints = 40
+    geometry_shot = 1160930034#1160714026#1110316031 1051202011# # for bp_k geometry; set None to skip
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/new_helicity_low_mn/"
-    out_path = data_dir + "cached_data_-1.npz"
-    geometry_shot = 1160930034#1160714026#1110316031# 1051202011# # for bp_k geometry; set None to skip
+    out_path = data_dir + f"cached_data_{geometry_shot}_{use_mode}_{num_timepoints}_{n_datasets}.npz"
+    
     model_save_ext = f'_Sensor_Reduced_{geometry_shot}'*True
     viz_save_path = '../output_plots/'
+    
 
     # Cache or load
     result = build_or_load_cached_dataset(
-        data_dir=data_dir, out_path=out_path, use_mode='n', include_geometry=True,
-        geometry_shot=geometry_shot, num_timepoints=10, freq_tolerance=0.1, n_datasets=-1,
-        load_saved_data=True, visualize_first=True,doVisualize=True,\
-            viz_save_path=viz_save_path, saveDataset=False)
+        data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
+        geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1, n_datasets=n_datasets,
+        load_saved_data=False, visualize_first=True,doVisualize=True,\
+            viz_save_path=viz_save_path, saveDataset=True)
     X_ri, y, y_m, y_n, sensor_names, theta, phi = result
 
 
@@ -679,7 +685,7 @@ def example_usage():
         diff_features_scaled, y, theta=theta, phi=phi, n_classes=None,
         cfg=TrainConfig(
             batch_size=32,  # Smaller batch for better generalization with small dataset
-            n_epochs=200, 
+            n_epochs=500, 
             patience=50,  # Stop sooner when accuracy plateaus (was 40)
             modes=32,  # Slightly more modes
             width=160,  # Reasonable width
@@ -701,11 +707,11 @@ def example_usage():
     os.makedirs('../output_models', exist_ok=True)
     torch.save({'state_dict': model.state_dict(), 'classes': le.classes_.tolist(), 'sensor_names': sensor_names,
                 'scaler': scaler, 'theta': theta, 'phi': phi},\
-                      f'../output_models/fno_classifier_n{model_save_ext}.pth')
+                      f'../output_models/fno_classifier_{use_mode}{model_save_ext}.pth')
     plt.show()
     print(f"Done. Val Acc={val_acc:.3f}, AUC={auc:.3f}")
 
-    print(f"Saved trained model to ../output_models/fno_classifier_n{model_save_ext}.pth")
+    print(f"Saved trained model to ../output_models/fno_classifier_{use_mode}{model_save_ext}.pth")
 
 
 if __name__ == "__main__":

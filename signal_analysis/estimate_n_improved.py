@@ -56,10 +56,13 @@ def run_n(shotno=1160930034, tLim=[1.1,1.11], fLim=None,
         # Find peak FFT phase within band for each channel
         band = (fft_freq >= HP_Freq) & (fft_freq <= LP_Freq)
         if not np.any(band):
-            raise ValueError("No FFT frequencies inside HP/LP window for phase_mode='fft_peak'.")
+            while not np.any(band):
+                LP_Freq += 1e3  # expand search band
+                band = (fft_freq >= HP_Freq) & (fft_freq <= LP_Freq)
+            # raise ValueError("No FFT frequencies inside HP/LP window for phase_mode='fft_peak'.")
         band_fft = fft_out[:, band]                 # (Nch, Nband)
         band_mag = np.abs(band_fft)
-        peak_idx = np.argmax(np.mean(band_mag, axis=1)) # (Nch,)
+        peak_idx = np.argmax(np.mean(band_mag, axis=0)) # (Nch,)
         print('Maximum Frequency: ', fft_freq[band][peak_idx]/1e3, 'kHz')     
         peak_phase_deg = np.angle(band_fft[:, peak_idx])*180/np.pi
         peak_phase_deg = peak_phase_deg % 360

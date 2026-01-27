@@ -14,12 +14,14 @@ from freeqdsk import geqdsk
 import cv2
 from fractions import Fraction
 from os import getcwd
-from sys import path; path.append('/home/rianc/Documents/TARS/')
-from tars.filaments import EquilibriumFilament, TraceType
-from tars.magnetic_field import EquilibriumField
-import matplotlib;matplotlib.use('TkAgg')
-plt.ion()
-
+from sys import path; path.append('/home/rianc/Documents/SynthWave/')
+from synthwave.magnetic_geometry.filaments import EquilibriumFilamentTracer
+from synthwave.magnetic_geometry.equilibrium_field import EquilibriumField
+import matplotlib;
+try: 
+    matplotlib.use('TkAgg')
+    plt.ion()
+except:pass
 ########################
 def gen_filament_coords(params, wind_in='phi'):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']

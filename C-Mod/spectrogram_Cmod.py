@@ -515,7 +515,7 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos = [1160826008]#[1160714026]##[1160930034]#[1110316031]#[1160930033]#[1050615011]
+    shotnos = [1160826001]#[1160714026]##[1160930034]#[1110316031]#[1160930033]#[1050615011]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
@@ -525,8 +525,8 @@ def gen_lf_signals():
     #               'f_lim':[[0,100],[100,600]]}
     
     # Block reduce: [keep samples, drop samples]
-    dataRanges = {'tLim':[[0.5,1.9]], 'signal_reduce':2,\
-                  'block_reduce':[2000,1000],'sigma':(2,2),'plot_reduce':(1,1)}
+    dataRanges = {'tLim':[[0.6,1.4]], 'signal_reduce':2,\
+                  'block_reduce':[2000,500],'sigma':(2,2),'plot_reduce':(1,1)}
     f_lim=[0,100]; c_lim=[0,60]
     pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True

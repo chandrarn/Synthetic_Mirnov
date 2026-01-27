@@ -700,7 +700,7 @@ class POWER_SYSTEM():
         
 ###############################################################################
 class A_EQDSK_CCBRSP():
-    # Coil currents in kAmp-Turns, from aEqsdsk file, for simulation
+    # Coil currents in kAmp-Turns, from aEqsdsk file, for M3D-C1 simulation
     # Order is specific: OH1, OH2U, OH2L EF1U, EF1L, EF2U, EF2L, EF3U, EF3L,
     # EF4U, EF4L, EFCU, EFCL, TFTU, TFTL
     def __init__(self,shotno,debug=False):

@@ -34,7 +34,7 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
               tLim_orig=[.75,1.1],fLim_orig=[0,625],shotno=1051202011,
               f_band=[],doSave='',saveExt='',cLim=[], use_nn=False,\
                  min_contour_w=5, min_contour_h=5,doPlot=False,CNN=False,\
-                     t_band=[],shotno_model=None, use_lr=False, fno_model_path=None, lr_model_path=None, **kwargs):  # Add use_lr parameter
+                     t_band=[],shotno_model=None, use_lr=False, fno_model_path=None, lr_model_path=None, use_mode='n', **kwargs):  # Add use_lr parameter
     # Identify n# from segmented spectrogram associated with a shot
     
     # Load in png
@@ -50,7 +50,7 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
 
     # Get model sensor names if using NN or LR
     if use_nn or use_lr:
-        sensor_names_model_order = __loadData(shotno_model, pullData=['bp_k'])['bp_k'].names
+        sensor_names_data_order = __loadData(shotno, pullData=['bp_k'])['bp_k'].names
 
     # Calculate n# in the filterbands identified
     n_opt_out = []
@@ -65,14 +65,14 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
                                        lims['Freq'][1] * 1e3, bp_k, **kwargs)
             else: 
                 n_opt, feats = predict_n_with_fno(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
-                                       lims['Freq'][1] * 1e3, bp_k, sensor_names_model_order,
+                                       lims['Freq'][1] * 1e3, bp_k, sensor_names_data_order,
                                    fno_model_path=fno_model_path or '../output_models/fno_classifier_n.pth',
                                    **kwargs)
                 features_out.append(feats)
         elif use_lr:
             # Use logistic regression predictor
             n_opt, feats = predict_n_with_lr(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
-                                       lims['Freq'][1] * 1e3, bp_k, sensor_names_model_order,
+                                       lims['Freq'][1] * 1e3, bp_k, sensor_names_data_order,
                                    lr_model_path=lr_model_path or '../output_models/logistic_regression_n.pkl',
                                    **kwargs)
             features_out.append(feats)
@@ -82,7 +82,7 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
                           HP_Freq=lims['Freq'][0] * 1e3, LP_Freq=lims['Freq'][1] * 1e3,
                           n=[lims['Freq'][0]**(1/3)], doSave='', save_Ext='',
                           directLoad=True, tLim_plot=[], z_levels=[8,10,14], doBode=True,
-                          bp_k=bp_k, doPlot=doPlot)[-1]
+                          bp_k=bp_k, doPlot=doPlot*False)[-1]
         filter_limits[ind]['n_opt'] = n_opt
         n_opt_out.append(n_opt)
         
@@ -90,7 +90,7 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
     
     # color contours (fill in? step through contour horizontally, fill vertically?)
     overplot_n(filter_limits,wavy, tLim, fLim,n_opt_out,doSave,
-               saveExt+('_fno' if use_nn else ('_lr' if use_lr else '_linear')),shotno,cLim)
+               saveExt+('_fno' if use_nn else ('_lr' if use_lr else '_linear')),shotno,cLim, use_mode)
     
     # diagnose feature distributions
     plot_data_distributions(features_out,n_opt_out, saveExt='_%d'%shotno)
@@ -98,8 +98,8 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
     return wavy, contour, hierarchy, c_out,filter_limits,n_opt_out
 ############################################################
 def overplot_n(filter_limits,wavy,tRange,fRange,n_opt,doSave,saveExt,
-               shotno,cLim):
-    title = 'WavyStar_n_Estimator_%d%s'%(shotno,saveExt)
+               shotno,cLim,use_mode='n'):
+    title = f'WavyStar_{use_mode}_Estimator_{shotno}{saveExt}'
     plt.close(title)
     fig,ax = plt.subplots(1,1,num=title,tight_layout=True)
     
@@ -230,7 +230,10 @@ def gen_contours(wavy_file,tLim_orig=[],fLim_orig=[],f_band = [],
                  doPlot=True,):
     # Load in the wavystar segmented data (in .png or .netcdf format)
     if '.png' in wavy_file: wavy, tLim, fLim = open_wavy_png(wavy_file, tLim_orig,fLim_orig)
-    else:  wavy, tLim, fLim = open_wavy_xarray(wavy_file)
+    else: 
+        wavy, tLim, fLim = open_wavy_xarray(wavy_file)
+        # Check: WavyStar CLI vs GUI saves slightly differently
+        if wavy.dtype == bool: wavy = wavy.astype(np.uint8) 
 
     if doPlot:
         plt.close('Input')
@@ -489,8 +492,8 @@ def load_fno_model(model_path='../output_models/fno_classifier_n.pth'):
 ####################################################################################################
 def align_sensors_to_model(real_comp, imag_comp, phi, theta_dict,\
                             model_sensor_names, bp_k_names,\
-                            sincos_imag: bool = False,\
-                            sincos_only: bool = True, zero_baseline: bool = True) -> np.ndarray:
+                            sincos_imag: bool = True,\
+                            sincos_only: bool = False, zero_baseline: bool = True) -> np.ndarray:
       # Align to model's expected sensor order; fill missing with zeros, warn once
     bp_names_lower = [nm for nm in bp_k_names]
     S = len(model_sensor_names)
@@ -556,7 +559,7 @@ def plot_features_raw(feats, savePath=''):
     if savePath:  fig.savefig(savePath,transparent=True)
 ####################################################################################################
 ###################################################################################################33
-def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_order,\
+def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_data_order,\
                        fno_model_path='../output_models/fno_classifier_n.pth',
                        r_maj: float = 0.68):
     """
@@ -596,7 +599,7 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_
 
     # Align sensors to model's expected order; fill missing with zeros
     feats = align_sensors_to_model(real_comp, imag_comp, phi, theta_dict, model_sensor_names,\
-                                    sensor_names_model_order)
+                                    sensor_names_data_order)
     
     ## Debug plots
     # plot_features_raw(feats,'../output_plots/Debug_FNO_Features_Shot_%d.pdf'%shotno)
@@ -624,7 +627,7 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_model_
         pred_idx = int(np.argmax(probs))
     le = LabelEncoder(); le.classes_ = np.array(classes)
     predicted_n = int(le.inverse_transform([pred_idx])[0])
-    print('Output Probabilities: ', [f"n={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
+    print('Output Probabilities: ', [f"{use_mode}={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
     return predicted_n, feats_scaled
 ######################################################################################################
 def load_lr_model(lr_model_path='../output_models/logistic_regression_n.pkl'):
@@ -693,8 +696,8 @@ if __name__ == '__main__':
     # Example usage with NN
     # data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/new_hlicity_low_mn/"
-    cmod_shot = 1160714026#1110316018#1160930034
-    cmod_shot_model = 1160930034
+    cmod_shot =  1160826001#1110316031#1160714026# 1110316018#1160930034
+    cmod_shot_model = 1160930034#1110316031#
     # cmod_shot = 1110316031#1051202011 
     # save_ext = '_test_Dropout0.2_Hidden256_Mask0.1'
     # out= mode_id_n(wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
@@ -703,18 +706,19 @@ if __name__ == '__main__':
     #           doPlot=False)
     wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
               f's{cmod_shot}.nc'
-    save_ext = '_FNO_C-Mod_Sensors_Reduced_n'
+    use_mode='m'
+    save_ext = f'_ChiSq'#f'_FNO_C-Mod_Sensors_Reduced_{use_mode}'
 
-    f_band = [1,40]
+    f_band = [1,80]
     t_band =[]# [1.1,1.5]#[1.03,1.09]#[1.391,1.41]
 
     save_ext = ''
     out = mode_id_n(
         wavy_file=wavy_file, shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
-        fno_model_path=f'../output_models/fno_classifier_n_Sensor_Reduced_{cmod_shot_model}.pth',
-        lr_model_path=f'../output_models/logistic_regression_n_Sensor_Reduced_{cmod_shot_model}.pkl',
-        doPlot=True, f_band=f_band, t_band=t_band, min_contour_w=2, min_contour_h=3, saveExt=save_ext,
-        shotno_model=cmod_shot_model, use_lr=False,
+        fno_model_path=f'../output_models/fno_classifier_{use_mode}_Sensor_Reduced_{cmod_shot_model}.pth',
+        lr_model_path=f'../output_models/logistic_regression_{use_mode}_Sensor_Reduced_{cmod_shot_model}.pkl',
+        doPlot=True, f_band=f_band, t_band=t_band, min_contour_w=1, min_contour_h=3, saveExt=save_ext,
+        shotno_model=cmod_shot_model, use_lr=False,use_mode=use_mode
     )
     
     print('Finished example usage.')
