@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 import matplotlib.lines as mlines
 from matplotlib import rc,cm
-from matplotliheader_signal_generationb.colors import Normalize
+from matplotlib.colors import Normalize
 try:
     import vtk # potentially important for LaTex rendering in PyVista
     import pyvista
