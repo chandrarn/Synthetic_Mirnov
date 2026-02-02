@@ -1,0 +1,16 @@
+[project]
+name = "synthetic-mirnov"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    "mdsthin>=1.6.1",
+    "numpy>=2.4.1",
+    "opencv-python>=4.13.0.90",
+    "scikit-image>=0.26.0",
+    "scipy>=1.17.0",
+    "xarray>=2026.1.0",
+]
+
