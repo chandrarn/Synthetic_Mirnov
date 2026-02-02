@@ -63,7 +63,8 @@ def gen_mode_params(training_shots=1,params={'T': 10, 'dt': 0.01},doPlot=False,s
 ######################################################################################################
 def gen_mode_params_for_training(training_shots=1,\
         params={'T': 1e-3, 'dt': 1e-7,'m_pts':60,'n_pts':60,'periods':1,'R':None,'r':None,\
-                   'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext='',doPerturbation=True):
+                   'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext='',\
+                    doPerturbation=True, justLoadGeqdsk=False):
     """
     Generate mode parameters for training.
     :param training_shots: Number of training shots
@@ -76,7 +77,7 @@ def gen_mode_params_for_training(training_shots=1,\
     params_per_shot = [] # Empty list: will contain dicts for each shot
 
     # Load the coorect number of gEQDSK files
-    gEQDSK_files = __build_geqdsks(training_shots,justLoad=False)
+    gEQDSK_files = __build_geqdsks(training_shots,justLoad=justLoadGeqdsk)
     # Loop over the number of training shots
 
     for shot in range(training_shots):

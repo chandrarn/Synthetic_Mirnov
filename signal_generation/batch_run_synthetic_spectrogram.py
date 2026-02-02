@@ -22,7 +22,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
                                     Mode_params={'dt':1e-6,'T':10e-3,'periods':3},
                                     spectrogram_params={'pad':230,'fft_window':230,'block_reduce':(230,0)},
                                     save_Ext='',max_modes=5,max_m=15,max_n=5,
-                                    doSave=False,doPlot=False,training_shots=1,doPerturbation=True):
+                                    doSave=False,doPlot=False,training_shots=1,doPerturbation=True,
+                                    justLoadGeqdsk=False):
     """
     Batch run synthetic spectrogram generation for given parameters.
     
@@ -45,7 +46,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
 
     # Generate frequencies and mode numbers
     per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
-                                doPlot=doPlot*False,save_ext=save_Ext+'_',doPerturbation=doPerturbation)
+                                doPlot=doPlot*False,save_ext=save_Ext+'_',doPerturbation=doPerturbation,\
+                                    justLoadGeqdsk=justLoadGeqdsk)
 
     # Initialize OFT environment
     oft_env = OFT_env(nthreads=ThinCurr_params['n_threads'],abort_callback=True)
@@ -281,8 +283,9 @@ if __name__ == '__main__':
     save_Ext = '_Synth_low-n_New_Helicity'
     doSave = '../output_plots/low_m-n_spectrograms'*True
     doPlot = False
-    training_shots = 200
+    training_shots = 1
     doPerturbation = False
+    justLoadGeqdsk = True
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,
@@ -293,7 +296,8 @@ if __name__ == '__main__':
         doSave=doSave,
         doPlot=doPlot,
         training_shots=training_shots,
-        doPerturbation=doPerturbation
+        doPerturbation=doPerturbation,
+        justLoadGeqdsk=justLoadGeqdsk
     )
 
 
