@@ -260,7 +260,7 @@ if __name__ == '__main__':
     # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
     # For more accuracy, could break up filaments into different eta values based on position
     eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
-    eta = [SS/w_ss, Mo/w_tile_lim, SS/w_ss, Mo/w_tile_lim, SS/w_vv, SS/w_ss, Mo/w_tile_arm, SS/w_shield]
+    # eta = [SS/w_ss, Mo/w_tile_lim, SS/w_ss, Mo/w_tile_lim, SS/w_vv, SS/w_ss, Mo/w_tile_arm, SS/w_shield]
 
     ThinCurr_params = {
         'mesh_file': 'C_Mod_ThinCurr_Combined-homology.h5',
