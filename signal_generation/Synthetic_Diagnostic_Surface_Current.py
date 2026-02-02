@@ -15,7 +15,7 @@ Created on Tue Feb  4 14:23:27 2025
 
 from header_signal_generation import np, plt, ThinCurr, histfile, geqdsk, cv2,make_smoothing_spline,\
     h5py, build_torus_bnorm_grid, OFT_env,ThinCurr_periodic_toroid, pyvista, subprocess,os,\
-        gethostname, server, I_KM, F_KM, F_KM_plot, build_periodic_mesh,write_periodic_mesh, cm, Normalize
+        gethostname, server, I_KM, F_KM, F_KM_plot, cm, Normalize
 from M3DC1_to_Bnorm import convert_to_Bnorm
 from FAR3D_to_Bnorm import convert_FAR3D_to_Bnorm, __gen_b_norm_manual
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
