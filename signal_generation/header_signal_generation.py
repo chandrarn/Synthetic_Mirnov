@@ -42,7 +42,7 @@ try:
 except:pass # TkAgg can't be assigned in headless operations
 
 print(getcwd())
-#sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
+sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
 #sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Updated/src/python/')
 # Updated OFT:
