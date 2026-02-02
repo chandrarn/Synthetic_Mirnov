@@ -200,7 +200,7 @@ def wind_in_theta(file_geqdsk,m,n, debug=False):
     with open('../signal_generation/input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
     eq_field = EquilibriumField(eqdsk)
     eq_filament = EquilibriumFilamentTracer(m,n,eq_field)
-    filament_points,filament_etas = eq_filament._trace(method=TraceType.AVERAGE,num_filament_points=300)
+    filament_points,filament_etas = eq_filament.trace(trace_type=EquilibriumFilamentTracer.TraceType.AVERAGE,num_points=300)
 
     if debug:
         plt.close('Winding_Theta')
