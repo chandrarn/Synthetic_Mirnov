@@ -1,0 +1,67 @@
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/core.py:39: ModuleWarning: trispline module could not be loaded -- tricubic spline interpolation will not be available.
+  warnings.warn("trispline module could not be loaded -- tricubic spline "
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/core.py:52: ModuleWarning: matplotlib modules could not be loaded -- plotting and gfile writing will not be available.
+  warnings.warn("matplotlib modules could not be loaded -- plotting and gfile"
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/EFIT.py:41: ModuleWarning: MDSplus module could not be loaded -- classes that use MDSplus for data access will not work.
+  warnings.warn("MDSplus module could not be loaded -- classes that use "
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/NSTXEFIT.py:36: ModuleWarning: MDSplus module could not be loaded -- classes that use MDSplus for data access will not work.
+  warnings.warn("MDSplus module could not be loaded -- classes that use "
+HDF5-DIAG: Error detected in HDF5 (1.14.5):
+  #000: ../../src/H5F.c line 653 in H5Fcreate(): unable to synchronously create file
+    major: File accessibility
+    minor: Unable to create file
+  #001: ../../src/H5F.c line 608 in H5F__create_api_common(): unable to create file
+    major: File accessibility
+    minor: Unable to open file
+  #002: ../../src/H5VLcallback.c line 3445 in H5VL_file_create(): file create failed
+    major: Virtual Object Layer
+    minor: Unable to create file
+  #003: ../../src/H5VLcallback.c line 3411 in H5VL__file_create(): file create failed
+    major: Virtual Object Layer
+    minor: Unable to create file
+  #004: ../../src/H5VLnative_file.c line 94 in H5VL__native_file_create(): unable to create file
+    major: File accessibility
+    minor: Unable to open file
+  #005: ../../src/H5Fint.c line 1963 in H5F_open(): unable to lock the file
+    major: File accessibility
+    minor: Unable to lock file
+  #006: ../../src/H5FD.c line 2402 in H5FD_lock(): driver lock request failed
+    major: Virtual File Layer
+    minor: Unable to lock file
+  #007: ../../src/H5FDsec2.c line 956 in H5FD__sec2_lock(): unable to lock file, errno = 11, error message = 'Resource temporarily unavailable'
+    major: Virtual File Layer
+    minor: Unable to lock file
+HDF5-DIAG: Error detected in HDF5 (1.14.5):
+  #000: ../../src/H5F.c line 1041 in H5Fclose(): not a file ID
+    major: Invalid arguments to routine
+    minor: Inappropriate type
+HDF5-DIAG: Error detected in HDF5 (1.14.5):
+  #000: ../../src/H5F.c line 827 in H5Fopen(): unable to synchronously open file
+    major: File accessibility
+    minor: Unable to open file
+  #001: ../../src/H5F.c line 788 in H5F__open_api_common(): unable to open file
+    major: File accessibility
+    minor: Unable to open file
+  #002: ../../src/H5VLcallback.c line 3680 in H5VL_file_open(): open failed
+    major: Virtual Object Layer
+    minor: Can't open object
+  #003: ../../src/H5VLcallback.c line 3514 in H5VL__file_open(): open failed
+    major: Virtual Object Layer
+    minor: Can't open object
+  #004: ../../src/H5VLnative_file.c line 128 in H5VL__native_file_open(): unable to open file
+    major: File accessibility
+    minor: Unable to open file
+  #005: ../../src/H5Fint.c line 2085 in H5F_open(): unable to read superblock
+    major: File accessibility
+    minor: Read failed
+  #006: ../../src/H5Fsuper.c line 590 in H5F__super_read(): truncated file: eof = 2319, sblock->base_addr = 0, stored_eof = 263519
+    major: File accessibility
+    minor: File has been truncated
+
+#----------------------------------------------
+ERROR: Error opening file
+SUBROUTINE: hdf5_create_group
+FILE: /home/rianc/OpenFUSIONToolkit/src/base/oft_io.F90
+#----------------------------------------------
+
+srun: error: node1922: task 0: Exited with exit code 255

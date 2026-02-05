@@ -1,0 +1,192 @@
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/input_data/C_Mod_ThinCurr_Combined-homology.h5
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/C_Mod_ThinCurr_Combined-homology_job.h5
+Copied mesh file to: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8839376/input_data/
+Running synthetic spectrogram generation...
+#----------------------------------------------
+Open FUSION Toolkit Initialized
+Development branch:    main
+Revision id:           9106df3
+Parallelization Info:
+  Not compiled with MPI
+  # of OpenMP threads =   21
+Fortran input file    = /tmp/oft_2728957/oftpyin
+XML input file        = none
+Integer Precisions    =    4   8
+Float Precisions      =    4   8  10
+Complex Precisions    =    4   8
+LA backend            = native
+#----------------------------------------------
+
+
+Creating thin-wall model
+ Orientation depth =        3417
+  Loading V(t) driver coils
+  Loading I(t) driver coils
+
+  # of points    =        21643
+  # of edges     =        63205
+  # of cells     =        41862
+  # of holes     =           56
+  # of Vcoils    =            0
+  # of closures  =          159
+  # of Icoils    =           60
+
+  Building holes
+
+  Loading region resistivity:
+     1  6.9000E-05
+     2  3.5600E-06
+     3  6.9000E-05
+     4  3.5600E-06
+     5  2.3000E-05
+     6  6.9000E-05
+     7  3.5600E-06
+     8  1.6047E-03
+
+ Loading floop information:
+   # of floops =          72
+ Building element->sensor inductance matrix
+ Building coil->sensor inductance matrix
+ Building coil<->element inductance matrices
+     Time =  5s          
+ Building coil<->coil inductance matrix
+ Partitioning grid for block low rank compressed operators
+   nBlocks =                  32
+   Avg block size =          645
+   # of SVD =                293
+   # of ACA =                122
+
+ Building block low rank inductance operator
+   Building hole and Vcoil columns
+   Reading HODLR matrix from file: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8837296/input_data/HOLDR_L_C_Mod_ThinCurr_Combined-homology.h5_C_MOD_ALL.save
+   Building diagonal blocks
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+   Building off-diagonal blocks using ACA+
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+     Compression ratio:   9.2%  ( 3.93E+07/ 4.27E+08)
+     Time = 15s          
+ Building resistivity matrix
+
+ Starting simulation
+ Timestep          100   9.99999975E-06   2.60527155E-10           1
+ Timestep          200   1.99999995E-05   3.84733301E-10           1
+ Timestep          300   2.99999992E-05   8.63065036E-11           1
+ Timestep          400   3.99999990E-05   3.37164408E-10           1
+ Timestep          500   4.99999987E-05   3.20243776E-10           1
+ Timestep          600   5.99999985E-05   3.69692388E-10           1
+ Timestep          700   7.00000019E-05   3.93519106E-10           1
+ Timestep          800   7.99999980E-05   2.50927806E-10           1
+ Timestep          900   9.00000014E-05   4.04892397E-10           1
+ Timestep         1000   9.99999975E-05   8.48958959E-11           1
+/orcd/home/002/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8839376
+Working Directory:  /home/rianc/Documents/Synthetic_Mirnov/signal_generation/
+USING MESH:  C_Mod_ThinCurr_Combined-homology.h5
+Generated 1 gEQDSK files for training shots.
+Running simulation for mode: [2]/[2] at average frequency 3.89 Hz
+Number of filaments: 60
+Initialized coil currents array with shape (1000,61)
+Assigning currents to filaments for m/n = 2/2
+File open for writing: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8837296/input_data/oft_in.xml
+Using hardcoded values for shot 1160930034
+checkpoint
+Saved sensor details to /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8837296/input_data/sensor_details_C_MOD_ALL.nc
+Loading mesh from C_Mod_ThinCurr_Combined-homology.h5
+Computing mutual inductances between mesh and C_MOD_ALL sensors
+Computing mutual inductances between mesh and filaments
+Computing mesh self-inductance
+Mesh setup complete
+Ran time dependent simulation for the following sensors:
+time
+BP01_ABK
+BP02_ABK
+BP03_ABK
+BP04_ABK
+BP05_ABK
+BP06_ABK
+BP07_ABK
+BP08_ABK
+BP09_ABK
+BP10_ABK
+BP11_ABK
+BP12_ABK
+BP13_ABK
+BP14_ABK
+BP15_ABK
+BP16_ABK
+BP17_ABK
+BP18_ABK
+BP19_ABK
+BP20_ABK
+BP21_ABK
+BP22_ABK
+BP23_ABK
+BP24_ABK
+BP1T_ABK
+BP2T_ABK
+BP3T_ABK
+BP4T_ABK
+BP5T_ABK
+BP6T_ABK
+BP01_GHK
+BP02_GHK
+BP03_GHK
+BP04_GHK
+BP05_GHK
+BP06_GHK
+BP07_GHK
+BP08_GHK
+BP09_GHK
+BP10_GHK
+BP11_GHK
+BP12_GHK
+BP13_GHK
+BP14_GHK
+BP15_GHK
+BP16_GHK
+BP17_GHK
+BP18_GHK
+BP19_GHK
+BP20_GHK
+BP21_GHK
+BP22_GHK
+BP23_GHK
+BP24_GHK
+BP25_GHK
+BP26_GHK
+BP27_GHK
+BP28_GHK
+BP29_GHK
+BP1T_GHK
+BP2T_GHK
+BP3T_GHK
+BP4T_GHK
+BP5T_GHK
+BP6T_GHK
+BP_KA_TOP
+BP_KA_BOT
+BP_AB_TOP
+BP_BC_TOP
+BP_BC_BOT
+BP_EF_TOP
+BP_EF_BOT
+Saved output to /home/rianc/Documents/Synthetic_Mirnov/signal_generation/../data_output/training_data/floops_filament_C_MOD_ALL_m-n_2---2_f_custom_C_Mod_ThinCurr_Combined-homology.h5.hist
+Saved: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/../data_output/training_data/floops_filament_C_MOD_ALL_m-n_2---2_f_custom_C_Mod_ThinCurr_Combined-homology.h5
+Loaded: C_MOD_ALL
+Loaded Signals, Size  (72, 800)

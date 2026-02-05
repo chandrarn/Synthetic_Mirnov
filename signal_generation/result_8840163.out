@@ -1,0 +1,635 @@
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/input_data/C_Mod_ThinCurr_Combined-homology.h5
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/C_Mod_ThinCurr_Combined-homology_job.h5
+Copied mesh file to: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8840163/input_data/
+Running synthetic spectrogram generation...
+#----------------------------------------------
+Open FUSION Toolkit Initialized
+Development branch:    main
+Revision id:           9106df3
+Parallelization Info:
+  Not compiled with MPI
+  # of OpenMP threads =   21
+Fortran input file    = /tmp/oft_2518693/oftpyin
+XML input file        = none
+Integer Precisions    =    4   8
+Float Precisions      =    4   8  10
+Complex Precisions    =    4   8
+LA backend            = native
+#----------------------------------------------
+
+
+Creating thin-wall model
+ Orientation depth =        3417
+  Loading V(t) driver coils
+  Loading I(t) driver coils
+
+  # of points    =        21643
+  # of edges     =        63205
+  # of cells     =        41862
+  # of holes     =           56
+  # of Vcoils    =            0
+  # of closures  =          159
+  # of Icoils    =           60
+
+  Building holes
+
+  Loading region resistivity:
+     1  6.9000E-05
+     2  3.5600E-06
+     3  6.9000E-05
+     4  3.5600E-06
+     5  2.3000E-05
+     6  6.9000E-05
+     7  3.5600E-06
+     8  1.6047E-03
+
+ Loading floop information:
+   # of floops =          72
+ Building element->sensor inductance matrix
+ Building coil->sensor inductance matrix
+ Building coil<->element inductance matrices
+     Time =  5s          
+ Building coil<->coil inductance matrix
+ Partitioning grid for block low rank compressed operators
+   nBlocks =                  32
+   Avg block size =          645
+   # of SVD =                293
+   # of ACA =                122
+
+ Building block low rank inductance operator
+   Building hole and Vcoil columns
+   Building diagonal blocks
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+   Building off-diagonal blocks using ACA+
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+     Compression ratio:   9.2%  ( 3.93E+07/ 4.27E+08)
+     Time =  1m 34s      
+   Saving HODLR matrix to file: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8840163/input_data/HOLDR_L_C_Mod_ThinCurr_Combined-homology.h5_C_MOD_ALL.save
+ Building resistivity matrix
+
+ Starting simulation
+ Timestep          100   9.99999975E-06   2.10357079E-10           1
+ Timestep          200   1.99999995E-05   4.37815811E-10           1
+ Timestep          300   2.99999992E-05   5.32967448E-10           1
+ Timestep          400   3.99999990E-05   5.29125688E-10           1
+ Timestep          500   4.99999987E-05   5.44669254E-10           1
+ Timestep          600   5.99999985E-05   5.32271449E-10           1
+ Timestep          700   7.00000019E-05   5.27136224E-10           1
+ Timestep          800   7.99999980E-05   5.45491707E-10           1
+ Timestep          900   9.00000014E-05   5.32467626E-10           1
+ Timestep         1000   9.99999975E-05   5.25920862E-10           1
+ Timestep         1100   1.10000001E-04   5.45984813E-10           1
+ Timestep         1200   1.19999997E-04   5.32780486E-10           1
+ Timestep         1300   1.30000000E-04   5.25190003E-10           1
+ Timestep         1400   1.40000004E-04   5.46210355E-10           1
+ Timestep         1500   1.50000007E-04   5.33036282E-10           1
+ Timestep         1600   1.59999996E-04   5.24835841E-10           1
+ Timestep         1700   1.69999999E-04   5.46276469E-10           1
+ Timestep         1800   1.80000003E-04   5.33157796E-10           1
+ Timestep         1900   1.90000006E-04   5.24793597E-10           1
+ Timestep         2000   1.99999995E-04   5.46250600E-10           1
+ Timestep         2100   2.09999998E-04   5.33111222E-10           1
+ Timestep         2200   2.20000002E-04   5.25039012E-10           1
+ Timestep         2300   2.30000005E-04   5.46145074E-10           1
+ Timestep         2400   2.39999994E-04   5.32890121E-10           1
+ Timestep         2500   2.50000012E-04   5.25588961E-10           1
+ Timestep         2600   2.60000001E-04   5.45736623E-10           1
+ Timestep         2700   2.69999990E-04   5.32326350E-10           1
+ Timestep         2800   2.80000007E-04   5.26494903E-10           1
+ Timestep         2900   2.89999996E-04   5.45231305E-10           1
+ Timestep         3000   3.00000014E-04   5.31806654E-10           1
+ Timestep         3100   3.10000003E-04   5.27820121E-10           1
+ Timestep         3200   3.19999992E-04   5.44326306E-10           1
+ Timestep         3300   3.30000010E-04   5.31311883E-10           1
+ Timestep         3400   3.39999999E-04   4.17471613E-10           1
+ Timestep         3500   3.49999988E-04   2.12371287E-10           1
+ Timestep         3600   3.60000005E-04   6.00891212E-12           1
+ Timestep         3700   3.69999994E-04   5.60227949E-12           1
+ Timestep         3800   3.80000012E-04   5.58044106E-12           1
+ Timestep         3900   3.90000001E-04   5.55926095E-12           1
+ Timestep         4000   3.99999990E-04   5.53841044E-12           1
+ Timestep         4100   4.10000008E-04   5.51781754E-12           1
+ Timestep         4200   4.19999997E-04   5.49745232E-12           1
+ Timestep         4300   4.29999985E-04   5.47729613E-12           1
+ Timestep         4400   4.40000003E-04   5.45733641E-12           1
+ Timestep         4500   4.49999992E-04   5.43756446E-12           1
+ Timestep         4600   4.60000010E-04   5.41797206E-12           1
+ Timestep         4700   4.69999999E-04   5.39855357E-12           1
+ Timestep         4800   4.79999988E-04   5.37930377E-12           1
+ Timestep         4900   4.90000006E-04   5.36021748E-12           1
+ Timestep         5000   5.00000024E-04   5.34129078E-12           1
+ Timestep         5100   5.09999983E-04   2.08818740E-10           1
+ Timestep         5200   5.20000001E-04   4.33991759E-10           1
+ Timestep         5300   5.30000019E-04   5.30891942E-10           1
+ Timestep         5400   5.39999979E-04   5.29527922E-10           1
+ Timestep         5500   5.49999997E-04   5.43677936E-10           1
+ Timestep         5600   5.60000015E-04   5.31280742E-10           1
+ Timestep         5700   5.69999975E-04   5.27973831E-10           1
+ Timestep         5800   5.79999993E-04   5.44585266E-10           1
+ Timestep         5900   5.90000011E-04   5.31791888E-10           1
+ Timestep         6000   6.00000028E-04   5.26873600E-10           1
+ Timestep         6100   6.09999988E-04   5.45050283E-10           1
+ Timestep         6200   6.20000006E-04   5.32266231E-10           1
+ Timestep         6300   6.30000024E-04   5.26182098E-10           1
+ Timestep         6400   6.39999984E-04   5.45247458E-10           1
+ Timestep         6500   6.50000002E-04   5.32603239E-10           1
+ Timestep         6600   6.60000020E-04   5.25837041E-10           1
+ Timestep         6700   6.69999979E-04   5.45301471E-10           1
+ Timestep         6800   6.79999997E-04   5.32749733E-10           1
+ Timestep         6900   6.90000015E-04   5.25791410E-10           1
+ Timestep         7000   6.99999975E-04   5.45279544E-10           1
+ Timestep         7100   7.09999993E-04   5.32683453E-10           1
+ Timestep         7200   7.20000011E-04   5.26030164E-10           1
+ Timestep         7300   7.30000029E-04   5.45190337E-10           1
+ Timestep         7400   7.39999989E-04   5.32405731E-10           1
+ Timestep         7500   7.50000007E-04   5.26574950E-10           1
+ Timestep         7600   7.60000024E-04   5.45139545E-10           1
+ Timestep         7700   7.69999984E-04   5.32098809E-10           1
+ Timestep         7800   7.80000002E-04   5.27418054E-10           1
+ Timestep         7900   7.90000020E-04   5.44694900E-10           1
+ Timestep         8000   7.99999980E-04   5.31514499E-10           1
+ Timestep         8100   8.09999998E-04   5.28675270E-10           1
+ Timestep         8200   8.20000016E-04   5.43884715E-10           1
+ Timestep         8300   8.29999975E-04   5.30929523E-10           1
+ Timestep         8400   8.39999993E-04   4.18665047E-10           1
+ Timestep         8500   8.50000011E-04   2.12451862E-10           1
+ Timestep         8600   8.59999971E-04   5.33831226E-12           1
+ Timestep         8700   8.69999989E-04   4.86910382E-12           1
+ Timestep         8800   8.80000007E-04   4.85297653E-12           1
+ Timestep         8900   8.90000025E-04   4.83752708E-12           1
+ Timestep         9000   8.99999985E-04   4.82234001E-12           1
+ Timestep         9100   9.10000002E-04   4.80732468E-12           1
+ Timestep         9200   9.20000020E-04   4.79244422E-12           1
+ Timestep         9300   9.29999980E-04   4.77767999E-12           1
+ Timestep         9400   9.39999998E-04   4.76301897E-12           1
+ Timestep         9500   9.50000016E-04   4.74845423E-12           1
+ Timestep         9600   9.59999976E-04   4.73398013E-12           1
+ Timestep         9700   9.69999994E-04   4.71959190E-12           1
+ Timestep         9800   9.80000012E-04   4.70528694E-12           1
+ Timestep         9900   9.89999971E-04   4.69106264E-12           1
+ Timestep        10000   1.00000005E-03   4.67691684E-12           1
+
+Creating thin-wall model
+ Orientation depth =        3417
+  Loading V(t) driver coils
+  Loading I(t) driver coils
+
+  # of points    =        21643
+  # of edges     =        63205
+  # of cells     =        41862
+  # of holes     =           56
+  # of Vcoils    =            0
+  # of closures  =          159
+  # of Icoils    =           60
+
+  Building holes
+
+  Loading region resistivity:
+     1  6.9000E-05
+     2  3.5600E-06
+     3  6.9000E-05
+     4  3.5600E-06
+     5  2.3000E-05
+     6  6.9000E-05
+     7  3.5600E-06
+     8  1.6047E-03
+
+ Loading floop information:
+   # of floops =          72
+ Building element->sensor inductance matrix
+ Building coil->sensor inductance matrix
+ Building coil<->element inductance matrices
+     Time =  5s          
+ Building coil<->coil inductance matrix
+ Partitioning grid for block low rank compressed operators
+   nBlocks =                  32
+   Avg block size =          645
+   # of SVD =                293
+   # of ACA =                122
+
+ Building block low rank inductance operator
+   Building hole and Vcoil columns
+   Reading HODLR matrix from file: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8840163/input_data/HOLDR_L_C_Mod_ThinCurr_Combined-homology.h5_C_MOD_ALL.save
+   Building diagonal blocks
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+   Building off-diagonal blocks using ACA+
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+     Compression ratio:   9.2%  ( 3.93E+07/ 4.27E+08)
+     Time = 16s          
+ Building resistivity matrix
+
+ Starting simulation
+ Timestep          100   9.99999975E-06   8.94449029E-11           1
+ Timestep          200   1.99999995E-05   1.88002655E-10           1
+ Timestep          300   2.99999992E-05   2.25820376E-10           1
+ Timestep          400   3.99999990E-05   2.25863064E-10           1
+ Timestep          500   4.99999987E-05   2.26220945E-10           1
+ Timestep          600   5.99999985E-05   2.24496102E-10           1
+ Timestep          700   7.00000019E-05   2.31741834E-10           1
+ Timestep          800   7.99999980E-05   2.25322816E-10           1
+ Timestep          900   9.00000014E-05   2.27179678E-10           1
+ Timestep         1000   9.99999975E-05   2.23553551E-10           1
+ Timestep         1100   1.10000001E-04   2.22592472E-10           1
+ Timestep         1200   1.19999997E-04   2.29230052E-10           1
+ Timestep         1300   1.30000000E-04   2.24522512E-10           1
+ Timestep         1400   1.40000004E-04   2.28091324E-10           1
+ Timestep         1500   1.50000007E-04   2.22245305E-10           1
+ Timestep         1600   1.59999996E-04   2.21508131E-10           1
+ Timestep         1700   1.69999999E-04   2.26653515E-10           1
+ Timestep         1800   1.80000003E-04   2.23304694E-10           1
+ Timestep         1900   1.90000006E-04   2.28074309E-10           1
+ Timestep         2000   1.99999995E-04   2.21384633E-10           1
+ Timestep         2100   2.09999998E-04   2.20750543E-10           1
+ Timestep         2200   2.20000002E-04   2.24631952E-10           1
+ Timestep         2300   2.30000005E-04   2.22058635E-10           1
+ Timestep         2400   2.39999994E-04   2.27379546E-10           1
+ Timestep         2500   2.50000012E-04   2.20497662E-10           1
+ Timestep         2600   2.60000001E-04   2.19787813E-10           1
+ Timestep         2700   2.69999990E-04   2.23256871E-10           1
+ Timestep         2800   2.80000007E-04   2.20955851E-10           1
+ Timestep         2900   2.89999996E-04   2.26164212E-10           1
+ Timestep         3000   3.00000014E-04   2.19409463E-10           1
+ Timestep         3100   3.10000003E-04   2.18599264E-10           1
+ Timestep         3200   3.19999992E-04   2.22570309E-10           1
+ Timestep         3300   3.30000010E-04   2.13582568E-10           1
+ Timestep         3400   3.39999999E-04   1.29074737E-10           1
+ Timestep         3500   3.49999988E-04   3.59287183E-11           1
+ Timestep         3600   3.60000005E-04   2.95985025E-12           1
+ Timestep         3700   3.69999994E-04   2.95018458E-12           1
+ Timestep         3800   3.80000012E-04   2.94151465E-12           1
+ Timestep         3900   3.90000001E-04   2.93307089E-12           1
+ Timestep         4000   3.99999990E-04   2.92479691E-12           1
+ Timestep         4100   4.10000008E-04   2.91666604E-12           1
+ Timestep         4200   4.19999997E-04   2.90866138E-12           1
+ Timestep         4300   4.29999985E-04   2.90077099E-12           1
+ Timestep         4400   4.40000003E-04   2.89298533E-12           1
+ Timestep         4500   4.49999992E-04   2.88529704E-12           1
+ Timestep         4600   4.60000010E-04   2.87769938E-12           1
+ Timestep         4700   4.69999999E-04   2.87018738E-12           1
+ Timestep         4800   4.79999988E-04   2.86275604E-12           1
+ Timestep         4900   4.90000006E-04   2.85540125E-12           1
+ Timestep         5000   5.00000024E-04   2.84811953E-12           1
+ Timestep         5100   5.09999983E-04   8.86912904E-11           1
+ Timestep         5200   5.20000001E-04   1.86110904E-10           1
+ Timestep         5300   5.30000019E-04   2.25708049E-10           1
+ Timestep         5400   5.39999979E-04   2.25404070E-10           1
+ Timestep         5500   5.49999997E-04   2.25900409E-10           1
+ Timestep         5600   5.60000015E-04   2.24520805E-10           1
+ Timestep         5700   5.69999975E-04   2.31185238E-10           1
+ Timestep         5800   5.79999993E-04   2.25652150E-10           1
+ Timestep         5900   5.90000011E-04   2.26825017E-10           1
+ Timestep         6000   6.00000028E-04   2.23578059E-10           1
+ Timestep         6100   6.09999988E-04   2.22591751E-10           1
+ Timestep         6200   6.20000006E-04   2.28803435E-10           1
+ Timestep         6300   6.30000024E-04   2.24854219E-10           1
+ Timestep         6400   6.39999984E-04   2.27694169E-10           1
+ Timestep         6500   6.50000002E-04   2.22416099E-10           1
+ Timestep         6600   6.60000020E-04   2.21440991E-10           1
+ Timestep         6700   6.69999979E-04   2.26334299E-10           1
+ Timestep         6800   6.79999997E-04   2.23601276E-10           1
+ Timestep         6900   6.90000015E-04   2.27647470E-10           1
+ Timestep         7000   6.99999975E-04   2.21606553E-10           1
+ Timestep         7100   7.09999993E-04   2.20626156E-10           1
+ Timestep         7200   7.20000011E-04   2.24386523E-10           1
+ Timestep         7300   7.30000029E-04   2.22326241E-10           1
+ Timestep         7400   7.39999989E-04   2.26937663E-10           1
+ Timestep         7500   7.50000007E-04   2.20717319E-10           1
+ Timestep         7600   7.60000024E-04   2.19793336E-10           1
+ Timestep         7700   7.69999984E-04   2.23087049E-10           1
+ Timestep         7800   7.80000002E-04   2.21261801E-10           1
+ Timestep         7900   7.90000020E-04   2.25892693E-10           1
+ Timestep         8000   7.99999980E-04   2.19614021E-10           1
+ Timestep         8100   8.09999998E-04   2.18620816E-10           1
+ Timestep         8200   8.20000016E-04   2.22356120E-10           1
+ Timestep         8300   8.29999975E-04   2.14015305E-10           1
+ Timestep         8400   8.39999993E-04   1.28989014E-10           1
+ Timestep         8500   8.50000011E-04   3.62206133E-11           1
+ Timestep         8600   8.59999971E-04   2.69207183E-12           1
+ Timestep         8700   8.69999989E-04   2.68426318E-12           1
+ Timestep         8800   8.80000007E-04   2.67756000E-12           1
+ Timestep         8900   8.90000025E-04   2.67105543E-12           1
+ Timestep         9000   8.99999985E-04   2.66468379E-12           1
+ Timestep         9100   9.10000002E-04   2.65841646E-12           1
+ Timestep         9200   9.20000020E-04   2.65223694E-12           1
+ Timestep         9300   9.29999980E-04   2.64613353E-12           1
+ Timestep         9400   9.39999998E-04   2.64009843E-12           1
+ Timestep         9500   9.50000016E-04   2.63412469E-12           1
+ Timestep         9600   9.59999976E-04   2.62820776E-12           1
+ Timestep         9700   9.69999994E-04   2.62234310E-12           1
+ Timestep         9800   9.80000012E-04   2.61652765E-12           1
+ Timestep         9900   9.89999971E-04   2.61075840E-12           1
+ Timestep        10000   1.00000005E-03   2.60503294E-12           1
+
+Creating thin-wall model
+ Orientation depth =        3417
+  Loading V(t) driver coils
+  Loading I(t) driver coils
+
+  # of points    =        21643
+  # of edges     =        63205
+  # of cells     =        41862
+  # of holes     =           56
+  # of Vcoils    =            0
+  # of closures  =          159
+  # of Icoils    =           60
+
+  Building holes
+
+  Loading region resistivity:
+     1  6.9000E-05
+     2  3.5600E-06
+     3  6.9000E-05
+     4  3.5600E-06
+     5  2.3000E-05
+     6  6.9000E-05
+     7  3.5600E-06
+     8  1.6047E-03
+
+ Loading floop information:
+   # of floops =          72
+ Building element->sensor inductance matrix
+ Building coil->sensor inductance matrix
+ Building coil<->element inductance matrices
+     Time =  5s          
+ Building coil<->coil inductance matrix
+ Partitioning grid for block low rank compressed operators
+   nBlocks =                  32
+   Avg block size =          645
+   # of SVD =                293
+   # of ACA =                122
+
+ Building block low rank inductance operator
+   Building hole and Vcoil columns
+   Reading HODLR matrix from file: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8840163/input_data/HOLDR_L_C_Mod_ThinCurr_Combined-homology.h5_C_MOD_ALL.save
+   Building diagonal blocks
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+   Building off-diagonal blocks using ACA+
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+     Compression ratio:   9.2%  ( 3.93E+07/ 4.27E+08)
+     Time = 15s          
+ Building resistivity matrix
+
+ Starting simulation
+ Timestep          100   9.99999975E-06   3.86080612E-11           1
+ Timestep          200   1.99999995E-05   7.84511206E-11           1
+ Timestep          300   2.99999992E-05   1.20605442E-10           1
+ Timestep          400   3.99999990E-05   1.56195890E-10           1
+ Timestep          500   4.99999987E-05   1.96703293E-10           1
+ Timestep          600   5.99999985E-05   1.98226546E-10           1
+ Timestep          700   7.00000019E-05   1.96266906E-10           1
+ Timestep          800   7.99999980E-05   1.97333289E-10           1
+ Timestep          900   9.00000014E-05   1.95959513E-10           1
+ Timestep         1000   9.99999975E-05   1.99488481E-10           1
+ Timestep         1100   1.10000001E-04   1.95910455E-10           1
+ Timestep         1200   1.19999997E-04   1.96739167E-10           1
+ Timestep         1300   1.30000000E-04   1.99467831E-10           1
+ Timestep         1400   1.40000004E-04   1.96558173E-10           1
+ Timestep         1500   1.50000007E-04   1.98172798E-10           1
+ Timestep         1600   1.59999996E-04   1.96730826E-10           1
+ Timestep         1700   1.69999999E-04   2.00359840E-10           1
+ Timestep         1800   1.80000003E-04   1.96537578E-10           1
+ Timestep         1900   1.90000006E-04   1.97891148E-10           1
+ Timestep         2000   1.99999995E-04   1.99525174E-10           1
+ Timestep         2100   2.09999998E-04   1.98315975E-10           1
+ Timestep         2200   2.20000002E-04   1.98552813E-10           1
+ Timestep         2300   2.30000005E-04   1.97303965E-10           1
+ Timestep         2400   2.39999994E-04   2.01509046E-10           1
+ Timestep         2500   2.50000012E-04   1.97209651E-10           1
+ Timestep         2600   2.60000001E-04   1.99506037E-10           1
+ Timestep         2700   2.69999990E-04   1.98173505E-10           1
+ Timestep         2800   2.80000007E-04   2.01533137E-10           1
+ Timestep         2900   2.89999996E-04   1.97757977E-10           1
+ Timestep         3000   3.00000014E-04   1.99462460E-10           1
+ Timestep         3100   3.10000003E-04   1.99815761E-10           1
+ Timestep         3200   3.19999992E-04   2.00893899E-10           1
+ Timestep         3300   3.30000010E-04   1.98853364E-10           1
+ Timestep         3400   3.39999999E-04   1.99329928E-10           1
+ Timestep         3500   3.49999988E-04   2.01191466E-10           1
+ Timestep         3600   3.60000005E-04   2.00514938E-10           1
+ Timestep         3700   3.69999994E-04   1.99779429E-10           1
+ Timestep         3800   3.80000012E-04   1.99482333E-10           1
+ Timestep         3900   3.90000001E-04   2.02056968E-10           1
+ Timestep         4000   3.99999990E-04   2.00652051E-10           1
+ Timestep         4100   4.10000008E-04   2.00382086E-10           1
+ Timestep         4200   4.19999997E-04   1.99918887E-10           1
+ Timestep         4300   4.29999985E-04   2.02459133E-10           1
+ Timestep         4400   4.40000003E-04   2.01304945E-10           1
+ Timestep         4500   4.49999992E-04   2.00658129E-10           1
+ Timestep         4600   4.60000010E-04   2.00635564E-10           1
+ Timestep         4700   4.69999999E-04   2.02384151E-10           1
+ Timestep         4800   4.79999988E-04   2.02478062E-10           1
+ Timestep         4900   4.90000006E-04   2.00609251E-10           1
+ Timestep         5000   5.00000024E-04   2.01671430E-10           1
+ Timestep         5100   5.09999983E-04   1.77064793E-10           1
+ Timestep         5200   5.20000001E-04   1.38248191E-10           1
+ Timestep         5300   5.30000019E-04   9.51135629E-11           1
+ Timestep         5400   5.39999979E-04   5.51586103E-11           1
+ Timestep         5500   5.49999997E-04   1.54679759E-11           1
+ Timestep         5600   5.60000015E-04   1.10671086E-12           1
+ Timestep         5700   5.69999975E-04   1.10407571E-12           1
+ Timestep         5800   5.79999993E-04   1.10167626E-12           1
+ Timestep         5900   5.90000011E-04   1.09930316E-12           1
+ Timestep         6000   6.00000028E-04   1.09694599E-12           1
+ Timestep         6100   6.09999988E-04   1.09460216E-12           1
+ Timestep         6200   6.20000006E-04   1.09227048E-12           1
+ Timestep         6300   6.30000024E-04   1.08995061E-12           1
+ Timestep         6400   6.39999984E-04   1.08764245E-12           1
+ Timestep         6500   6.50000002E-04   1.08534601E-12           1
+ Timestep         6600   6.60000020E-04   1.08306116E-12           1
+ Timestep         6700   6.69999979E-04   1.08078791E-12           1
+ Timestep         6800   6.79999997E-04   1.07852637E-12           1
+ Timestep         6900   6.90000015E-04   1.07627633E-12           1
+ Timestep         7000   6.99999975E-04   1.07403778E-12           1
+ Timestep         7100   7.09999993E-04   1.07181072E-12           1
+ Timestep         7200   7.20000011E-04   1.06959504E-12           1
+ Timestep         7300   7.30000029E-04   1.06739064E-12           1
+ Timestep         7400   7.39999989E-04   1.06519741E-12           1
+ Timestep         7500   7.50000007E-04   1.06301534E-12           1
+ Timestep         7600   7.60000024E-04   1.06084412E-12           1
+ Timestep         7700   7.69999984E-04   1.05868385E-12           1
+ Timestep         7800   7.80000002E-04   1.05653431E-12           1
+ Timestep         7900   7.90000020E-04   1.05439550E-12           1
+ Timestep         8000   7.99999980E-04   1.05226711E-12           1
+ Timestep         8100   8.09999998E-04   1.05014923E-12           1
+ Timestep         8200   8.20000016E-04   1.04804154E-12           1
+ Timestep         8300   8.29999975E-04   1.04594415E-12           1
+ Timestep         8400   8.39999993E-04   1.04385684E-12           1
+ Timestep         8500   8.50000011E-04   1.04177940E-12           1
+ Timestep         8600   8.59999971E-04   1.03971194E-12           1
+ Timestep         8700   8.69999989E-04   1.03765412E-12           1
+ Timestep         8800   8.80000007E-04   1.03560606E-12           1
+ Timestep         8900   8.90000025E-04   1.03356755E-12           1
+ Timestep         9000   8.99999985E-04   1.03153846E-12           1
+ Timestep         9100   9.10000002E-04   1.02951870E-12           1
+ Timestep         9200   9.20000020E-04   1.02750816E-12           1
+ Timestep         9300   9.29999980E-04   1.02550683E-12           1
+ Timestep         9400   9.39999998E-04   1.02351450E-12           1
+ Timestep         9500   9.50000016E-04   1.02153117E-12           1
+ Timestep         9600   9.59999976E-04   1.01955673E-12           1
+ Timestep         9700   9.69999994E-04   1.01759107E-12           1
+ Timestep         9800   9.80000012E-04   1.01563408E-12           1
+ Timestep         9900   9.89999971E-04   1.01368566E-12           1
+ Timestep        10000   1.00000005E-03   1.01174581E-12           1
+
+Creating thin-wall model
+ Orientation depth =        3417
+  Loading V(t) driver coils
+  Loading I(t) driver coils
+
+  # of points    =        21643
+  # of edges     =        63205
+  # of cells     =        41862
+  # of holes     =           56
+  # of Vcoils    =            0
+  # of closures  =          159
+  # of Icoils    =           60
+
+  Building holes
+
+  Loading region resistivity:
+     1  6.9000E-05
+     2  3.5600E-06
+     3  6.9000E-05
+     4  3.5600E-06
+     5  2.3000E-05
+     6  6.9000E-05
+     7  3.5600E-06
+     8  1.6047E-03
+
+ Loading floop information:
+   # of floops =          72
+ Building element->sensor inductance matrix
+ Building coil->sensor inductance matrix
+ Building coil<->element inductance matrices
+     Time =  5s          
+ Building coil<->coil inductance matrix
+ Partitioning grid for block low rank compressed operators
+   nBlocks =                  32
+   Avg block size =          645
+   # of SVD =                293
+   # of ACA =                122
+
+ Building block low rank inductance operator
+   Building hole and Vcoil columns
+   Reading HODLR matrix from file: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8840163/input_data/HOLDR_L_C_Mod_ThinCurr_Combined-homology.h5_C_MOD_ALL.save
+   Building diagonal blocks
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+   Building off-diagonal blocks using ACA+
+     10%
+     20%
+     30%
+     40%
+     50%
+     60%
+     70%
+     80%
+     90%
+     Compression ratio:   9.2%  ( 3.93E+07/ 4.27E+08)
+     Time = 17s          
+ Building resistivity matrix
+
+ Starting simulation
+ Timestep          100   9.99999975E-06   9.50327456E-11           1
+ Timestep          200   1.99999995E-05   1.93156838E-10           1
+ Timestep          300   2.99999992E-05   2.89209684E-10           1
+ Timestep          400   3.99999990E-05   3.88417992E-10           1
+ Timestep          500   4.99999987E-05   4.75655182E-10           1
+ Timestep          600   5.99999985E-05   4.83079909E-10           1
+ Timestep          700   7.00000019E-05   4.84612905E-10           1
+ Timestep          800   7.99999980E-05   4.73030670E-10           1
+ Timestep          900   9.00000014E-05   4.86656104E-10           1
+ Timestep         1000   9.99999975E-05   4.82988760E-10           1
+ Timestep         1100   1.10000001E-04   4.73130424E-10           1
+ Timestep         1200   1.19999997E-04   4.88916019E-10           1
+ Timestep         1300   1.30000000E-04   4.81502505E-10           1
+ Timestep         1400   1.40000004E-04   4.74409012E-10           1
+ Timestep         1500   1.50000007E-04   4.90046170E-10           1
+ Timestep         1600   1.59999996E-04   4.80668172E-10           1
+ Timestep         1700   1.69999999E-04   4.75808726E-10           1
+ Timestep         1800   1.80000003E-04   4.90644969E-10           1
+ Timestep         1900   1.90000006E-04   4.80539941E-10           1
+ Timestep         2000   1.99999995E-04   4.76779449E-10           1
+ Timestep         2100   2.09999998E-04   4.91145680E-10           1
+ Timestep         2200   2.20000002E-04   4.81046369E-10           1
+ Timestep         2300   2.30000005E-04   4.77135331E-10           1
+ Timestep         2400   2.39999994E-04   4.91657770E-10           1
+ Timestep         2500   2.50000012E-04   4.82193729E-10           1
+ Timestep         2600   2.60000001E-04   4.76802320E-10           1
+ Timestep         2700   2.69999990E-04   4.91793550E-10           1
+ Timestep         2800   2.80000007E-04   4.84011276E-10           1
+ Timestep         2900   2.89999996E-04   4.76428841E-10           1
+ Timestep         3000   3.00000014E-04   4.91321428E-10           1
+ Timestep         3100   3.10000003E-04   4.86503615E-10           1
+ Timestep         3200   3.19999992E-04   4.76690243E-10           1
+ Timestep         3300   3.30000010E-04   4.89477125E-10           1
+ Timestep         3400   3.39999999E-04   4.89109198E-10           1
+ Timestep         3500   3.49999988E-04   4.78801498E-10           1
+ Timestep         3600   3.60000005E-04   4.86138685E-10           1
+ Timestep         3700   3.69999994E-04   4.90425478E-10           1
+ Timestep         3800   3.80000012E-04   4.83660112E-10           1
+ Timestep         3900   3.90000001E-04   4.82602569E-10           1
+ Timestep         4000   3.99999990E-04   4.88658281E-10           1
+ Timestep         4100   4.10000008E-04   4.90285201E-10           1
+ Timestep         4200   4.19999997E-04   4.81804763E-10           1
+ Timestep         4300   4.29999985E-04   4.83625584E-10           1
+ Timestep         4400   4.40000003E-04   4.94777497E-10           1
+ Timestep         4500   4.49999992E-04   4.85894658E-10           1
+ Timestep         4600   4.60000010E-04   4.79379092E-10           1
+ Timestep         4700   4.69999999E-04   4.92734908E-10           1

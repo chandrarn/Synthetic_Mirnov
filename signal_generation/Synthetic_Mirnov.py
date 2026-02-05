@@ -11,13 +11,14 @@ Created on Tue Dec 17 11:43:59 2024
 from header_signal_generation import struct,sys,os,h5py,np,plt,mlines,rc,cm,pyvista,ThinCurr,\
     Mirnov, save_sensors, OFT_env, mu0, histfile, subprocess, geqdsk, cv2,\
         make_smoothing_spline, factorial, json, subprocess, F_AE, I_AE, F_AE_plot, sys,\
-              gen_coupled_freq, debug_mode_frequency_plot, getcwd
+              gen_coupled_freq, debug_mode_frequency_plot, getcwd, j_id, working_directory
 from gen_MAGX_Coords import gen_Sensors,gen_Sensors_Updated
 from geqdsk_filament_generator import gen_filament_coords, calc_filament_coords_geqdsk, calc_filament_coords_field_lines
 from prep_sensors import conv_sensor
 sys.path.append('../signal_analysis/')
 from plot_sensor_output import plot_Currents, plot_single_sensor
 
+jobId = os.environ.get('SLURM_JOB_ID','')
 
 # main loop
 def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5',
@@ -30,7 +31,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=False,
                                 scan_in_freq=False,clim_J=None,doSave_Bode=False,oft_env=None):
     
-    os.chdir('../signal_generation/')
+    # os.chdir('../signal_generation/')
     # Get mode amplitudes, indexed to filament positions
     # Generate coil currents (for artificial mode)
     coil_currs = gen_coil_currs(params,wind_in=wind_in,scan_in_freq=scan_in_freq)
@@ -88,13 +89,13 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,oft_env=None,debug=True):
     if debug: print('Loading mesh from %s'%mesh_file)
     if oft_env is None: oft_env = OFT_env(nthreads=params['n_threads'],abort_callback=True)
     tw_mesh = ThinCurr(oft_env)
-    tw_mesh.setup_model(mesh_file='input_data/'+mesh_file,xml_filename='input_data/'+filament_file)
-    tw_mesh.setup_io()
+    tw_mesh.setup_model(mesh_file=f'{j_id}input_data/'+mesh_file,xml_filename=f'{j_id}input_data/'+filament_file)
+    tw_mesh.setup_io(basepath=f'{j_id}input_data/')
 
 
     # Sensor - mesh and sensor - filament inductances
     if debug: print(('Computing mutual inductances between mesh and %s sensors'%sensor_set))
-    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor('input_data/floops_%s.loc'%sensor_set)
+    Msensor, Msc, sensor_obj = tw_mesh.compute_Msensor(f'{j_id}input_data/floops_%s.loc'%sensor_set)
 
     # Filament - mesh inductance
     if debug: print('Computing mutual inductances between mesh and filaments')
@@ -102,7 +103,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,oft_env=None,debug=True):
 
     # Build inductance matrix
     if debug: print('Computing mesh self-inductance')
-    tw_mesh.compute_Lmat(use_hodlr=True,cache_file='input_data/HOLDR_L_%s_%s.save'%(mesh_file,sensor_set))
+    tw_mesh.compute_Lmat(use_hodlr=True,cache_file=f'{j_id}input_data/HOLDR_L_{mesh_file}_{sensor_set}.save')
 
     # Buld resistivity matrix
     tw_mesh.compute_Rmat()
@@ -111,6 +112,7 @@ def get_mesh(mesh_file,filament_file,params,sensor_set,oft_env=None,debug=True):
     eig_vals, eig_vecs = None,None#tw_mesh.get_eigs(10,False)
     L_inv = None#np.linalg.pinv(np.dot(np.dot(eig_vecs.T,np.diag(eig_vals)),np.linalg.pinv(eig_vecs.T)))
 
+    if debug: print('Mesh setup complete')
     return tw_mesh, sensor_obj, Mc, eig_vals, eig_vecs, L_inv
 
 ################################################################################################
@@ -125,10 +127,10 @@ def gen_OFT_filement_and_eta_file(filament_file,params,filament_coords,\
     m=params['m'];n=params['n'];r=params['r'];R=params['R']
     n_pts=params['n_pts'];m_pts=params['m_pts']
 
-    with open('input_data/'+filament_file,'w+') as f:
+    with open(f'{j_id}input_data/'+filament_file,'w+') as f:
         f.write('<oft>\n\t<thincurr>\n\t<eta>%s</eta>\n\t<icoils>\n'%eta)
         
-        print('File open for writing: %s'%filament_file)
+        print('File open for writing: %s'%(f'{j_id}input_data/'+filament_file))
 
         for filament_ in filament_coords:
             
@@ -225,16 +227,19 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
 
     # run time depenent simulation, save floops.hist file for output sensor measurements
     # Note: plot_freq creates output files for the nth timestep: needs to be less than nsteps for 
-    # plotting at minimum the J_surf plot 
+    # plotting at minimum the J_surf plot :
+
     tw_mesh.run_td(dt,nsteps,
-                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=100)
+                    coil_currs=coil_currs,sensor_obj=sensor_obj,status_freq=100,plot_freq=10000)
+    os.system(f"mv floops.hist {j_id}input_data/floops.hist")
+
     if doPlot:tw_mesh.plot_td(nsteps,compute_B=True,sensor_obj=sensor_obj,plot_freq=100)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file='input_data/HODLR_B_%s_%s.save'%(mesh_file,sensor_set)) 
+    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file=f'input_data/HODLR_B_{mesh_file}_{sensor_set}.save') 
      
     # Saves floops.hist 
-    hist_file = histfile('floops.hist') # floops.hist created after run_td(), but it's loaded back in here
+    hist_file = histfile(f'{j_id}input_data/floops.hist') # floops.hist created after run_td(), but it's loaded back in here
 
 
     if debug:
@@ -257,10 +262,10 @@ def __do_save_output(f,m,n,archiveExt,sensor_set,mesh_file,save_Ext, debug, hist
     if type(m) is not list: mn_out = '%d-%d'%(m,n)
     else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
         '-'.join([str(n_) for n_ in n])
-    f_save = '../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
+    f_save = working_directory+'../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
                     (archiveExt,sensor_set,mn_out,f_out,mesh_file,save_Ext)
 
-    subprocess.run(['cp','floops.hist',f_save+'.hist'])
+    subprocess.run(['cp',f'input_data/floops.hist',f_save+'.hist'])
     if debug: print('Saved output to %s.hist'%f_save)
 
 

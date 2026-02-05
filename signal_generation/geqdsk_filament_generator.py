@@ -8,20 +8,13 @@ Created on Wed Jan 22 21:26:44 2025
 """
 
 # Import libraries
-import numpy as np
-import matplotlib.pyplot as plt
-from freeqdsk import geqdsk
-import cv2
-from fractions import Fraction
-from os import getcwd
-from sys import path; path.append('/home/rianc/Documents/SynthWave/')
+from header_signal_generation import np, plt, geqdsk, cv2, Fraction, os, sys,\
+      working_directory
+
+sys.path.append('/home/rianc/Documents/SynthWave/')
 from synthwave.magnetic_geometry.filaments import EquilibriumFilamentTracer
 from synthwave.magnetic_geometry.equilibrium_field import EquilibriumField
-import matplotlib;
-try: 
-    matplotlib.use('TkAgg')
-    plt.ion()
-except:pass
+
 ########################
 def gen_filament_coords(params, wind_in='phi'):
     m=params['m'];n=params['n'];n_pts=params['n_pts'];m_pts=params['m_pts']
@@ -85,8 +78,7 @@ def calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params,debug=False,fil=0,
             
         else: # Using geqdsk equilibrium to locate flux surfaces
             # Load eqdsk
-            print(getcwd())
-            with open('input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+            with open(working_directory+'input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
             
             # get q(psi(r,z))
             psi_eqdsk = eqdsk.psi
@@ -197,7 +189,7 @@ def starting_phi(m,n,m_pts,n_pts):
 # Core of new Winding Method
 def wind_in_theta(file_geqdsk,m,n, debug=False):
     
-    with open('../signal_generation/input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
+    with open(working_directory+'input_data/'+file_geqdsk,'r') as f: eqdsk=geqdsk.read(f)
     eq_field = EquilibriumField(eqdsk)
     eq_filament = EquilibriumFilamentTracer(m,n,eq_field)
     filament_points,filament_etas = eq_filament.trace(trace_type=EquilibriumFilamentTracer.TraceType.AVERAGE,num_points=300)

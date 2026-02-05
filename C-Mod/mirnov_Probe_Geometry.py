@@ -7,7 +7,7 @@ Created on Thu May  1 16:10:25 2025
     low m/n BP probes in get_Cmod_Data
 @author: rianc
 """
-from header_Cmod import mds, np, json
+from header_Cmod import mds, np, json, working_directory
 
 def Mirnov_Geometry(shotno,debug=True):
     if int(str(shotno)[1:3]) > 10:
@@ -380,13 +380,13 @@ def Mirnov_Geometry(shotno,debug=True):
                     Z[node_name] =   Z['BP06_ABK'] 
                 else: phi[node_name] -= 1
     ####################################
-    with open('../C-Mod/C_Mod_Mirnov_Geometry_R.json','w', encoding='utf-8') as f: 
+    with open(working_directory + '../C-Mod/C_Mod_Mirnov_Geometry_R.json','w', encoding='utf-8') as f: 
         json.dump(R,f, ensure_ascii=False, indent=4)
-    with open('../C-Mod/C_Mod_Mirnov_Geometry_Z.json','w', encoding='utf-8') as f: 
+    with open(working_directory + '../C-Mod/C_Mod_Mirnov_Geometry_Z.json','w', encoding='utf-8') as f: 
         json.dump(Z,f, ensure_ascii=False, indent=4)
-    with open('../C-Mod/C_Mod_Mirnov_Geometry_Phi.json','w', encoding='utf-8') as f: 
+    with open(working_directory + '../C-Mod/C_Mod_Mirnov_Geometry_Phi.json','w', encoding='utf-8') as f: 
         json.dump(phi,f, ensure_ascii=False, indent=4)
-    with open('../C-Mod/C_Mod_Mirnov_Geometry_Theta_Pol.json','w', encoding='utf-8') as f: 
+    with open(working_directory + '../C-Mod/C_Mod_Mirnov_Geometry_Theta_Pol.json','w', encoding='utf-8') as f: 
         json.dump(theta_pol,f, ensure_ascii=False, indent=4)
     ####################################
     return phi, theta_pol, R, Z

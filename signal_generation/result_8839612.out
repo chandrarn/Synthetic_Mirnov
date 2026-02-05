@@ -1,0 +1,59 @@
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/input_data/C_Mod_ThinCurr_Combined-homology.h5
+/home/rianc/Documents/Synthetic_Mirnov/signal_generation/C_Mod_ThinCurr_Combined-homology_job.h5
+Copied mesh file to: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8839612/input_data/
+Running synthetic spectrogram generation...
+#----------------------------------------------
+Open FUSION Toolkit Initialized
+Development branch:    main
+Revision id:           9106df3
+Parallelization Info:
+  Not compiled with MPI
+  # of OpenMP threads =   21
+Fortran input file    = /tmp/oft_395131/oftpyin
+XML input file        = none
+Integer Precisions    =    4   8
+Float Precisions      =    4   8  10
+Complex Precisions    =    4   8
+LA backend            = native
+#----------------------------------------------
+
+
+Creating thin-wall model
+ Orientation depth =        3417
+  Loading V(t) driver coils
+  Loading I(t) driver coils
+
+  # of points    =        21643
+  # of edges     =        63205
+  # of cells     =        41862
+  # of holes     =           56
+  # of Vcoils    =            0
+  # of closures  =          159
+  # of Icoils    =           60
+
+  Building holes
+
+  Loading region resistivity:
+     1  6.9000E-05
+     2  3.5600E-06
+     3  6.9000E-05
+     4  3.5600E-06
+     5  2.3000E-05
+     6  6.9000E-05
+     7  3.5600E-06
+     8  1.6047E-03
+/orcd/home/002/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8839612
+Working Directory:  /home/rianc/Documents/Synthetic_Mirnov/signal_generation/
+USING MESH:  C_Mod_ThinCurr_Combined-homology.h5
+Generated 1 gEQDSK files for training shots.
+Generated parameters for 1 shots
+Running simulation for mode: [3]/[1] at average frequency 5.10 Hz
+Number of filaments: 60
+Initialized coil currents array with shape (1000,61)
+Assigning currents to filaments for m/n = 3/1
+File open for writing: /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8837296/input_data/oft_in.xml
+Using hardcoded values for shot 1160930034
+checkpoint
+Saved sensor details to /home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_runs/slurm_job_8837296/input_data/sensor_details_C_MOD_ALL.nc
+Loading mesh from C_Mod_ThinCurr_Combined-homology.h5

@@ -1,0 +1,31 @@
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/core.py:39: ModuleWarning: trispline module could not be loaded -- tricubic spline interpolation will not be available.
+  warnings.warn("trispline module could not be loaded -- tricubic spline "
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/core.py:52: ModuleWarning: matplotlib modules could not be loaded -- plotting and gfile writing will not be available.
+  warnings.warn("matplotlib modules could not be loaded -- plotting and gfile"
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/EFIT.py:41: ModuleWarning: MDSplus module could not be loaded -- classes that use MDSplus for data access will not work.
+  warnings.warn("MDSplus module could not be loaded -- classes that use "
+/orcd/home/002/rianc/Documents/eqtools-1.0/eqtools/NSTXEFIT.py:36: ModuleWarning: MDSplus module could not be loaded -- classes that use MDSplus for data access will not work.
+  warnings.warn("MDSplus module could not be loaded -- classes that use "
+cp: cannot stat 'input_data/floops.hist': No such file or directory
+Traceback (most recent call last):
+  File "/home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_run_synthetic_spectrogram.py", line 297, in <module>
+    batch_run_synthetic_spectrogram(
+  File "/home/rianc/Documents/Synthetic_Mirnov/signal_generation/batch_run_synthetic_spectrogram.py", line 82, in batch_run_synthetic_spectrogram
+    diag,signals,time,out_spect,out_spect_all_cplx, freq, sensor_name = signal_spectrogram_C_Mod(
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rianc/Documents/Synthetic_Mirnov/signal_generation/../C-Mod/spectrogram_Cmod.py", line 100, in signal_spectrogram_C_Mod
+    freq, time, out_spect, out_spect_all_cplx = compute_averaged_spectrogram_from_blocks(\
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/rianc/Documents/Synthetic_Mirnov/signal_generation/../C-Mod/spectrogram_Cmod.py", line 444, in compute_averaged_spectrogram_from_blocks
+    f, t, current_spectrogram = stft(signal, fs=sampling_rate, window=window, nperseg=n_samples, noverlap=n_samples - m_skip, nfft=nfft, return_onesided=True)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/rianc/venv/lib/python3.11/site-packages/scipy/signal/_spectral_py.py", line 1613, in stft
+    freqs, time, Zxx = _spectral_helper(x, x, fs, window, nperseg, noverlap,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/rianc/venv/lib/python3.11/site-packages/scipy/signal/_spectral_py.py", line 2215, in _spectral_helper
+    win, nperseg = _triage_segments(window, nperseg, input_length=x.shape[-1])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/rianc/venv/lib/python3.11/site-packages/scipy/signal/_spectral_py.py", line 2454, in _triage_segments
+    raise ValueError('window is longer than input signal')
+ValueError: window is longer than input signal
+srun: error: node1919: task 0: Exited with exit code 1

@@ -58,6 +58,8 @@ try:
     if getlogin() == 'rian': data_archive_path = '/home/rian/Documents/data_archive/'
 except: data_archive_path = ''
 
+working_directory = "/home/rianc/Documents/Synthetic_Mirnov/signal_generation/"
+
 ###############################################################################
 # Helper functions
 # Helper function for filtering     

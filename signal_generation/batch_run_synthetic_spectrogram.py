@@ -5,7 +5,7 @@
 
 # Import necessary libraries
 
-from header_signal_generation import plt, np, sys, xr, Fraction, os, OFT_env
+from header_signal_generation import plt, np, sys, xr, Fraction, os, OFT_env, working_directory
 sys.path.append('../C-Mod/')
 from Synthetic_Mirnov import gen_synthetic_Mirnov
 from spectrogram_Cmod import signal_spectrogram_C_Mod
@@ -48,12 +48,14 @@ def batch_run_synthetic_spectrogram(output_directory='',
     per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
                                 doPlot=doPlot*False,save_ext=save_Ext+'_',doPerturbation=doPerturbation,\
                                     justLoadGeqdsk=justLoadGeqdsk)
-
+    print(f'Generated parameters for {len(per_shot_mode_params)} shots')
+    #######################################################################################
     # Initialize OFT environment
     oft_env = OFT_env(nthreads=ThinCurr_params['n_threads'],abort_callback=True)
     # For each mode, run the simulation
     for mode_param in per_shot_mode_params:
-        print(f"Running simulation for mode: {mode_param['m']}/{mode_param['n']} at frequency {mode_param['f']} Hz")
+        print(f"Running simulation for mode: {mode_param['m']}/{mode_param['n']} at average frequency "+\
+              f"{np.mean(mode_param['f']):0.2f} Hz")
         
         # try:
         # Generate synthetic Mirnov signals
@@ -71,7 +73,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
             eta = ThinCurr_params['eta'],
             file_geqdsk=mode_param['file_geqdsk'],
             cmod_shot=ThinCurr_params['cmod_shot'],
-            oft_env=oft_env
+            oft_env=oft_env,
+            debug=True
         )
         
         # Calculate spectrogram
@@ -243,7 +246,7 @@ def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, senso
 if __name__ == '__main__':
     # Example usage
     # output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
-    output_directory = '../data_output/synthetic_spectrograms/new_helicity_low_mn/'
+    output_directory = working_directory+'../data_output/synthetic_spectrograms/new_helicity_low_mn/'
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -262,8 +265,12 @@ if __name__ == '__main__':
     eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
     # eta = [SS/w_ss, Mo/w_tile_lim, SS/w_ss, Mo/w_tile_lim, SS/w_vv, SS/w_ss, Mo/w_tile_arm, SS/w_shield]
 
+    # Check for job-specific mesh file from SLURM script
+    # mesh_file = os.environ.get('MESH_FILE_FOR_JOB', 'C_Mod_ThinCurr_Combined-homology.h5')
+    mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
+    print('USING MESH: ', mesh_file)
     ThinCurr_params = {
-        'mesh_file': 'C_Mod_ThinCurr_Combined-homology.h5',
+        'mesh_file': mesh_file,
         'sensor_set': 'C_MOD_ALL',
         'cmod_shot' : 1160930034,#1051202011,
         'save_ext': '',
@@ -271,7 +278,7 @@ if __name__ == '__main__':
         'wind_in' : 'theta',
         'file_geqdsk' : 'g1051202011.1000',
         'eta' : eta,
-        'n_threads' : 20,
+        'n_threads' : 21,
     }
 
     Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
@@ -283,7 +290,7 @@ if __name__ == '__main__':
     save_Ext = '_Synth_low-n_New_Helicity'
     doSave = '../output_plots/low_m-n_spectrograms'*True
     doPlot = False
-    training_shots = 1
+    training_shots = 100
     doPerturbation = False
     justLoadGeqdsk = True
 

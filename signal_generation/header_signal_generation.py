@@ -25,7 +25,9 @@ try:
 except: pass
 # MDS load may not work on all machines
 try:import MDSplus as mds
-except:import mdsthin as mds
+except:
+    try:import mdsthin as mds
+    except: mds = None
 #pyvista.set_jupyter_backend('static') # Comment to enable interactive PyVista plots
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
@@ -42,7 +44,7 @@ try:
 except:pass # TkAgg can't be assigned in headless operations
 
 print(getcwd())
-sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release/python/')
+sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release_sched_mit_psfc_r8/python/')
 #sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Updated/src/python/')
 # Updated OFT:
@@ -64,11 +66,18 @@ import cv2
 from scipy.interpolate import make_smoothing_spline, BSpline
 from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
+from scipy.signal import butter, filtfilt
+
 from fractions import Fraction
 import json
 import xarray as xr
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
+
+# Save files in job specific folders if possible [necessary for multi-node operations]
+j_id =  os.environ.get('SLURM_WORKING_FOLDER',os.getcwd()+'/')
+working_directory = os.environ.get('SCRIPT_DIR', j_id)
+
 
 from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot, gen_coupled_freq,debug_mode_frequency_plot
 
@@ -76,7 +85,8 @@ from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot, gen_coupl
 
 #####################3
 # Add paths
-sys.path.append('../signal_analysis/')
-sys.path.append('../C-Mod/')
+print('Working Directory: ', working_directory)
+sys.path.append(working_directory+'../signal_analysis/')
+sys.path.append(working_directory+'../C-Mod/')
 from mirnov_Probe_Geometry import Mirnov_Geometry as Mirnov_Geometry_C_Mod
 
