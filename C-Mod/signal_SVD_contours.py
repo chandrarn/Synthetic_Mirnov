@@ -332,7 +332,7 @@ def __optimal_subplot_grid(num_datasets: int):
 
 
 if __name__ == '__main__':
-    shotno = 1160930034#1160714026
+    shotno = 1110201006#1160930034#1160714026
     # Load bp_k data
     # bp_k = __loadData(1160930034,pullData='bp_k')['bp_k']
     
@@ -340,23 +340,23 @@ if __name__ == '__main__':
     # Example: visualize modes during a specific time window
     U, S, Vh, theta, phi = visualize_bpk_contours(
         bp_k,
-        time_range=[0.974,0.9795],  # 200 ms window
+        time_range=[1.77,1.8],#[0.974,0.9795],  # 200 ms window
         # time_range=[1.374,1.3793],
-        freq_range=[1e3, 20e3],  # 50-200 kHz
+        freq_range=[5e3, 20e3],  # 50-200 kHz
         # freq_range=[15e3, 30e3],  # 50-200 kHz  
         n_components=6,  # Plot first 6 modes
-        save_path='output_plots/bpk_svd_contours_%d.pdf'%shotno
+        save_path='../output_plots/bpk_svd_contours_%d.pdf'%shotno
     )
     
     # Plot singular value spectrum
     plot_svd_spectrum(S, n_display=20, 
-                     save_path='output_plots/bpk_svd_spectrum_%d.pdf'%shotno)
+                     save_path='../output_plots/bpk_svd_spectrum_%d.pdf'%shotno)
     
     # # Plot filtered timeseries for sanity check
     # plot_filtered_timeseries(
     #     bp_k, 
     #     time_indices=np.arange(100, 200),  # Example: middle of the time range
-    #     data_filtered=data_filtered,  # Use the last filtered data
+    #     data_filtered=data_filtered,  # mode_id_nUse the last filtered data
     #     theta=theta, 
     #     phi=phi, 
     #     n_sensors_plot=6, 

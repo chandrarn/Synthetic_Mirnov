@@ -796,17 +796,21 @@ if __name__ == '__main__':
     # sandbox(1150319903,tLim=[.5,1.65],input_channel=16,ACQ_board=2)
 
     # sandbox()
-    # mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
+    mesh_file = 'C_Mod_ThinCurr_VV-homology.h5'
+    # mesh_file = 'vacuum_mesh.h5'
+
     sensor_set = 'C_MOD_ALL' # Example sensor names
     calibration_magnitude = 6.325 # Replace with actual calibration magnitude
     calibration_frequency_limits = (10, 1e6)  # Frequency range in Hz
-    comparison_shot = 1150319902 # Example shot number for comparison
-    synthDataFileNameInfo={'mesh_file':'C_Mod_ThinCurr_Combined-homology.h5',
+    comparison_shot = 1150319903 # Example shot number for comparison
+    synthDataFileNameInfo={'mesh_file':mesh_file,
                                         'sensor_set':'C_MOD_ALL',
                                         'calibration_frequency_limits':(10,1e6),
                                         'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1],
-                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected-3D_Tiles'*True}
-    plot_sensors =  'all'#['bp01_abk']
+                                        'save_ext_input':'_f-sweep_All-Mirnovs-Corrected-3D_Tiles'*False}
+    plot_sensors =  ['bp_ef_top']
     needs_correction = ['12_abk', '1t_ghk', '3t_ghk', '_ef_bot', '_ef_top']
     input_channel = 16 # Channel for calibration signal
     ACQ_board = 2 # ACQ board for calibration signal
@@ -814,15 +818,15 @@ if __name__ == '__main__':
     B0_normalize = False
     compareSynthetic = True
     fLim = [0,1e6]
-    yLim_mag = [[0,5],[0,4],[0,24]]#[0,21]
+    yLim_mag = [0,25]#[[0,5],[0,4],[0,24]]#
     yLim_phase = [-10,340]
     freq_domain_calculation = True # If True, use synthetic frequency domain data, otherwise time domain
     doSave='../output_plots/'*True
     save_Ext_plot='_newCoords_Tiles_Mirnov_Shields_3D_Norm_Phase'*True
 
-    R = 5.3*0+0     # Ohms 
+    R = 6*1+0     # Ohms 
     L = 60e-6      # Henry
-    C = 1.35e-9#780e-12     # Farads
+    C = 1.35e-9#  780e-12#   # Farads
 
     out = compareBode(shotno=comparison_shot,doSave=doSave,doPlot=True,
                 synthDataFileNameInfo=synthDataFileNameInfo,plot_sensors=plot_sensors,

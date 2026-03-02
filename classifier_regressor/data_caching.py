@@ -300,17 +300,23 @@ def visualize_cached_data(cfg: CacheConfig, y_m, y_n, X_ri,doDelta=False):
     plt.show()
     print("Visualization of cached data complete.")
 ##############################################################################################
-def visualize_contours(cfg: CacheConfig, y_m, y_n, X_ri,theta,phi,doDelta=False):
+def visualize_contours(cfg: CacheConfig, y_m, y_n, X_ri,theta,phi,select_specific_times=[4,5],doDelta=False):
     # Plot reconstructed signal for a given mode (Real * cos(Imag)) over contours of theta, phi
     from scipy.interpolate import griddata
     
+    if select_specific_times is not None:
+        y_m = y_m[select_specific_times].copy()
+        y_n = y_n[select_specific_times].copy()
+        X_ri = X_ri[select_specific_times].copy()
+        
     plt.close('Debug_Cached_Contour_Plots'+('_Delta' if doDelta else ''))
     m,n = __optimal_subplot_grid(len(y_m))
 
     fig,ax=plt.subplots(m,n,num='Debug_Cached_Contour_Plots'+('_Delta' if doDelta else ''),\
-                        tight_layout=True,figsize=(5,4),sharex=True,sharey=True)
+                        tight_layout=True, figsize=(5, 4 if m>1 else 2), sharex=True, sharey=True)
     ax = ax.flatten() if m*n > 1 else [ax]
     theta *= 180.0/np.pi  # convert to degrees
+    phi *= 180.0/np.pi  # convert to degrees
 
     for i in range(len(y_m)):
         # Reconstruct signal
@@ -319,7 +325,7 @@ def visualize_contours(cfg: CacheConfig, y_m, y_n, X_ri,theta,phi,doDelta=False)
         signal_reconstructed = real_part * np.cos(imag_part)
 
         # Create regular grid for interpolation
-        phi_grid = np.linspace(phi.min(), phi.max(), 50)
+        phi_grid = np.linspace(phi.min(), phi.max(), 50) #* 180/np.pi  # convert to degrees
         theta_grid = np.linspace(theta.min(), theta.max(), 50) 
         Phi_grid, Theta_grid = np.meshgrid(phi_grid, theta_grid)
         
@@ -328,15 +334,15 @@ def visualize_contours(cfg: CacheConfig, y_m, y_n, X_ri,theta,phi,doDelta=False)
                               (Phi_grid, Theta_grid), method='linear')
         
         # Plot filled contours on regular grid
-        c = ax[i].contourf(Phi_grid, Theta_grid, signal_grid, levels=20, cmap='viridis')
+        c = ax[i].contourf(Phi_grid, Theta_grid, signal_grid*1e6, levels=20, cmap='viridis')
         # Overlay original sensor locations
         ax[i].scatter(phi, theta, c='red', s=20, marker='x', linewidths=1, alpha=0.5)
-        fig.colorbar(c, ax=ax[i], label='Signal [T]')
-        ax[i].set_title(f'Sample {i}: Mode {y_m[i]}/{y_n[i]}', fontsize=8)
+        fig.colorbar(c, ax=ax[i], label=r'Signal [$\mu$T]')
+        ax[i].set_title(rf'Mode {y_m[i]}/{y_n[i]}, Rotated {(X_ri[i,14,1]*180/np.pi)%(360):3.1f}$^\circ$', fontsize=8)
 
         ax[i].set_rasterization_zorder(-1)
         # ax[i].set_aspect('equal', adjustable='box')
-        ax[i].set_xlim(-360,0)
+        # ax[i].set_xlim(-360,0)
     # Hide unused subplots
     for j in range(len(y_m), len(ax)):
         ax[j].set_visible(False)
@@ -370,7 +376,7 @@ class CacheConfig:
     freq_tolerance: float = 0.1  # fractional band around mode frequency
     include_geometry: bool = True
     geometry_shot: Optional[int] = None  # If None and include_geometry, will try bp_k from this shot
-    use_mode: str = 'n'  # 'n' or 'm'
+    use_mode: str = 'n'  # 'n', 'm', or 'mn'/'pair' for (m,n) class labels
     n_datasets: int = -1  # -1 => load all datasets
     visualize_first: bool = False  # Whether to visualize first dataset regions
     viz_save_path: Optional[str] = None  # Path to save visualization plots
@@ -650,7 +656,7 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
     del first_ds
 
     X_ri_list: List[np.ndarray] = []
-    y_list: List[int] = []  # chosen training labels based on cfg.use_mode
+    y_list: List[int | str] = []  # chosen training labels based on cfg.use_mode
     y_m_list: List[int] = []  # raw m labels per sample
     y_n_list: List[int] = []  # raw n labels per sample
     used_files: List[str] = []
@@ -720,7 +726,18 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
 
                 # Choose which label to append based on cfg.use_mode while retaining both
                 m_label, n_label = mode_label_pairs[m_i]
-                chosen_label = n_label if cfg.use_mode.lower() == 'n' else m_label
+                use_mode_norm = str(cfg.use_mode).lower()
+                if use_mode_norm == 'n':
+                    chosen_label = n_label
+                elif use_mode_norm == 'm':
+                    chosen_label = m_label
+                elif use_mode_norm in ('mn', 'pair', 'm_n'):
+                    # String encoding keeps labels hashable and works directly with LabelEncoder
+                    chosen_label = f"{m_label}/{n_label}"
+                else:
+                    raise ValueError(
+                        f"Unsupported use_mode='{cfg.use_mode}'. Expected one of: 'n', 'm', 'mn'/'pair'"
+                    )
                 y_list.append(chosen_label)
                 y_m_list.append(m_label)
                 y_n_list.append(n_label)
@@ -739,7 +756,10 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         raise RuntimeError("No samples accumulated. Check frequency bands and tolerance.")
 
     X_ri = np.stack(X_ri_list, axis=0)  # (N, S, 2)
-    y = np.array(y_list, dtype=np.int64)
+    if y_list and isinstance(y_list[0], str):
+        y = np.array(y_list, dtype=str)
+    else:
+        y = np.array(y_list, dtype=np.int64)
     y_m = np.array(y_m_list, dtype=np.int64)
     y_n = np.array(y_n_list, dtype=np.int64)
 
@@ -799,15 +819,17 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                                  viz_freq_lim: Optional[List[float]] = None,
                                  load_saved_data : bool = True,
                                  doVisualize : bool = False,
-                                 saveDataset: bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
-                                                                  Optional[np.ndarray], Optional[np.ndarray]]:
+                                 saveDataset: bool = True) -> Tuple[
+                                     np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+                                     np.ndarray, Optional[np.ndarray], Optional[np.ndarray]
+                                 ]:
     """
     High-level function to build or load a cached training dataset.
     
     Args:
         data_dir: Directory containing NetCDF files
         out_path: Path to save/load cached NPZ file
-        use_mode: 'n' or 'm' for target labels
+        use_mode: 'n', 'm', or 'mn'/'pair' for target labels
         include_geometry: Whether to include theta/phi geometry
         geometry_shot: C-Mod shot number for bp_k geometry
         num_timepoints: Number of timepoints per dataset (-1 for all)
@@ -820,7 +842,9 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
         
     Returns:
         X_ri: (N, S, 2) array of [real, imag] features
-        y: (N,) array of labels
+        y: (N,) array of target labels selected by use_mode ('n', 'm', or 'm/n' strings)
+        y_m: (N,) array of raw m labels
+        y_n: (N,) array of raw n labels
         sensor_names: (S,) array of sensor names in sorted order
         theta: (S,) array of theta coordinates (or None)
         phi: (S,) array of phi coordinates (or None)
@@ -847,10 +871,26 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
 
     if doVisualize: 
         visualize_cached_data(cfg, y_m, y_n, X_ri)
-        # visualize_contours(cfg, y_m, y_n, X_ri,theta,phi)
+        visualize_contours(cfg, y_m, y_n, X_ri,theta,phi)
 
 
-    return X_ri, (y_n if use_mode == 'n' else y_m), y_m, y_n, sensor_names, theta, phi
+    use_mode_norm = str(use_mode).lower()
+    if use_mode_norm == 'n':
+        y_target = y_n
+    elif use_mode_norm == 'm':
+        y_target = y_m
+    elif use_mode_norm in ('mn', 'pair', 'm_n'):
+        # Prefer cached y when available (already encoded as "m/n"); fallback to reconstruction
+        if y is not None:
+            y_target = y
+        else:
+            y_target = np.array([f"{int(mv)}/{int(nv)}" for mv, nv in zip(y_m, y_n)], dtype=str)
+    else:
+        raise ValueError(
+            f"Unsupported use_mode='{use_mode}'. Expected one of: 'n', 'm', 'mn'/'pair'"
+        )
+
+    return X_ri, y_target, y_m, y_n, sensor_names, theta, phi
 
 
 if __name__ == "__main__":

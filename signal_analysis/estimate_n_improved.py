@@ -171,7 +171,7 @@ def doFilterSignal(time,data,HP_Freq, LP_Freq,R,Z,phi,names,magLim=.5,freqLim=0,
     # data=__doFilter(data.copy(), time,HP_Freq, LP_Freq)
     
     # Trying with Butterworth filter
-    sos = butter(2, [HP_Freq,LP_Freq], 'bandpass', fs=1/(time[1]-time[0]), output='sos')
+    sos = butter(2, [HP_Freq if HP_Freq > 0 else 1 ,LP_Freq], 'bandpass', fs=1/(time[1]-time[0]), output='sos')
     data = sosfilt(sos, data,axis=1)
 
     # Remove spurious frequencies

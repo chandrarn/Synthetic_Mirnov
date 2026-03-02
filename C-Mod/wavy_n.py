@@ -34,7 +34,8 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
               tLim_orig=[.75,1.1],fLim_orig=[0,625],shotno=1051202011,
               f_band=[],doSave='',saveExt='',cLim=[], use_nn=False,\
                  min_contour_w=5, min_contour_h=5,doPlot=False,CNN=False,\
-                     t_band=[],shotno_model=None, use_lr=False, fno_model_path=None, lr_model_path=None, use_mode='n', **kwargs):  # Add use_lr parameter
+                     t_band=[],shotno_model=None, use_lr=False, fno_model_path=None, \
+                        lr_model_path=None, use_mode='n', **kwargs):  # Add use_lr parameter
     # Identify n# from segmented spectrogram associated with a shot
     
     # Load in png
@@ -67,14 +68,14 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
                 n_opt, feats = predict_n_with_fno(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
                                        lims['Freq'][1] * 1e3, bp_k, sensor_names_data_order,
                                    fno_model_path=fno_model_path or '../output_models/fno_classifier_n.pth',
-                                   **kwargs)
+                                   use_mode=use_mode,**kwargs)
                 features_out.append(feats)
         elif use_lr:
             # Use logistic regression predictor
             n_opt, feats = predict_n_with_lr(shotno, lims['Time'], lims['Freq'][0] * 1e3,\
                                        lims['Freq'][1] * 1e3, bp_k, sensor_names_data_order,
                                    lr_model_path=lr_model_path or '../output_models/logistic_regression_n.pkl',
-                                   **kwargs)
+                                   use_mode=use_mode,**kwargs)
             features_out.append(feats)
         else:
             # Original run_n call
@@ -93,40 +94,127 @@ def mode_id_n(wavy_file='Spectrogram_C_Mod_Data_BP_1051202011_Wavy.png',
                saveExt+('_fno' if use_nn else ('_lr' if use_lr else '_linear')),shotno,cLim, use_mode)
     
     # diagnose feature distributions
-    plot_data_distributions(features_out,n_opt_out, saveExt='_%d'%shotno)
+    # plot_data_distributions(features_out,n_opt_out, saveExt='_%d'%shotno)
 
     return wavy, contour, hierarchy, c_out,filter_limits,n_opt_out
 ############################################################
 def overplot_n(filter_limits,wavy,tRange,fRange,n_opt,doSave,saveExt,
                shotno,cLim,use_mode='n'):
+    """
+    Overplot mode predictions on spectrogram contours.
+    
+    Handles both single mode scalars and dictionary format with 'n' and 'm' keys.
+    For conditional models, displays colorbar as "m/n" format.
+    """
     title = f'WavyStar_{use_mode}_Estimator_{shotno}{saveExt}'
     plt.close(title)
     fig,ax = plt.subplots(1,1,num=title,tight_layout=True)
     
-
-    
     ax.contourf(tRange,fRange,wavy,cmap=plt.get_cmap('Greys'),zorder=-5)
     
     cmap = mpl.cm.viridis
-    bounds = np.arange( *(cLim if cLim else \
-        [np.nanmin(n_opt),np.nanmax(n_opt)+(2 if np.nanmin(n_opt) == np.nanmax(n_opt) else 1)]) )
+    
+    # Check if n_opt contains dictionaries (conditional model with m/n) or scalars
+    is_conditional = (len(n_opt) > 0 and isinstance(n_opt[0], dict))
+    
+    if is_conditional:
+        # Extract n and m values; convert to combined values for colorbar
+        n_vals = []
+        m_vals = []
+        combined_vals = []
 
-    norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend='both')
 
-    for ind,lims in enumerate(filter_limits):
-        if np.isnan(n_opt[ind]):continue
-        contours = lims['Contours']
-        contours = np.vstack((contours,contours[0]))
+        for item in n_opt:
+            if isinstance(item, dict):
+                n_vals.append(item.get('n', np.nan))
+                m_vals.append(item.get('m', np.nan))
+                # Create combined representation: m/n as a float (e.g., 2.5 for m=5, n=2)
+                m_val = item.get('m', np.nan)
+                n_val = item.get('n', np.nan)
+                if np.isnan(m_val) or np.isnan(n_val):
+                    combined_vals.append(np.nan)
+                else:
+                    combined_vals.append(f'{int(m_val)}/{int(n_val)}')  # Encode as m/n string
+            else:
+                n_vals.append(item)
+                m_vals.append(np.nan)
+                combined_vals.append(item)
         
-        ax.plot(tRange[contours[:,0]],fRange[contours[:,1]],c=cmap(norm(n_opt[ind])) )
+        unique_combined_vals = sorted(set(v for v in combined_vals if isinstance(v, str)))  # Unique m/n strings
+        mode_number_index = [np.argwhere(np.array(unique_combined_vals) == v)[0][0] for v in combined_vals]
+
+        # Compute bounds based on combined values
+        bounds = np.arange(len(unique_combined_vals) + 1) -0.5  # One more than unique values for boundary norm
+
+        if cLim:
+            bounds = np.arange(*cLim)
+        
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend='both')
+        
+        # Plot contours with colors based on combined m/n value
+        for ind, lims in enumerate(filter_limits):
+            val = mode_number_index[ind]
+            if not np.isfinite(val):
+                continue
+            contours = lims['Contours']
+            contours = np.vstack((contours, contours[0]))
+            ax.plot(tRange[contours[:, 0]], fRange[contours[:, 1]], 
+                   c=cmap(norm(val)), linewidth=2)
+        
+        cbar_label = r'$m/n$'
+        cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+                           label=cbar_label, ax=ax)
+        
+        # Format colorbar ticks to show m/n format
+        # cbar_ticks = cbar.get_ticks()
+        # cbar_labels = []
+        # for tick in cbar_ticks:
+        #     tick_int = int(np.round(tick))
+        #     if tick_int >= 0 and tick_int in bounds:
+        #         m_tick = tick_int // 100
+        #         n_tick = tick_int % 100
+        #         cbar_labels.append(f'{m_tick}/{n_tick}')
+        #     else:
+        #         cbar_labels.append('')
+        cbar.set_ticks(np.arange(len(unique_combined_vals)))
+        cbar.set_ticklabels(unique_combined_vals)
+        
+    else:
+        # Single mode (n or m only)
+        n_opt_finite = [v for v in n_opt if np.isfinite(v)]
+        if n_opt_finite:
+            min_val = min(n_opt_finite)
+            max_val = max(n_opt_finite)
+            if min_val == max_val:
+                bounds = np.arange(int(np.floor(min_val)), int(np.ceil(max_val)) + 2)
+            else:
+                bounds = np.arange(int(np.floor(min_val)), int(np.ceil(max_val)) + 1)
+        else:
+            bounds = np.arange(0, 10)
+        
+        if cLim:
+            bounds = np.arange(*cLim)
+        
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend='both')
+        
+        for ind, lims in enumerate(filter_limits):
+            if np.isnan(n_opt[ind]):
+                continue
+            contours = lims['Contours']
+            contours = np.vstack((contours, contours[0]))
+            ax.plot(tRange[contours[:, 0]], fRange[contours[:, 1]], 
+                   c=cmap(norm(n_opt[ind])), linewidth=2)
+        
+        mode_label = use_mode.upper() if use_mode in ['n', 'm'] else 'Mode'
+        cbar_label = f'{mode_label} \\#'
+        fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+                    label=f'${cbar_label}$', ax=ax)
     
     ax.text(.04,.97,'%d'%shotno,transform=ax.transAxes,fontsize=8,
             verticalalignment='top',bbox={'boxstyle':'round','alpha':.7,
                                           'facecolor':'white'})
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Frequency [kHz]')
-    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
-             label=r'n\#',ax=ax)
     ax.set_rasterization_zorder(-1)
     
     
@@ -433,7 +521,22 @@ def predict_n_with_nn(shotno, tLim, HP_Freq, LP_Freq,bp_k, model_path='../output
     return predicted_n
 
 ########################################################################################################3
-def load_fno_model(model_path='../output_models/fno_classifier_n.pth'):
+def load_fno_model(model_path='../output_models/fno_classifier_n.pth', use_mode='n'):
+    """
+    Load FNO model checkpoint (handles both single classifier and conditional classifier).
+    
+    Args:
+        model_path: Path to saved model checkpoint
+        use_mode: For conditional models, which mode to predict ('n', 'm', or 'both')
+                  Ignored for single classifiers
+    
+    Returns:
+        model: FNO1dClassifier or FNO1dConditionalClassifier
+        classes: List of class labels (for conditional, depends on use_mode)
+        model_sensor_names: List of sensor names in model's expected order
+        scaler: StandardScaler used during training
+        is_conditional: Bool indicating if this is a conditional model
+    """
     # Import FNO model definition from classifier_regressor
     here = os.path.abspath(os.path.dirname(__file__))
     repo_root = os.path.abspath(os.path.join(here, '..'))
@@ -441,21 +544,31 @@ def load_fno_model(model_path='../output_models/fno_classifier_n.pth'):
     if cls_reg_path not in sys.path:
         sys.path.append(cls_reg_path)
     try:
-        from fno_predictor import FNO1dClassifier  # type: ignore
+        from fno_predictor import FNO1dClassifier, FNO1dConditionalClassifier  # type: ignore
     except Exception as e:
-        raise ImportError(f"Could not import FNO1dClassifier from {cls_reg_path}: {e}")
+        raise ImportError(f"Could not import FNO models from {cls_reg_path}: {e}")
 
     # Load checkpoint (contains model weights, classes, scaler, and expected sensor order)
     checkpoint = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
     print(f"Loaded FNO checkpoint from {model_path}")
 
     state_dict = checkpoint.get('state_dict', None)
-    classes = checkpoint.get('classes', None)
     model_sensor_names = checkpoint.get('sensor_names', None)
     scaler = checkpoint.get('scaler', None)
-    if state_dict is None or classes is None or model_sensor_names is None or scaler is None:
-        raise ValueError("Checkpoint missing one of required keys: 'state_dict', 'classes', 'sensor_names', 'scaler'")
-
+    
+    # Check if this is a conditional classifier (new format) or single classifier (old format)
+    n_classes_list = checkpoint.get('n_classes', None)
+    m_classes_list = checkpoint.get('m_classes', None)
+    classes_list = checkpoint.get('classes', None)
+    
+    is_conditional = (n_classes_list is not None and m_classes_list is not None)
+    
+    if state_dict is None or model_sensor_names is None or scaler is None:
+        raise ValueError("Checkpoint missing required keys: 'state_dict', 'sensor_names', 'scaler'")
+    
+    if not is_conditional and classes_list is None:
+        raise ValueError("Single classifier checkpoint missing 'classes' key")
+    
     # Infer architecture hyperparameters from the state_dict
     try:
         width = int(state_dict['lift.weight'].shape[0])
@@ -474,21 +587,49 @@ def load_fno_model(model_path='../output_models/fno_classifier_n.pth'):
             modes = int(state_dict[spectral_keys[0]].shape[-1])
         else:
             modes = 16
-        n_classes = int(state_dict['head.6.weight'].shape[0]) if 'head.6.weight' in state_dict else len(classes)
     except Exception as e:
         # Fallback to common defaults if shape introspection fails
         print(f"Warning: could not infer all hyperparameters from state_dict: {e}. Using defaults.")
         width, depth, modes = 128, 4, 16
-        n_classes = len(classes)
 
     # Infer input channels from checkpoint (lift.weight shape = [width, in_channels, 1])
     in_channels = int(state_dict.get('lift.weight', torch.empty(width, 5, 1)).shape[1])
-    model = FNO1dClassifier(in_channels=in_channels, width=width, modes=modes, depth=depth,
-                            n_classes=n_classes, dropout=0.4)
-    model.load_state_dict(state_dict)
-    model.eval()
-
-    return model, classes, model_sensor_names, scaler
+    
+    if is_conditional:
+        # Conditional classifier: n_classes and m_classes
+        n_classes_n = len(n_classes_list)
+        n_classes_m = len(m_classes_list)
+        model = FNO1dConditionalClassifier(
+            in_channels=in_channels, width=width, modes=modes, depth=depth,
+            n_classes_n=n_classes_n, n_classes_m=n_classes_m, dropout=0.4
+        )
+        model.load_state_dict(state_dict)
+        model.eval()
+        
+        # Return classes based on use_mode
+        if use_mode.lower() == 'n':
+            classes = n_classes_list
+        elif use_mode.lower() == 'm':
+            classes = m_classes_list
+        elif use_mode.lower() == 'mn':
+            classes = {'n': n_classes_list, 'm': m_classes_list}
+        else:
+            raise ValueError(f"use_mode must be 'n', 'm', or 'mn' for conditional model, got: {use_mode}")
+        
+        print(f"Loaded conditional FNO: n_classes={n_classes_n}, m_classes={n_classes_m}, use_mode={use_mode}")
+        return model, classes, model_sensor_names, scaler, True
+    else:
+        # Single classifier (backward compatibility)
+        n_classes = int(state_dict['head.6.weight'].shape[0]) if 'head.6.weight' in state_dict else len(classes_list)
+        model = FNO1dClassifier(
+            in_channels=in_channels, width=width, modes=modes, depth=depth,
+            n_classes=n_classes, dropout=0.4
+        )
+        model.load_state_dict(state_dict)
+        model.eval()
+        
+        print(f"Loaded single FNO: n_classes={n_classes}")
+        return model, classes_list, model_sensor_names, scaler, False
 ####################################################################################################
 def align_sensors_to_model(real_comp, imag_comp, phi, theta_dict,\
                             model_sensor_names, bp_k_names,\
@@ -561,16 +702,16 @@ def plot_features_raw(feats, savePath=''):
 ###################################################################################################33
 def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_data_order,\
                        fno_model_path='../output_models/fno_classifier_n.pth',
-                       r_maj: float = 0.68):
+                       r_maj: float = 0.68, use_mode: str = 'n'):
     """
-    Predict toroidal mode number n using the trained FNO classifier on real C-Mod data.
+    Predict toroidal mode number n (or m) using the trained FNO classifier on real C-Mod data.
 
     Steps:
-    - Load checkpoint (expects keys: 'state_dict', 'classes', 'sensor_names', 'scaler').
+    - Load checkpoint (handles both single and conditional classifiers).
     - Load and bandpass/filter raw Mirnov data, then take dominant FFT component in band.
     - Align sensors to the model's expected order; fill missing sensors with zeros if needed.
     - Build difference features relative to the first sensor and apply saved StandardScaler.
-    - Run FNO model and map predicted class back to physical n via LabelEncoder(classes).
+    - Run FNO model and map predicted class back to physical n (or m) via LabelEncoder.
 
     Args:
         shotno: C-Mod shot number
@@ -578,17 +719,19 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_data_o
         HP_Freq: high-pass frequency (Hz)
         LP_Freq: low-pass frequency (Hz)
         bp_k: bp_k structure from __loadData (must include .names)
-        model_path: path to saved FNO checkpoint
+        fno_model_path: path to saved FNO checkpoint
         r_maj: major radius used for theta computation consistency
+        use_mode: 'n' or 'm' - which mode to predict (for conditional models)
 
     Returns:
-        predicted_n (int)
+        predicted_mode (int or dict): predicted mode number(s)
+        feats_scaled (np.ndarray): scaled features used for prediction
     """
 
 
 
     # Load FNO model and associated info
-    model, classes, model_sensor_names, scaler = load_fno_model(fno_model_path)
+    model, classes, model_sensor_names, scaler, is_conditional = load_fno_model(fno_model_path, use_mode=use_mode)
 
 
     # Pull real data features
@@ -614,21 +757,51 @@ def predict_n_with_fno(shotno, tLim, HP_Freq, LP_Freq, bp_k, sensor_names_data_o
     print("Fraction |z|>6 per channel:", np.mean(np.abs(z) > 6, axis=0))
     # Apply saved scaler (fit on flattened (N*S, 4))
     feats_scaled = scaler.transform(feats)
-    X = feats_scaled[np.newaxis, :, :]  # (1, S, 4)
-
-
-    
+    X = feats_scaled[np.newaxis, :, :]  # (1, S, C)
 
 
     # Predict
     with torch.no_grad():
-        logits = model(torch.from_numpy(X).float())
-        probs = torch.softmax(logits, dim=1).cpu().numpy().squeeze()
-        pred_idx = int(np.argmax(probs))
-    le = LabelEncoder(); le.classes_ = np.array(classes)
-    predicted_n = int(le.inverse_transform([pred_idx])[0])
-    print('Output Probabilities: ', [f"{use_mode}={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
-    return predicted_n, feats_scaled
+        if is_conditional:
+            # Conditional classifier returns (n_logits, m_logits)
+            n_logits, m_logits = model(torch.from_numpy(X).float())
+            
+            if use_mode.lower() == 'n':
+                logits = n_logits
+                probs = torch.softmax(logits, dim=1).cpu().numpy().squeeze()
+                pred_idx = int(np.argmax(probs))
+                le = LabelEncoder(); le.classes_ = np.array(classes)
+                predicted_mode = int(le.inverse_transform([pred_idx])[0])
+                print(f'Output Probabilities (n): ', [f"n={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
+            elif use_mode.lower() == 'm':
+                logits = m_logits
+                probs = torch.softmax(logits, dim=1).cpu().numpy().squeeze()
+                pred_idx = int(np.argmax(probs))
+                le = LabelEncoder(); le.classes_ = np.array(classes)
+                predicted_mode = int(le.inverse_transform([pred_idx])[0])
+                print(f'Output Probabilities (m): ', [f"m={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
+            else:  # use_mode == 'both'
+                n_probs = torch.softmax(n_logits, dim=1).cpu().numpy().squeeze()
+                m_probs = torch.softmax(m_logits, dim=1).cpu().numpy().squeeze()
+                n_pred_idx = int(np.argmax(n_probs))
+                m_pred_idx = int(np.argmax(m_probs))
+                le_n = LabelEncoder(); le_n.classes_ = np.array(classes['n'])
+                le_m = LabelEncoder(); le_m.classes_ = np.array(classes['m'])
+                predicted_n = int(le_n.inverse_transform([n_pred_idx])[0])
+                predicted_m = int(le_m.inverse_transform([m_pred_idx])[0])
+                predicted_mode = {'n': predicted_n, 'm': predicted_m}
+                print(f'Output Probabilities (n): ', [f"n={int(le_n.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(n_probs)])
+                print(f'Output Probabilities (m): ', [f"m={int(le_m.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(m_probs)])
+        else:
+            # Single classifier
+            logits = model(torch.from_numpy(X).float())
+            probs = torch.softmax(logits, dim=1).cpu().numpy().squeeze()
+            pred_idx = int(np.argmax(probs))
+            le = LabelEncoder(); le.classes_ = np.array(classes)
+            predicted_mode = int(le.inverse_transform([pred_idx])[0])
+            print(f'Output Probabilities ({use_mode}): ', [f"{use_mode}={int(le.inverse_transform([i])[0])}: {p*100:.2f}" for i, p in enumerate(probs)])
+    
+    return predicted_mode, feats_scaled
 ######################################################################################################
 def load_lr_model(lr_model_path='../output_models/logistic_regression_n.pkl'):
     """Load logistic regression model checkpoint."""
@@ -696,7 +869,7 @@ if __name__ == '__main__':
     # Example usage with NN
     # data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/"
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/new_hlicity_low_mn/"
-    cmod_shot =  1160826001#1110316031#1160714026# 1110316018#1160930034
+    cmod_shot = 1160714026# 1110201006#1160826001#1110316031# 1110316018#1160930034
     cmod_shot_model = 1160930034#1110316031#
     # cmod_shot = 1110316031#1051202011 
     # save_ext = '_test_Dropout0.2_Hidden256_Mask0.1'
@@ -706,18 +879,18 @@ if __name__ == '__main__':
     #           doPlot=False)
     wavy_file='/home/rianc/Documents/Synthetic_Mirnov/output_plots/training_plots/' +\
               f's{cmod_shot}.nc'
-    use_mode='m'
+    use_mode='mn'#'n' # 'n', 'm', or 'mn' for conditional model
     save_ext = f'_ChiSq'#f'_FNO_C-Mod_Sensors_Reduced_{use_mode}'
 
-    f_band = [1,80]
-    t_band =[]# [1.1,1.5]#[1.03,1.09]#[1.391,1.41]
+    f_band = [0,50]
+    t_band =[.8,1.5]# [1.1,1.5]#[1.03,1.09]#[1.391,1.41]
 
     save_ext = ''
     out = mode_id_n(
         wavy_file=wavy_file, shotno=cmod_shot, doSave='../output_plots/', use_nn=True,
-        fno_model_path=f'../output_models/fno_classifier_{use_mode}_Sensor_Reduced_{cmod_shot_model}.pth',
+        fno_model_path=f'../output_models/fno_classifier_conditional_{use_mode}_Sensor_Reduced_{cmod_shot_model}.pth',
         lr_model_path=f'../output_models/logistic_regression_{use_mode}_Sensor_Reduced_{cmod_shot_model}.pkl',
-        doPlot=True, f_band=f_band, t_band=t_band, min_contour_w=1, min_contour_h=3, saveExt=save_ext,
+        doPlot=True, f_band=f_band, t_band=t_band, min_contour_w=3, min_contour_h=3, saveExt=save_ext,
         shotno_model=cmod_shot_model, use_lr=False,use_mode=use_mode
     )
     

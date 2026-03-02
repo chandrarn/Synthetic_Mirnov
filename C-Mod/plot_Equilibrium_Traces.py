@@ -25,7 +25,8 @@ def plot_basic_quantities(shots, LP_Freq = 30e3, doSave=False, tLim=None,
                         showLegend=True,overrideImport={},rw=0,\
                         correctMag_Rm_q_Rw=False,labelShotNumber=True,\
                         leg_loc='upper left',tall=False,\
-                        tLim_Manual={},mAmp_inds=np.arange(14,19),doAspect=False):
+                        tLim_Manual={},mAmp_inds=np.arange(14,19),doAspect=False,
+                        figSize=()):
     """
     Plot equilibrium and diagnostic signals, higlight time regions if necessary
     
@@ -57,7 +58,7 @@ def plot_basic_quantities(shots, LP_Freq = 30e3, doSave=False, tLim=None,
     
     
     # Make Figure
-    fig, ax, figTitle, shots = __buildFigure(shots,makePlots,save_Ext,tall,suppressY,narrow)
+    fig, ax, figTitle, shots =  __buildFigure(shots,makePlots,save_Ext,tall,suppressY,narrow,figSize=figSize)
     
     for shot_ind,shot in enumerate(shots):
         
@@ -86,7 +87,7 @@ def plot_basic_quantities(shots, LP_Freq = 30e3, doSave=False, tLim=None,
     
     return ax, rawData
 ###############################################################################
-def __buildFigure(shots,makePlots,save_Ext,tall,suppressY,narrow):
+def __buildFigure(shots,makePlots,save_Ext,tall,suppressY,narrow,figSize=()):
     
     shots = [shots] if type(shots) == int else shots
     
@@ -94,9 +95,13 @@ def __buildFigure(shots,makePlots,save_Ext,tall,suppressY,narrow):
                                  's %d-%d'%(shots[0],shots[-1]) ) + save_Ext
     plt.close(figTitle)
     height = len(makePlots)*((1. if tall else .9) if len(makePlots) >=3 else 1.25)
+    width = ((2.5-0*suppressY) if narrow else 14)-.5*suppressY
+    if figSize != ():
+        width, height = figSize
+    # 3.404
     fig,ax = plt.subplots(len(makePlots),1,\
         num=figTitle,sharex=True,tight_layout=True,\
-          figsize=(((2.5-0*suppressY) if narrow else 3.404)-.5*suppressY,height),\
+          figsize=(width,height),\
               squeeze=True)
     if np.size(ax) == 1: ax = [ax]
     
@@ -135,6 +140,16 @@ def __selectSignal(rawData,signal,plotChan,tLim_Manual,shot_ind,manual_t_align,
         data = node.pwr
         time = node.time
         label = r'$\mathrm{P_{rf}}$ [MW]'
+    elif signal == 'yag':
+        data = node.Te[plotChan[signal] if signal in plotChan else 0]
+        time = node.time
+        label = r'$\mathrm{T_e^0}$ [keV]'
+    elif signal == 'frcece':
+        data = node.ECE[:,plotChan[signal] if signal in plotChan else 25]
+        time = node.time
+        label = r'$\mathrm{T_e^1}$ [keV]'
+
+    else: raise NotImplementedError('Signal %s not implemented'%signal)
         
         
     ####### Trim to desired time range
@@ -232,16 +247,21 @@ def annotatePlot(ax,annotateTimePoints,time):
     ##############################################################################
 if __name__ == '__main__':
     
-    shots = [1051202011]
+    shots = [1110201006]
 
-    tLim = [0.9,1.1]
+    tLim = [1.7,1.87]
 
-    makePlots = ['ip', 'p_rf', 'gpc_2', 'bp_t']
+    makePlots = ['ip']
 
     doSave = '../output_plots/'
     
-    plot_basic_quantities(shots, LP_Freq = 30e3, tLim=tLim,
-                save_Ext='', highlightTimes = None, 
-                makePlots = makePlots, tall = True, doSave = doSave)
+    save_Ext = '_zoom__'
+    plotChan = {'bp_t':1}
+    figSize= (6,3)
+
+    plot_basic_quantities(shots, LP_Freq = 50e3, tLim=tLim,
+                save_Ext=save_Ext, highlightTimes = None, 
+                makePlots = makePlots, tall = True, doSave = doSave,
+                plotChan = plotChan,figSize=figSize)
     
     print('Done')

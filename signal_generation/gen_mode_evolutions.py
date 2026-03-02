@@ -64,7 +64,9 @@ def gen_mode_params(training_shots=1,params={'T': 10, 'dt': 0.01},doPlot=False,s
 def gen_mode_params_for_training(training_shots=1,\
         params={'T': 1e-3, 'dt': 1e-7,'m_pts':60,'n_pts':60,'periods':1,'R':None,'r':None,\
                    'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext='',\
-                    doPerturbation=True, justLoadGeqdsk=False, gEQDSK_files_dir='input_data/gEQDSK_files/'):
+                    doPerturbation=True, justLoadGeqdsk=False,\
+                          gEQDSK_files_dir='input_data/gEQDSK_files/',
+                          one_of_each_mn=True):
     """
     Generate mode parameters for training.
     :param training_shots: Number of training shots
@@ -97,6 +99,10 @@ def gen_mode_params_for_training(training_shots=1,\
         try:
             params['m'],params['n'], plausible_mode_pairs = __get_plausible_mn_values(\
                 gEQDSK_file=params['file_geqdsk'],max_modes=params['max_modes'],max_n=params['max_n'],max_m=params['max_m'])
+            
+            if one_of_each_mn:
+                # Just pick modes sequentially
+                params['m'], params['n'] = plausible_mode_pairs[shot_ind] 
         except: continue  # If fail to get plausible m/n values, skip this shot
         
         params['f'] = []
