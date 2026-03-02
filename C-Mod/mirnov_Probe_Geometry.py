@@ -9,7 +9,7 @@ Created on Thu May  1 16:10:25 2025
 """
 from header_Cmod import mds, np, json
 
-def Mirnov_Geometry(shotno,debug=True):
+def Mirnov_Geometry(shotno,debug=True, doSave_json = False):
     if int(str(shotno)[1:3]) > 10:
         phi = {
         

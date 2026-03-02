@@ -22,7 +22,9 @@ import pickle as pk
 import sys
 from os import getlogin
 import os
+from netCDF4 import Dataset
 import xarray as xr
+import h5py # Necessary for NetCDF4 compatability
 import json
 from pathlib import Path
 import mdsthin as mds # Needs to be separately installed through pip

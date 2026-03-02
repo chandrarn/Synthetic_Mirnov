@@ -25,7 +25,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
                             data_archive='',cmap='viridis',figsize=(6,6),
                             params={},save_Ext='',batch=False,sigma_plot_reduce=(3,5),
                             doSave_data=False,doPlot=True,mesh_file=None,archiveExt=None,
-                            filament=False,use_rolling_fft=False,tScale=1):
+                            filament=False,use_rolling_fft=False,tScale=1,):
     r'''
     
 
@@ -161,7 +161,7 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim,params,m
         # Check which sensor exists if undefined
         if not sensor_name:
             sensors=[]
-            for ind,name in enumerate(['bp6t_ghk','bp4t_ghk','bp2t_ghk','bp1t_abk']):
+            for ind,name in enumerate(['bp2t_abk']):#'bp2t_ghk', 'bp6t_ghk','bp4t_ghk',
                 if name in diag.names:sensors.append(name)
                 # if ind ==2:break                
             signals=signals[[np.argwhere(np.array(diag.names)==n).squeeze() for n in sensors]]#,'bp2t_ghk']]]
@@ -268,7 +268,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         )
         # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
         #                         coords={'time':time,'frequency':freq[f_inds]})
-        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName)
+        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName,format='NETCDF4')
         print('Saved Data To: '+ '../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName)
 
     if batch: 
@@ -515,24 +515,26 @@ def gen_lf_signals():
     shotnos = np.loadtxt(file,skiprows=1,delimiter=',',usecols=0,dtype=int)
     shotnos.sort()
     shotnos=shotnos[::-1]
-    shotnos = [1160826001]#[1160714026]##[1160930034]#[1110316031]#[1160930033]#[1050615011]
+    shotnos = [ ]#[1160714026]#1160826001#[1160930034]#[1110316031]#[1160930033]#[1050615011]
+    shotnos=[1120705022]
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
-    tLims=[.5,1.8]
+    # tLims=[.5,1.6]
     # Break up into two frequency bins[.5,.8],
     # dataRanges = {'tLim':[[.8,1.1],[1.1,1.4]], 'signal_reduce':[15,1],'block_reduce':[[450,2500],[1000,250]],
     #               'f_lim':[[0,100],[100,600]]}
     
     # Block reduce: [keep samples, drop samples]
-    dataRanges = {'tLim':[[0.6,1.4]], 'signal_reduce':2,\
-                  'block_reduce':[2000,500],'sigma':(2,2),'plot_reduce':(1,1)}
-    f_lim=[0,100]; c_lim=[0,60]
+    dataRanges = {'tLim':[[1.2,1.55]], 'signal_reduce':1,\
+                  'block_reduce':[3000,500],'sigma':(2,2),'plot_reduce':(1,1)}
+    f_lim=[0,100]; c_lim=None#[0,30]
     pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
     save_Ext= '_Training_Coherance'
     use_rolling_fft = True
+    figsize = (6,3)
 
     for ind,shot in enumerate(shotnos):
         diag = None
@@ -540,19 +542,19 @@ def gen_lf_signals():
         plt.close('all') # Clear plots    
         for ind_t,tLim in enumerate(dataRanges['tLim']):
             #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
-                try: 
-                    diag,signals,time,out_spect, freq = \
+                # try: 
+                diag,signals,time,out_spect, freq = \
                     signal_spectrogram_C_Mod(shot,sensor_set='BP_K',diag=diag,\
-                         sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
-                             block_reduce=dataRanges['block_reduce'],
-                             signal_reduce=dataRanges['signal_reduce'],
-                             pad=pad,fft_window=fft_window,cmap=cmap,
-                             figsize=(6,6),doSave='../output_plots/training_plots/'*True,\
-                             params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
-                             batch=True,sigma_plot_reduce=dataRanges['sigma'],\
-                                 plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
-                                    doSave_data=True, use_rolling_fft=use_rolling_fft)
-                except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
+                        sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
+                            block_reduce=dataRanges['block_reduce'],
+                            signal_reduce=dataRanges['signal_reduce'],
+                            pad=pad,fft_window=fft_window,cmap=cmap,
+                            figsize=figsize,doSave='../output_plots/training_plots/'*True,\
+                            params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
+                            batch=True,sigma_plot_reduce=dataRanges['sigma'],\
+                                plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
+                                doSave_data=True, use_rolling_fft=use_rolling_fft)
+                # except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
     
     print('Finished Batch')
 
