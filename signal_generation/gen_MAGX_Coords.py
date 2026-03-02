@@ -14,6 +14,8 @@ from disruption_py.machine.d3d.mirnov import D3D_SENSORS_BP, D3D_PROBES_BR
 
 from get_Cmod_Data import BP
 
+
+
 def gen_Node_Dict():
     nodes = {}
     tree = mds.Tree('MAGX',-1,'readonly')
@@ -436,18 +438,18 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             # Save in ThinCurr readable format
             # Mirnov object itself is directly readable: can extract location
             if select_sensor == 'Synth-C_MOD_BP_T': 
-                save_sensors(sensor_Mirnov_T,'input_data/floops_C_MOD_MIRNOV_T.loc')
+                save_sensors(sensor_Mirnov_T, f'{j_id}input_data/floops_C_MOD_MIRNOV_T.loc')
                 return sensor_Mirnov
             if select_sensor == 'C_MOD_LIM':
                 save_sensors_RZPhi(sensor_Lim)
-                save_sensors(sensor_Lim,'input_data/floops_C_MOD_LIM.loc')
+                save_sensors(sensor_Lim, f'{j_id}input_data/floops_C_MOD_LIM.loc')
                 return sensor_Lim
             if select_sensor == 'C_MOD_BP': 
-                save_sensors(sensor_BP,'input_data/floops_C_MOD_BP.loc')
+                save_sensors(sensor_BP, f'{j_id}input_data/floops_C_MOD_BP.loc')
                 return sensor_BP
             if select_sensor == 'C_MOD_ALL': 
                 save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
-                if doSave_xarray: save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
+                save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
                 return sensor_all
 
         if 'DIII_D' in select_sensor:
@@ -496,8 +498,8 @@ def save_probe_details_xarray(sensors,sensors_norm,sensors_points, dx, sensor_se
         }
     )
 
-    ds.to_netcdf(f"input_data/sensor_details_{sensor_set}.nc")
-    print('Saved sensor details to input_data/sensor_details_%s.nc'%sensor_set)
+    ds.to_netcdf(f"{j_id}input_data/sensor_details_{sensor_set}.nc")
+    print(f'Saved sensor details to {j_id}input_data/sensor_details_{sensor_set}.nc')
     return ds
 
 ################################################################################

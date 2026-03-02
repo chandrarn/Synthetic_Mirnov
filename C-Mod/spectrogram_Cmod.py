@@ -11,7 +11,7 @@ from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter,
     gaussianHighPassFilter, rolling_spectrogram_improved, grouped_average, \
         gaussian_filter, downscale_local_mean, xr, sys
 sys.path.append('../signal_generation/')
-from header_signal_generation import histfile
+from header_signal_generation import histfile, working_directory
 import get_Cmod_Data as gC
 
 ###############################################################################
@@ -502,7 +502,7 @@ def __gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
     if type(m) is not list: mn_out = '%d-%d'%(m,n)
     else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
         '-'.join([str(n_) for n_ in n])
-    f_save = '../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
+    f_save = working_directory+'../data_output/%sfloops_filament_%s_m-n_%s_f_%s_%s%s'%\
                     (archiveExt,sensor_set,mn_out,f_out,mesh_file,save_Ext)
 
     

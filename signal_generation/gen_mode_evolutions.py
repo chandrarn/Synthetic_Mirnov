@@ -1,10 +1,9 @@
 # Generate frequencies, amplitudes for random mode(s)
-import numpy as np
-from Time_dep_Freq import gen_coupled_freq, debug_mode_frequency_plot
-from scipy.signal import butter, filtfilt
+from header_signal_generation import np, gen_coupled_freq, debug_mode_frequency_plot, \
+    butter, filtfilt, os, working_directory
 import eqtools as eq
 from freeqdsk import geqdsk
-import os
+
 
 ###################33
 def gen_mode_params(training_shots=1,params={'T': 10, 'dt': 0.01},doPlot=False,save_ext=''):
@@ -79,8 +78,7 @@ def gen_mode_params_for_training(training_shots=1,\
     params_per_shot = [] # Empty list: will contain dicts for each shot
 
     # Load the coorect number of gEQDSK files
-    gEQDSK_files = __build_geqdsks(training_shots, justLoad = justLoadGeqdsk, 
-                                   output_file = gEQDSK_files_dir) # List of gEQDSK files to pull from, with length equal to number of training shots
+    gEQDSK_files = __build_geqdsks(training_shots,justLoad=justLoadGeqdsk)
     # Loop over the number of training shots
 
     for shot_ind, shot in enumerate(range(training_shots)):
@@ -247,17 +245,17 @@ def __get_plausible_mn_values(gEQDSK_file,max_n=15,max_m=15,max_modes=5):
     # return as list of [m],[n] pairs
     # Load the gEQDSK file
 
-    with open('input_data/'+gEQDSK_file,'r') as f: eqdsk=geqdsk.read(f)
+    with open(working_directory+'input_data/'+gEQDSK_file,'r') as f: eqdsk=geqdsk.read(f)
     
 
     # Loop over possible m/n pairs, check if they are plausible
     plausible_mode_pairs = []
-    for n in range(1,max_n+1):
-        lower_m = np.ceil(eqdsk.qpsi[0]*n).astype(int);
+    for n in (range(1,max_n+1) if np.size(max_n) is 1 else max_n) :
+        lower_m = np.ceil(eqdsk.qpsi[0]*n).astype(int) 
         upper_m = np.floor(eqdsk.qpsi[-1]*n).astype(int)
 
         # Check for unreasonably high m values
-        if upper_m > max_m: upper_m = max_m
+        if upper_m > np.max(max_m): upper_m = np.max(max_m)
         if upper_m > n*3: upper_m = n*3 
         if upper_m > n+4: upper_m = n+4
 
@@ -272,7 +270,7 @@ def __get_plausible_mn_values(gEQDSK_file,max_n=15,max_m=15,max_modes=5):
 
 ######################################################################################################
 def __build_geqdsks(n_equilibria,shot_list_file='../C-Mod/C_Mod_Shot_List_with_TAEs_Sheet1.csv', \
-                    output_file='input_data/gEQDSK_files/',time_range=[.75,1.25],debug=True,
+                    output_file=working_directory+'input_data/gEQDSK_files/',time_range=[.75,1.25],debug=True,
                     justLoad=False):
 
     # Only pulling from existing gEQDSK files, not loading new ones
