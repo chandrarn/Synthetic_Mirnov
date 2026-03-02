@@ -23,7 +23,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
                                     spectrogram_params={'pad':230,'fft_window':230,'block_reduce':(230,0)},
                                     save_Ext='',max_modes=5,max_m=15,max_n=5,
                                     doSave=False,doPlot=False,training_shots=1,doPerturbation=True,
-                                    justLoadGeqdsk=False):
+                                    justLoadGeqdsk=False,gEQDSK_files_dir='input_data/gEQDSK_files/',
+                                    one_of_each_mn=False):
     """
     Batch run synthetic spectrogram generation for given parameters.
     
@@ -47,7 +48,8 @@ def batch_run_synthetic_spectrogram(output_directory='',
     # Generate frequencies and mode numbers
     per_shot_mode_params =  gen_mode_params_for_training(training_shots=training_shots,params=Mode_params,\
                                 doPlot=doPlot*False,save_ext=save_Ext+'_',doPerturbation=doPerturbation,\
-                                    justLoadGeqdsk=justLoadGeqdsk)
+                                    justLoadGeqdsk=justLoadGeqdsk,gEQDSK_files_dir=gEQDSK_files_dir,\
+                                        one_of_each_mn=one_of_each_mn)
 
     # Initialize OFT environment
     oft_env = OFT_env(nthreads=ThinCurr_params['n_threads'],abort_callback=True)
@@ -286,6 +288,8 @@ if __name__ == '__main__':
     training_shots = 1
     doPerturbation = False
     justLoadGeqdsk = True
+    gEQDSK_files_dir='input_data/gEQDSK_files/'
+    one_of_each_mn = True
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,
@@ -297,7 +301,9 @@ if __name__ == '__main__':
         doPlot=doPlot,
         training_shots=training_shots,
         doPerturbation=doPerturbation,
-        justLoadGeqdsk=justLoadGeqdsk
+        justLoadGeqdsk=justLoadGeqdsk,
+        gEQDSK_files_dir=gEQDSK_files_dir,
+        one_of_each_mn=one_of_each_mn
     )
 
 

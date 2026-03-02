@@ -7,7 +7,10 @@ Created on Thu Jan  9 14:47:17 2025
 """
 
 from header_signal_generation import Mirnov, save_sensors, flux_loop, plt,\
-    mds, np, json, Mirnov_Geometry_C_Mod, os, xr
+    mds, np, json, Mirnov_Geometry_C_Mod, os, Dataset, xr,h5py, sys
+
+sys.path.append('/home/rianc/Documents/disruption-py/')
+from disruption_py.machine.d3d.mirnov import D3D_SENSORS_BP, D3D_PROBES_BR
 
 from get_Cmod_Data import BP
 
@@ -269,7 +272,8 @@ def confluence_spreadsheet_coords(coord_file='input_data/MAGX_Coordinates_CFS.js
     return coords
 ####################################    
 def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
-                        select_sensor='MRNV',cmod_shot=1051202011, skipBP=True, debug= False):
+                        select_sensor='MRNV',cmod_shot=1051202011, skipBP=True, debug= False,
+                        doSave_xarray=False):
     
     """
         Generate sensor coordinates for sensors.
@@ -290,7 +294,9 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
     except: # Manually calculate sensor locations
         
         # Unified function for SPARC, C-Mod 
-        if 'C_MOD' not in select_sensor: # SPARC side
+        if 'SPARC' in select_sensor: # SPARC side
+            select_sensor = select_sensor.removeprefix('SPARC_')
+
             coords = json.load(open(coord_file,'r'))
             
             sensors_BP=[];sensors_BN=[];sensors_Flux_Partial=[];sensors_Flux_Full=[];sensors_Mirnov=[]
@@ -339,13 +345,16 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             if select_sensor == 'SL': return sensors_Flux_Partial
             if select_sensor == 'FL': return sensors_Flux_Full
             if select_sensor == 'MRNV': return sensors_Mirnov
+            if select_sensor == 'BP_MRNV': 
+                sensors_BP.extend(sensors_Mirnov)
+                return sensors_BP
             if select_sensor == 'ALL': return sensors_all
             
             return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
        
         #########################################################################
         
-        else:# C-Mod side
+        elif 'C_MOD' in select_sensor:# C-Mod side
             #shot is necessary for minor differences in TOP/BOT sensors
             # Pulls data for  high-frequency sensors only [Tiles, sides of limiters, extentions]
             phi, theta_pol, R, Z = Mirnov_Geometry_C_Mod(cmod_shot)
@@ -438,9 +447,26 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 return sensor_BP
             if select_sensor == 'C_MOD_ALL': 
                 save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
-                save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
+                if doSave_xarray: save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
                 return sensor_all
-        
+
+        if 'DIII_D' in select_sensor:
+            # Lookup predefined sensor sets from disruption-py
+            # Use only BP sensors for now, convert to Mirnov objects
+            sensors_all = []
+            sensors_BP = []
+            for s in D3D_SENSORS_BP:
+                R = D3D_SENSORS_BP[s]['R'] 
+                Z = D3D_SENSORS_BP[s]['Z']
+                phi = D3D_SENSORS_BP[s]['phi']
+                theta = D3D_SENSORS_BP[s]['gamma']
+            
+                pt, norm = __cords_xyz_C_Mod(phi, \
+                             R, Z, theta, 0)
+                sens = Mirnov(pt, norm, s, 0.01) # Temporarilly assuming sensor scale size dx of 1cm
+                sensors_BP.append(sens)
+
+            return sensors_BP
 ################################################################################# 
 
 def save_probe_details_xarray(sensors,sensors_norm,sensors_points, dx, sensor_set, freq_response=None):

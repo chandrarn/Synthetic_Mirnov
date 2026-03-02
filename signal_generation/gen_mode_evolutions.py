@@ -64,7 +64,7 @@ def gen_mode_params(training_shots=1,params={'T': 10, 'dt': 0.01},doPlot=False,s
 def gen_mode_params_for_training(training_shots=1,\
         params={'T': 1e-3, 'dt': 1e-7,'m_pts':60,'n_pts':60,'periods':1,'R':None,'r':None,\
                    'noise_envelope':0.00,'n_threads':12},doPlot=True,save_ext='',\
-                    doPerturbation=True, justLoadGeqdsk=False):
+                    doPerturbation=True, justLoadGeqdsk=False, gEQDSK_files_dir='input_data/gEQDSK_files/'):
     """
     Generate mode parameters for training.
     :param training_shots: Number of training shots
@@ -77,10 +77,11 @@ def gen_mode_params_for_training(training_shots=1,\
     params_per_shot = [] # Empty list: will contain dicts for each shot
 
     # Load the coorect number of gEQDSK files
-    gEQDSK_files = __build_geqdsks(training_shots,justLoad=justLoadGeqdsk)
+    gEQDSK_files = __build_geqdsks(training_shots, justLoad = justLoadGeqdsk, 
+                                   output_file = gEQDSK_files_dir) # List of gEQDSK files to pull from, with length equal to number of training shots
     # Loop over the number of training shots
 
-    for shot in range(training_shots):
+    for shot_ind, shot in enumerate(range(training_shots)):
         # Reset params dict for each shot
         params = {'T':params['T'], 'dt':params['dt'],'m_pts':params['m_pts'],\
                   'n_pts':params['n_pts'],'periods':params['periods'],'R':params['R'],\
@@ -94,7 +95,7 @@ def gen_mode_params_for_training(training_shots=1,\
 
          # Generate up to 5 modes per shot
         try:
-            params['m'],params['n'] = __get_plausible_mn_values(\
+            params['m'],params['n'], plausible_mode_pairs = __get_plausible_mn_values(\
                 gEQDSK_file=params['file_geqdsk'],max_modes=params['max_modes'],max_n=params['max_n'],max_m=params['max_m'])
         except: continue  # If fail to get plausible m/n values, skip this shot
         
@@ -261,7 +262,7 @@ def __get_plausible_mn_values(gEQDSK_file,max_n=15,max_m=15,max_modes=5):
     plausible_mode_pairs = np.array(plausible_mode_pairs)
     out_mode_pairs =  plausible_mode_pairs[np.random.choice(len(plausible_mode_pairs),\
                                     size=np.random.randint(1,max_modes+1),replace=False).tolist() ]
-    return out_mode_pairs[:,0].tolist(), out_mode_pairs[:,1].tolist() # 
+    return out_mode_pairs[:,0].tolist(), out_mode_pairs[:,1].tolist(), plausible_mode_pairs # 
 
 ######################################################################################################
 def __build_geqdsks(n_equilibria,shot_list_file='../C-Mod/C_Mod_Shot_List_with_TAEs_Sheet1.csv', \
@@ -272,7 +273,9 @@ def __build_geqdsks(n_equilibria,shot_list_file='../C-Mod/C_Mod_Shot_List_with_T
     if justLoad:
         files = os.listdir(output_file)
         if len(files) < n_equilibria:
-            raise ValueError(f"Requested {n_equilibria} equilibria, but only {len(files)} found in {output_file}.")
+            print(f"Requested {n_equilibria} equilibria, but only {len(files)} found in {output_file}.")
+            print("\n\n\n\n Operating With Replacement \n\n\n\n")
+            return np.random.choice(files,n_equilibria,replace=True)
         else:
             return np.random.choice(files,n_equilibria,replace=False)
     

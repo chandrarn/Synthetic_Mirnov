@@ -11,9 +11,9 @@ import sys
 import importlib.util
 import os
 from os import getcwd
-import h5py
+
 import subprocess
-import numpy as np
+
 import matplotlib.pyplot as plt
 plt.ion()
 import matplotlib.lines as mlines
@@ -58,6 +58,11 @@ from OpenFUSIONToolkit.io import histfile
 from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh,\
     build_torus_bnorm_grid, ThinCurr_periodic_toroid
 
+# Specific module load order to circumvent HDF5 issues with xarray
+import numpy as np
+from netCDF4 import Dataset
+import xarray as xr
+import h5py
     
 from freeqdsk import geqdsk
 import cv2
@@ -66,7 +71,6 @@ from scipy.special import factorial
 from scipy.ndimage import gaussian_filter1d
 from fractions import Fraction
 import json
-import xarray as xr
 from socket import gethostname
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 

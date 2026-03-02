@@ -39,7 +39,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     # Get starting coorindates for fillaments
     theta,phi=gen_filament_coords(params,wind_in=wind_in)
 
-    if wind_in == 'phi':
+    if wind_in == 'phi': # Older, not eqilibrium tracking
         filament_coords = calc_filament_coords_geqdsk(file_geqdsk,theta,phi,params)
     else: 
         filament_coords = calc_filament_coords_field_lines(params,file_geqdsk,doDebug=debug)
@@ -345,7 +345,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 
 
     pyvista.global_theme.allow_empty_mesh = True
-    p = pyvista.Plotter()  
+    p = pyvista.Plotter(off_screen=True)  
     if debug:print('Launched Plotter')
 
     # Plot Mesh
@@ -373,7 +373,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 
             pts = np.array(filament).T
             p.add_points(pts[0],render_points_as_spheres=True,opacity=1,point_size=20,\
-                         color='k',label='Launch Point' if ind == 0 else None)
+                         color=[.5,.5,.5],label='Launch Point' if ind == 0 else None)
             
             spl=pyvista.Spline(pts,len(pts))
 
@@ -392,14 +392,16 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
                      label='Mirnov' if ind==0 else None)
     p.add_legend()
     if debug:print('Plotted Sensors')
-    if doSave:p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
-    if debug:print('Saved figure')
-    p.show()
+    if doSave:
+        p.screenshot(doSave+'Mesh_and_Filaments%s.png'%save_Ext)
+        # p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
+    if debug:print('Saved figure:'+doSave+'Mesh_and_Filaments%s.png'%save_Ext)
+    # p.show()
     if debug:print('Plotted Figure')
     # plot_Currents(params, coil_currs, doSave, save_Ext,file_geqdsk=file_geqdsk,
     #               sensor_set=sensor_set)
           
-    plt.show()
+    # plt.show()
     return []
 ########################
 
@@ -433,7 +435,7 @@ if __name__=='__main__':
     # Assume that limiter support structures are 0.6-1.5cm SS, tiles are 1.5cm thick Mo, VV is 3cm thick SS 
     # For more accuracy, could break up filaments into different eta values based on position
     #
-    eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
+    # eta = f'{SS/w_ss}, {Mo/w_tile_lim}, {SS/w_ss}, {Mo/w_tile_lim}, {SS/w_vv}, {SS/w_ss}, {Mo/w_tile_arm}, {SS/w_shield}' 
     # eta = f'{SS/2e-2}, {SS/15e-2}'
     # eta = '1E-6'
     # sensor_set='Synth-C_MOD_BP_T';cmod_shot=1051202011
@@ -443,37 +445,41 @@ if __name__=='__main__':
     
     # C-Mod Frequency Scan
     # mesh_file = 'C_Mod_ThinCurr_Limiters_Combined-homology.h5'
-    mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
+    # mesh_file='C_Mod_ThinCurr_Combined-homology.h5'
     # mesh_file='C_Mod_ThinCurr_VV-homology.h5'#
     # mesh_file='C_Mod_ThinCurr_VV_Improved-homology.h5'
     
     # mesh_file = 'vacuum_mesh.h5'
     # params={'m':[12],'n':[10],'r':0,'R':0.8,'n_pts':[20],'m_pts':[20],\
     #     'f':np.linspace(1e3,1e3,1),'dt':1.0e-6,'T':2e-2,'periods':1,'n_threads':12,'I':1,'noise_envelope':0.00}
-    params={'m':[12],'n':[10],'r':0,'R':0.8,'n_pts':[60],'m_pts':[61],\
-        'f':700e3,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
-    sensor_set = 'C_MOD_ALL'
-    file_geqdsk='g1160930034.1200'#'g1051202011.1000' # Not used for frequency scan
-    cmod_shot = 1160714026#1160930034#1151208900 	
-    wind_in = 'theta' # Note: advanced `theta' winding does not work for single filament m/n=1 case
-    scan_in_freq = False # Set to True to run frequency scan, False to run time dependent simulation
-    clim_J = [0,.5] # Color limits for eddy current plot
-    doSave_Bode = True
+    # sensor_set = 'C_MOD_ALL'
+    # file_geqdsk='g1160930034.1200'#'g1051202011.1000' # Not used for frequency scan
+    # cmod_shot = 1160714026#1160930034#1151208900 	
+
 
     # SPARC Side
-    #file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
+    file_geqdsk = 'geqdsk_freegsu_run0_mod_00.geq'
     #mesh_file='SPARC_Sept2023_noPR.h5'
-    #mesh_file = 'SPARC_mirnov_plugwest_v2-homology.h5'
-    #sensor_set='MRNV'
-    #eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' 
+    # mesh_file = 'SPARC_mirnov_plugwest_v2-homology.h5'
+    mesh_file = 'SPARC_vv_prtmrv_noext.h5'
+    sensor_set='SPARC_BP_MRNV'
+    eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' + ', 2E-5, 2E-5' 
     # {'dt':1e-6,'T':10e-3,'periods':3}
+    params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[60],'m_pts':[61],\
+        'f':700e3,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
     # Misc
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
-    save_ext='_f-sweep_All-Release_Comparison_FAR3d_Filaments'
+    save_ext='_Helicity_Testing'
     doSave='../output_plots/'*True
     plotOnly = True
+    debug= True
+
+    wind_in = 'theta' # Note: advanced `theta' winding does not work for single filament m/n=1 case
+    scan_in_freq = False # Set to True to run frequency scan, False to run time dependent simulation
+    clim_J = [0,.5] # Color limits for eddy current plot
+    doSave_Bode = True
 
     # # Frequency, amplitude modulation
     # # Note: If the amplitude and frequency are not set correctly for LF signals, 
@@ -531,6 +537,7 @@ if __name__=='__main__':
 
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
          save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
-           plotOnly=plotOnly, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode)
+           plotOnly=plotOnly, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode,
+           debug=debug)
     
     print('Run complete')

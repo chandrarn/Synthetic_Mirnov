@@ -15,7 +15,7 @@ Created on Wed Dec  4 16:45:23 2024
 import struct
 import sys
 import os
-import h5py
+# import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -24,6 +24,10 @@ from prep_sensors import conv_sensor
 from gen_MAGX_Coords import gen_Sensors, gen_Sensors_Updated
 import Synthetic_Mirnov as sM
 import geqdsk_filament_generator as gF
+
+sys.path.append('/home/rianc/Documents/disruption-py/')
+
+from disruption_py.machine.d3d.mirnov import D3D_SENSORS_BP, D3D_PROBES_BR, get_bp_sensor_category, _BP_SENSOR_CATEGORIES
 
 plt.rcParams['figure.figsize']=(6,6)
 plt.rcParams['font.weight']='bold'
@@ -56,7 +60,7 @@ params={'m':3,'n':1,'r':.25,'R':1,'n_pts':70,'T':2e-3,\
 
 # sM.gen_filaments('oft_in.xml',params,filament_coords,eta='1E-5, 1E-5 , 1E-5 , 1E-5, 1E-5, 1E-5, 1E-5, 1E-5' )
 
-oft_env = OFT_env(nthreads=8)
+oft_env = OFT_env(nthreads=20)
 tw_plate = ThinCurr(oft_env)
 # Mesh file contains dict name 'mesh', and sub attributes LC (mesh cells, n_cells),
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
@@ -68,14 +72,15 @@ tw_plate = ThinCurr(oft_env)
 
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters-homology.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')
-tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
-# tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_VV-homology.h5',xml_filename='input_data/oft_in.xml')
+# tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
+# tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
+tw_plate.setup_model(mesh_file='input_data/TCV-homology.h5',xml_filename='input_data/oft_in.xml')
 tw_plate.setup_io()
 
 # Coupling for plot
-Mc = tw_plate.compute_Mcoil()
-tw_plate.compute_Lmat()#(use_hodlr=True,cache_file='input_data/HOLDR_L_%s.save'%'Mesh_Test_VV')
-tw_plate.compute_Rmat()
+# Mc = tw_plate.compute_Mcoil()
+# tw_plate.compute_Lmat()#(use_hodlr=True,cache_file='input_data/HOLDR_L_%s.save'%'Mesh_Test_VV')
+# tw_plate.compute_Rmat()
 
 print("Building XMDF")
 plot_data = tw_plate.build_XDMF()
@@ -93,7 +98,9 @@ print('Built Pyvista grid from ThinCurr mesh')
 
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
-# sensors = gen_Sensors_Updated(select_sensor='C_MOD_MIRNOV_T')
+# sensors = gen_Sensors_Updated(select_sensor='DIII_D_BP')
+
+sensor_category_list = [category_name for category_name, _ in _BP_SENSOR_CATEGORIES]
 # Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('input_data/floops_BP_CFS.loc')
 
 
@@ -107,28 +114,49 @@ print('Launched Plotter')
 
 #p2=pyvista.Plotter()
 
-p.add_mesh(grid, color="white", opacity=.6, show_edges=True,label='Mesh')
+p.add_mesh(grid, color="white", opacity=.3, show_edges=True,label='Mesh')
 #p.add_mesh(grid, scalars=shading, opacity=.6, show_edges=True,label='Mesh')
 p.show_bounds()
 
-p.save_graphic('../output_plots/SPARC_Cad_Mesh_Mirnov_12-10.png')
-print('Saved mesh to : ../output_plots/SPARC_Cad_Mesh_Mirnov_12-10.png')
+
+# p.save_graphic('../output_plots/SPARC_Cad_Mesh_Mirnov_12-10.png')
+print('Saved mesh to : ../output_plots/TCV.png')
 
 
-slice_coords=[np.linspace(0,3,10),[0]*10,np.linspace(-3.5,3.5,10)]
-slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
-slices = grid.slice_along_line(slice_line)
+# slice_coords=[np.linspace(0,3,10),[0]*10,np.linspace(-3.5,3.5,10)]
+# slice_line = pyvista.Spline(np.c_[slice_coords].T,10)
+# slices = grid.slice_along_line(slice_line)
 
 #p.add_mesh(slice_line,line_width=5)
 #p2.add_mesh(slices,line_width=5)
 
 
 # Plot Sensors
+cmap_name = 'tab20'
 for ind,s in enumerate(sensors):
-    p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
-                 render_points_as_spheres=True,
-                 label='Sensor' if ind==0 else None)
-   
+    # p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
+    #              render_points_as_spheres=True,
+    #              label='Sensor' if ind==0 else None)
+    category_name = get_bp_sensor_category(s._name)
+    category_order = np.argwhere(np.array(sensor_category_list) == category_name)[0][0]
+    colors = plt.get_cmap(cmap_name)
+    color = colors(category_order / len(sensor_category_list))
+    p.add_points(np.mean(s._pts,axis=0),color=color,point_size=30,
+                 render_points_as_spheres=True,cmap=cmap_name,
+                 )
+
+temp_pts = []
+for ind, name in enumerate(sensor_category_list):
+    temp_pts.append( 
+        p.add_points(np.array([0,0,0]),color=plt.get_cmap(cmap_name)(ind/len(sensor_category_list)),point_size=0,
+                     render_points_as_spheres=True,
+                     label=name)
+    )
+p.add_legend()
+
+for tmp in temp_pts: tmp.visibility=False
+
+p.show()
 # Plot Filaments
 t_pt=0
 for ind,filament in enumerate(filament_coords):
