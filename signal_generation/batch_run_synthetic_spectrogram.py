@@ -246,7 +246,7 @@ def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, senso
 if __name__ == '__main__':
     # Example usage
     # output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
-    output_directory = working_directory+'../data_output/synthetic_spectrograms/new_helicity_low_mn/'
+    output_directory = working_directory+'../data_output/synthetic_spectrograms/new_helicity_high_mn/'
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -282,7 +282,7 @@ if __name__ == '__main__':
     }
 
     Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
-                   'noise_envelope':0.00,'max_modes':1,'max_m':4,'max_n':4,'n_threads' : 20} 
+                   'noise_envelope':0.00,'max_modes':1,'max_m':[8,9,10,11,12,13,14,15,16],'max_n':[9,10,12,13,14,15],'n_threads' : 20} 
 
     # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 

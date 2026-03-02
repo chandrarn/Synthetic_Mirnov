@@ -5,10 +5,13 @@
 #SBATCH --error=result_%j.err  # Error file
 #SBATCH --partition=sched_mit_psfc_r8     # Partition/queue to run in
 #SBATCH --nodes=1              # Number of nodes
+
 ##SBATCH --ntasks=1             # Total tasks
 #SBATCH --cpus-per-task=21      # CPU cores per task
-##SBATCH --mem=8G               # Total memory (e.g., 8 GB)
+
+##SBATCH --mem=10G               # Total memory (e.g., 8 GB)
 #SBATCH --time=08:00:00        # Time limit hrs:min:sec
+
 ##SBATCH --mail-type=END        # Email alert at end
 ##SBATCH --mail-user=you@example.com # Email address
 

@@ -245,12 +245,12 @@ def __get_plausible_mn_values(gEQDSK_file,max_n=15,max_m=15,max_modes=5):
 
     # Loop over possible m/n pairs, check if they are plausible
     plausible_mode_pairs = []
-    for n in range(1,max_n+1):
-        lower_m = np.ceil(eqdsk.qpsi[0]*n).astype(int);
+    for n in (range(1,max_n+1) if np.size(max_n) is 1 else max_n) :
+        lower_m = np.ceil(eqdsk.qpsi[0]*n).astype(int) 
         upper_m = np.floor(eqdsk.qpsi[-1]*n).astype(int)
 
         # Check for unreasonably high m values
-        if upper_m > max_m: upper_m = max_m
+        if upper_m > np.max(max_m): upper_m = np.max(max_m)
         if upper_m > n*3: upper_m = n*3 
         if upper_m > n+4: upper_m = n+4
 
