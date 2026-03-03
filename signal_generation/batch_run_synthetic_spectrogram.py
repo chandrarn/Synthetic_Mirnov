@@ -68,7 +68,7 @@ def batch_run_synthetic_spectrogram(output_directory='',
             save_ext=ThinCurr_params['save_ext'],
             doSave=doSave,
             archiveExt='training_data/',
-            doPlot=doPlot,
+            doPlot=doPlot*False,
             plotOnly=False,
             wind_in=ThinCurr_params['wind_in'],
             eta = ThinCurr_params['eta'],
@@ -247,7 +247,7 @@ def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, senso
 if __name__ == '__main__':
     # Example usage
     # output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
-    output_directory = working_directory+'../data_output/synthetic_spectrograms/new_helicity_high_mn/'
+    output_directory = working_directory+'../data_output/synthetic_spectrograms/SPARC/'
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -268,11 +268,20 @@ if __name__ == '__main__':
 
     # Check for job-specific mesh file from SLURM script
     # mesh_file = os.environ.get('MESH_FILE_FOR_JOB', 'C_Mod_ThinCurr_Combined-homology.h5')
-    mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
+    # mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
+    # sensor_set = 'C_MOD_ALL'
+
+    # SPARC side
+    # mesh_file = 'SPARC_vv_prtmrv_noext.h5'
+    mesh_file ='SPARC_mirnov_plugwest_v2-homology.h5'
+    sensor_set = 'SPARC_BP_MRNV'
+    # This is a guess for now
+    eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' + ', 2E-5, 2E-5' 
+
     print('USING MESH: ', mesh_file)
     ThinCurr_params = {
         'mesh_file': mesh_file,
-        'sensor_set': 'C_MOD_ALL',
+        'sensor_set': sensor_set,
         'cmod_shot' : 1160930034,#1051202011,
         'save_ext': '',
         'doNoise': False,
@@ -282,8 +291,8 @@ if __name__ == '__main__':
         'n_threads' : 21,
     }
 
-    Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
-                   'noise_envelope':0.00,'max_modes':1,'max_m':[8,9,10,11,12,13,14,15,16],'max_n':[9,10,12,13,14,15],'n_threads' : 20} 
+    Mode_params = {'dt':1e-6,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
+                   'noise_envelope':0.01,'max_modes':1,'max_m':16,'max_n':16,'n_threads' : 20} 
 
     # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 
@@ -292,9 +301,9 @@ if __name__ == '__main__':
     doSave = '../output_plots/low_m-n_spectrograms'*True
     doPlot = False
     training_shots = 100
-    doPerturbation = False
+    doPerturbation = True
     justLoadGeqdsk = True
-    gEQDSK_files_dir='input_data/gEQDSK_files/'
+    gEQDSK_files_dir='input_data/gEQDSK_files/SPARC/'
     one_of_each_mn = True
 
     batch_run_synthetic_spectrogram(

@@ -100,7 +100,9 @@ def gen_mode_params_for_training(training_shots=1,\
             
             if one_of_each_mn:
                 # Just pick modes sequentially
-                params['m'], params['n'] = plausible_mode_pairs[shot_ind] 
+                params['m'], params['n'] = plausible_mode_pairs[shot_ind]
+                params['m'] = [int(params['m'])]
+                params['n'] = [int(params['n'])] 
         except: continue  # If fail to get plausible m/n values, skip this shot
         
         params['f'] = []
@@ -250,7 +252,7 @@ def __get_plausible_mn_values(gEQDSK_file,max_n=15,max_m=15,max_modes=5):
 
     # Loop over possible m/n pairs, check if they are plausible
     plausible_mode_pairs = []
-    for n in (range(1,max_n+1) if np.size(max_n) is 1 else max_n) :
+    for n in (range(1,max_n+1) if np.size(max_n) == 1 else max_n) :
         lower_m = np.ceil(eqdsk.qpsi[0]*n).astype(int) 
         upper_m = np.floor(eqdsk.qpsi[-1]*n).astype(int)
 

@@ -29,7 +29,8 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
                                 sensor_set='Synth-C_MOD_BP_T',cmod_shot=1051202011,
                                 plotOnly=False ,archiveExt='',doPlot=False,
                                 eta = '1.8E-5, 3.6E-5, 2.4E-5',wind_in='phi', debug=False,
-                                scan_in_freq=False,clim_J=None,doSave_Bode=False,oft_env=None):
+                                scan_in_freq=False,clim_J=None,doSave_Bode=False,oft_env=None,
+                                off_screen=False):
     
     # os.chdir('../signal_generation/')
     # Get mode amplitudes, indexed to filament positions
@@ -76,7 +77,7 @@ def gen_synthetic_Mirnov(input_file='',mesh_file='C_Mod_ThinCurr_VV-homology.h5'
     scale= makePlots(tw_mesh,params,coil_currs,sensors,doSave,
                                 save_ext,Mc, L_inv,filament_coords,file_geqdsk,sensor_set,
                                 plot_B_surf= not plotOnly,debug=debug,scan_in_freq=scan_in_freq,
-                                clim_J=clim_J,)
+                                clim_J=clim_J, off_screen=off_screen)
     
     
     return tw_mesh,params,coil_currs,sensors,doSave,\
@@ -236,7 +237,7 @@ def run_td(sensor_obj,tw_mesh,param,coil_currs,sensor_set,save_Ext,mesh_file,
     if doPlot:tw_mesh.plot_td(nsteps,compute_B=True,sensor_obj=sensor_obj,plot_freq=100)
     
     # Save B-norm surface for later plotting # This may be unnecessar
-    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file=f'input_data/HODLR_B_{mesh_file}_{sensor_set}.save') 
+    if doPlot: _, Bc = tw_mesh.compute_Bmat(cache_file=f'{j_id}input_data/HODLR_B_{mesh_file}_{sensor_set}.save') 
      
     # Saves floops.hist 
     hist_file = histfile(f'{j_id}input_data/floops.hist') # floops.hist created after run_td(), but it's loaded back in here
@@ -325,7 +326,7 @@ def run_frequency_scan(tw_mesh,params,sensor_set,mesh_file,sensor_obj,doSave_Bod
 ################################################################################################
 def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
               filament_coords,file_geqdsk, sensor_set,t_pt=1,plot_B_surf=True,debug=True,
-              clim_J=None,scan_in_freq=False):
+              clim_J=None,scan_in_freq=False, off_screen=False):
     # Generate plots of mesh, filaments, sensors, and currents
     # Will plot induced current on the mesh if plot_B_surf is True
 
@@ -350,7 +351,7 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
 
 
     pyvista.global_theme.allow_empty_mesh = True
-    p = pyvista.Plotter(off_screen=True)  
+    p = pyvista.Plotter(off_screen=off_screen)  
     if debug:print('Launched Plotter')
 
     # Plot Mesh
@@ -398,15 +399,19 @@ def makePlots(tw_mesh,params,coil_currs,sensors,doSave,save_Ext,Mc, L_inv,
     p.add_legend()
     if debug:print('Plotted Sensors')
     if doSave:
-        p.screenshot(doSave+'Mesh_and_Filaments%s.png'%save_Ext)
-        # p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
+        if off_screen: p.screenshot(doSave+'Mesh_and_Filaments%s.png'%save_Ext)
+        p.save_graphic(doSave+'Mesh_and_Filaments%s.pdf'%save_Ext)
     if debug:print('Saved figure:'+doSave+'Mesh_and_Filaments%s.png'%save_Ext)
-    # p.show()
+    
+    p.camera.focal_point = (0,0,0)
+    p.camera.zoom(400)
+
+    p.show()
     if debug:print('Plotted Figure')
     # plot_Currents(params, coil_currs, doSave, save_Ext,file_geqdsk=file_geqdsk,
     #               sensor_set=sensor_set)
           
-    # plt.show()
+    plt.show()
     return []
 ########################
 
@@ -470,19 +475,20 @@ if __name__=='__main__':
     sensor_set='SPARC_BP_MRNV'
     eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' + ', 2E-5, 2E-5' 
     # {'dt':1e-6,'T':10e-3,'periods':3}
-    params={'m':[1],'n':[1],'r':0,'R':0.8,'n_pts':[60],'m_pts':[61],\
-        'f':700e3,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
+    params={'m':[2],'n':[1],'r':0,'R':0.8,'n_pts':[60],'m_pts':[61],\
+        'f':70e3,'dt':5.0e-5,'T':1e-3,'periods':2,'n_threads':12,'I':1,'noise_envelope':0.00}
     # Misc
     # mesh_file='thincurr_ex-torus.h5'True
     #mesh_file='vacuum_mesh.h5'
 
     save_ext='_Helicity_Testing'
     doSave='../output_plots/'*True
-    plotOnly = True
+    plotOnly = False
     debug= True
+    off_screen = False
 
     wind_in = 'theta' # Note: advanced `theta' winding does not work for single filament m/n=1 case
-    scan_in_freq = False # Set to True to run frequency scan, False to run time dependent simulation
+    scan_in_freq = True # Set to True to run frequency scan, False to run time dependent simulation
     clim_J = [0,.5] # Color limits for eddy current plot
     doSave_Bode = True
 
@@ -543,6 +549,6 @@ if __name__=='__main__':
     gen_synthetic_Mirnov(mesh_file=mesh_file,sensor_set=sensor_set,params=params,wind_in=wind_in,
          save_ext=save_ext,doSave=doSave, eta = eta, doPlot = True, file_geqdsk = file_geqdsk,
            plotOnly=plotOnly, scan_in_freq= scan_in_freq, clim_J=clim_J, doSave_Bode=doSave_Bode,
-           debug=debug)
+           debug=debug, off_screen=off_screen)
     
     print('Run complete')

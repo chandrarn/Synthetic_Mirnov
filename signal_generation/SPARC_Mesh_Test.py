@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pyvista
 from prep_sensors import conv_sensor
-from gen_MAGX_Coords import gen_Sensors, gen_Sensors_Updated
+from gen_MAGX_Coords import gen_Sensors, gen_Sensors_Updated, get_sensor_category
 import Synthetic_Mirnov as sM
 import geqdsk_filament_generator as gF
 
@@ -67,6 +67,7 @@ tw_plate = ThinCurr(oft_env)
 # .xml file defines coils 
 # 'SPARC_Sept2023_noPR.h5'
 #tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
+tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/oft_in.xml')
 #tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
 #tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
 
@@ -74,7 +75,8 @@ tw_plate = ThinCurr(oft_env)
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
 # tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
-tw_plate.setup_model(mesh_file='input_data/TCV-homology.h5',xml_filename='input_data/oft_in.xml')
+# tw_plate.setup_model(mesh_file='input_data/TCV-homology.h5',xml_filename='input_data/oft_in.xml')
+
 tw_plate.setup_io()
 
 # Coupling for plot
@@ -99,8 +101,11 @@ print('Built Pyvista grid from ThinCurr mesh')
 # Gen sensors
 #sensors = conv_sensor('sensorLoc.xyz')[0]
 # sensors = gen_Sensors_Updated(select_sensor='DIII_D_BP')
-
 sensor_category_list = [category_name for category_name, _ in _BP_SENSOR_CATEGORIES]
+
+sensors = gen_Sensors_Updated(select_sensor='SPARC_BP_MRNV')
+sensor_category_list = get_sensor_category('SPARC',get_categories=True)
+
 # Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('input_data/floops_BP_CFS.loc')
 
 
@@ -116,11 +121,15 @@ print('Launched Plotter')
 
 p.add_mesh(grid, color="white", opacity=.3, show_edges=True,label='Mesh')
 #p.add_mesh(grid, scalars=shading, opacity=.6, show_edges=True,label='Mesh')
-p.show_bounds()
 
 
-# p.save_graphic('../output_plots/SPARC_Cad_Mesh_Mirnov_12-10.png')
-print('Saved mesh to : ../output_plots/TCV.png')
+p.camera.focal_point = (0,0,0)
+p.camera.zoom(400)
+
+p.show_bounds(bounds = (-5,5,-5,5,-5,5), n_xlabels=20, n_ylabels=20, n_zlabels=20, location='outer', all_edges=True)
+
+# p.save_graphic('../output_plots/SPARC_Cad_Mesh.png')
+# print('Saved mesh to : ../output_plots/SPARC_Cad_Mesh.png')
 
 
 # slice_coords=[np.linspace(0,3,10),[0]*10,np.linspace(-3.5,3.5,10)]
@@ -137,13 +146,17 @@ for ind,s in enumerate(sensors):
     # p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
     #              render_points_as_spheres=True,
     #              label='Sensor' if ind==0 else None)
-    category_name = get_bp_sensor_category(s._name)
+    # category_name = get_bp_sensor_category(s._name)
+    category_name = get_sensor_category('SPARC', s._name)
     category_order = np.argwhere(np.array(sensor_category_list) == category_name)[0][0]
     colors = plt.get_cmap(cmap_name)
     color = colors(category_order / len(sensor_category_list))
+    # color='k'
     p.add_points(np.mean(s._pts,axis=0),color=color,point_size=30,
                  render_points_as_spheres=True,cmap=cmap_name,
                  )
+
+
 
 temp_pts = []
 for ind, name in enumerate(sensor_category_list):

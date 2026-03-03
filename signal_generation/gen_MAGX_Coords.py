@@ -165,7 +165,7 @@ def gen_Sensors(coord_file='input_data/MAGX_Coordinates.json'):
     save_sensors(sensors_BN,'input_data/floops_BN.loc')
     save_sensors(sensors_Flux_Partial,'input_data/floops_Flux_Partial.loc')
     save_sensors(sensors_Flux_Full,'input_data/floops_Flux_Full.loc')
-    save_sensors(sensors_Mirnov,'finput_data/loops_MIRNOV.loc')
+    save_sensors(sensors_Mirnov,'input_data/floops_MIRNOV.loc')
     
     
     sensors_all.extend(sensors_BP)
@@ -272,7 +272,19 @@ def confluence_spreadsheet_coords(coord_file='input_data/MAGX_Coordinates_CFS.js
     
     with open(coord_file,'w') as f:json.dump(coords,f)
     return coords
-####################################    
+####################################################################################################
+def get_sensor_category(sensor_set, sensor_name='', get_categories=False):
+    if 'SPARC' in sensor_set:
+        if get_categories: return ['MRNV','LOMN','OLIM','VSCM','OOLM', 'BP']
+
+        if 'MRNV' in sensor_name: return 'MRNV'
+        if 'LOMN' in sensor_name: return 'LOMN'
+        if 'OLIM' in sensor_name: return 'OLIM'
+        if 'VSCM' in sensor_name: return 'VSCM'
+        if 'OOLM' in sensor_name: return 'OOLM'
+        else: return 'BP'
+
+######################################################################################    
 def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                         select_sensor='MRNV',cmod_shot=1051202011, skipBP=True, debug= False,
                         doSave_xarray=False):
@@ -329,29 +341,35 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
             # Save in ThinCurr readable format
             
             # Mirnov object itself is directly readable: can extract location
-            save_sensors(sensors_BP,'input_data/floops_BP.loc')
-            save_sensors(sensors_BN,'input_data/floops_BN.loc')
-            save_sensors(sensors_Flux_Partial,'input_data/floops_SL.loc')
-            save_sensors(sensors_Flux_Full,'input_data/floops_FL.loc')
-            save_sensors(sensors_Mirnov,'input_data/floops_MRNV.loc')
-    
-            
             sensors_all.extend(sensors_BP)
             sensors_all.extend(sensors_BN)
             sensors_all.extend(sensors_Flux_Partial)
             sensors_all.extend(sensors_Flux_Full)
             sensors_all.extend(sensors_Mirnov)
             
-            if select_sensor == 'BP': return sensors_BP
-            if select_sensor == 'BN': return sensors_BN
-            if select_sensor == 'SL': return sensors_Flux_Partial
-            if select_sensor == 'FL': return sensors_Flux_Full
-            if select_sensor == 'MRNV': return sensors_Mirnov
+            if select_sensor == 'BP':
+                save_sensors(sensors_BP,'input_data/floops_SPARC_BP.loc')
+                return sensors_BP
+            if select_sensor == 'BN': 
+                save_sensors(sensors_BN,'input_data/floops_SPARC_BN.loc')
+                return sensors_BN
+            if select_sensor == 'SL':
+                save_sensors(sensors_Flux_Partial,'input_data/floops_SPARC_SL.loc')   
+                return sensors_Flux_Partial
+            if select_sensor == 'FL':
+                save_sensors(sensors_Flux_Full,'input_data/floops_SPARC_FL.loc')
+                return sensors_Flux_Full
+            if select_sensor == 'MRNV': 
+                save_sensors(sensors_Mirnov,'input_data/floops_SPARC_MRNV.loc')
+                return sensors_Mirnov
             if select_sensor == 'BP_MRNV': 
                 sensors_BP.extend(sensors_Mirnov)
+                save_sensors(sensors_BP,'input_data/floops_SPARC_BP_MRNV.loc')
                 return sensors_BP
-            if select_sensor == 'ALL': return sensors_all
-            
+            if select_sensor == 'ALL':
+                save_sensors(sensors_all,'input_data/floops_SPARC_ALL.loc')
+                return sensors_all
+
             return sensors_all, sensors_BP, sensors_BN, sensors_Flux_Partial, sensors_Flux_Full, sensors_Mirnov
        
         #########################################################################
@@ -449,7 +467,7 @@ def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
                 return sensor_BP
             if select_sensor == 'C_MOD_ALL': 
                 save_sensors(sensor_all,'input_data/floops_C_MOD_ALL.loc')
-                save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
+                # save_probe_details_xarray(sensor_all,sensors_norm,sensors_pts, dx, select_sensor)
                 return sensor_all
 
         if 'DIII_D' in select_sensor:
