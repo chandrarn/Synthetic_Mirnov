@@ -6,6 +6,7 @@
 # Import necessary libraries
 
 from header_signal_generation import plt, np, sys, xr, Fraction, os, OFT_env, working_directory
+import re
 sys.path.append('../C-Mod/')
 from Synthetic_Mirnov import gen_synthetic_Mirnov
 from spectrogram_Cmod import signal_spectrogram_C_Mod
@@ -111,6 +112,25 @@ def batch_run_synthetic_spectrogram(output_directory='',
 def save_xarray_results(output_directory, mode_param, time, freq, out_spect,ThinCurr_params,save_Ext,sensor_names):
     # Save results in an xarray dataset with dimensions time, frequency, sensor name
 
+    def _sanitize_var_name(name):
+        safe = re.sub(r'[^0-9a-zA-Z_]', '_', str(name))
+        if safe and safe[0].isdigit():
+            safe = f'sensor_{safe}'
+        return safe
+
+    def _safe_attr_value(value):
+        if np.isscalar(value) or isinstance(value, str):
+            return value
+        if isinstance(value, (list, tuple, np.ndarray)):
+            arr = np.asarray(value)
+            if arr.dtype.kind in {'i', 'u', 'f'}:
+                return arr.astype(np.float64).tolist()
+            return str(value)
+        return str(value)
+
+    if output_directory and not os.path.exists(output_directory):
+        os.makedirs(output_directory, exist_ok=True)
+
     # Create a filename based on mode parameters, and how many files are already in the directory
     current_files = len(os.listdir(output_directory) )
 
@@ -118,9 +138,12 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
     m = mode_param['m']
     n = mode_param['n']
     f = mode_param['f_Hz'] # Need frequency in Hz, instead of phase advance
-    I = mode_param['I'] 
-    if type(f) is float: f_out = '%d'%f*1e-3
-    else: f_out = f'_f-{np.min(f):1.3f}-{np.max(f)*1e-3:1.3f}kHz'
+    I = mode_param['I']
+    if np.isscalar(f):
+        f_out = f"{float(f)*1e-3:1.3f}kHz"
+    else:
+        f_arr = np.asarray(f, dtype=np.float64)
+        f_out = f"{np.min(f_arr)*1e-3:1.3f}-{np.max(f_arr)*1e-3:1.3f}kHz"
     if type(m) is not list: mn_out = '%d-%d'%(m,n)  
     else: mn_out = '-'.join([str(m_) for m_ in m])+'---'+\
         '-'.join([str(n_) for n_ in n])
@@ -132,15 +155,45 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
 
      # Create a dictionary to hold the DataArrays for each sensor
     data_vars = {}
+    freq = np.asarray(freq, dtype=np.float64)
+    time = np.asarray(time, dtype=np.float64)
+
+    n_freq = len(freq)
+    n_time = len(time)
+
     for i, sensor_name in enumerate(sensor_names):
-        data_vars[sensor_name + '_real'] = (['frequency', 'time'], np.abs(out_spect[i]))
-        data_vars[sensor_name + '_imag'] = (['frequency', 'time'], np.angle(out_spect[i]))
+        raw_spec = np.asarray(out_spect[i])
+        if raw_spec.shape == (n_time, n_freq):
+            raw_spec = raw_spec.T
+        elif raw_spec.shape != (n_freq, n_time):
+            raise ValueError(
+                f"Unexpected spectrogram shape {raw_spec.shape} for sensor {sensor_name}. "
+                f"Expected {(n_freq, n_time)} or {(n_time, n_freq)}."
+            )
+
+        sensor_key = _sanitize_var_name(sensor_name)
+        data_vars[sensor_key + '_real'] = (['frequency', 'time'], np.abs(raw_spec).astype(np.float32, copy=False))
+        data_vars[sensor_key + '_imag'] = (['frequency', 'time'], np.angle(raw_spec).astype(np.float32, copy=False))
 
     # Add time dependent frequency, amplitude, as extra data_var
-    time_inds_downsample = np.linspace(0, len(f[0])-1, len(time), dtype=int) # Downsample to match
-    for ind,mode_data in enumerate(f):
-            data_vars['F_Mode_%d'%ind] = (['time'], mode_data[time_inds_downsample])
-            data_vars['I_Mode_%d'%ind] = (['time'], I[ind][time_inds_downsample])
+    if np.isscalar(f):
+        f_modes = [np.full(n_time, float(f), dtype=np.float64)]
+    else:
+        f_modes = [np.asarray(mode_data, dtype=np.float64) for mode_data in f]
+
+    if np.isscalar(I):
+        i_modes = [np.full(n_time, float(I), dtype=np.float64)]
+    else:
+        i_modes = [np.asarray(mode_current, dtype=np.float64) for mode_current in I]
+
+    if len(f_modes) != len(i_modes):
+        raise ValueError(f"Mode frequency/current count mismatch: {len(f_modes)} vs {len(i_modes)}")
+
+    for ind, (mode_arr, current_arr) in enumerate(zip(f_modes, i_modes)):
+            mode_inds = np.linspace(0, len(mode_arr)-1, n_time, dtype=int)
+            current_inds = np.linspace(0, len(current_arr)-1, n_time, dtype=int)
+            data_vars['F_Mode_%d'%ind] = (['time'], mode_arr[mode_inds].astype(np.float32, copy=False))
+            data_vars['I_Mode_%d'%ind] = (['time'], current_arr[current_inds].astype(np.float32, copy=False))
 
     # Create a dictionary to hold the coordinates
     coords = {'frequency': freq, 'time': time}
@@ -150,16 +203,57 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
     ds = xr.Dataset(
         data_vars=data_vars,
         coords=coords,
-        attrs={'sampling_frequency': 1 / (time[1] - time[0]),
-               'mode_m': m, # This can be a list, contains information on number of modes
-               'mode_n': n,
-               'sensor_set': ThinCurr_params['sensor_set'],
-               'mesh_file': ThinCurr_params['mesh_file'],}
+        attrs={'sampling_frequency': np.float64(1 / (time[1] - time[0])),
+               'mode_m': _safe_attr_value(m), # This can be a list, contains information on number of modes
+               'mode_n': _safe_attr_value(n),
+               'sensor_set': _safe_attr_value(ThinCurr_params['sensor_set']),
+               'mesh_file': _safe_attr_value(ThinCurr_params['mesh_file']),}
     )
 
     # Save the Dataset to a NetCDF file
     filename = f"{output_directory}/Spectrogram_{mn_out}_f{f_out}{save_Ext}.nc"
-    ds.to_netcdf(filename)
+
+    resolved_filename = os.path.realpath(filename)
+    force_scipy = str(os.environ.get('SYNTH_MIRNOV_FORCE_SCIPY', '0')).lower() in {'1', 'true', 'yes'}
+    nfs_home_mount = resolved_filename.startswith('/mnt/home/')
+    if force_scipy or nfs_home_mount:
+        reason = 'env override' if force_scipy else 'NFS mount (/mnt/home)'
+        print(f"Using scipy backend directly due to {reason}")
+        ds.to_netcdf(filename, engine='scipy', format='NETCDF3_64BIT', mode='w')
+        print("Saved with scipy backend")
+        print(f"Saved xarray dataset to: {filename}")
+        return filename
+
+    netcdf4_failed = False
+    try:
+        ds.to_netcdf(filename, engine='netcdf4', format='NETCDF4_CLASSIC', mode='w')
+    except Exception as exc:
+        netcdf4_failed = True
+        print(f"netcdf4 write failed ({exc}); retrying with HDF5 file locking disabled")
+        old_locking = os.environ.get('HDF5_USE_FILE_LOCKING')
+        os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
+        try:
+            ds.to_netcdf(filename, engine='netcdf4', format='NETCDF4_CLASSIC', mode='w')
+            netcdf4_failed = False
+        except Exception as retry_exc:
+            print(f"netcdf4 retry failed ({retry_exc}); trying h5netcdf backend")
+        finally:
+            if old_locking is None:
+                os.environ.pop('HDF5_USE_FILE_LOCKING', None)
+            else:
+                os.environ['HDF5_USE_FILE_LOCKING'] = old_locking
+
+    if netcdf4_failed:
+        try:
+            ds.to_netcdf(filename, engine='h5netcdf', mode='w')
+            netcdf4_failed = False
+            print("Saved with h5netcdf backend")
+        except Exception as h5_exc:
+            print(f"h5netcdf write failed ({h5_exc}); falling back to scipy/NETCDF3_64BIT")
+
+    if netcdf4_failed:
+        ds.to_netcdf(filename, engine='scipy', format='NETCDF3_64BIT', mode='w')
+        print("Saved with scipy backend")
     print(f"Saved xarray dataset to: {filename}")
 
     return filename
@@ -300,7 +394,7 @@ if __name__ == '__main__':
     save_Ext = '_Synth_low-n_New_Helicity'
     doSave = '../output_plots/low_m-n_spectrograms'*True
     doPlot = False
-    training_shots = 100
+    training_shots = 1
     doPerturbation = True
     justLoadGeqdsk = True
     gEQDSK_files_dir='input_data/gEQDSK_files/SPARC/'
