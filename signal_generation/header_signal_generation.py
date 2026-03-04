@@ -62,6 +62,7 @@ from OpenFUSIONToolkit.ThinCurr.meshing import write_ThinCurr_mesh,\
 
 # Specific module load order to circumvent HDF5 issues with xarray
 import numpy as np
+import pandas as pd
 from netCDF4 import Dataset
 import xarray as xr
 import h5py

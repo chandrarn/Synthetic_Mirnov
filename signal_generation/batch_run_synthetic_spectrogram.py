@@ -215,7 +215,7 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
 
     resolved_filename = os.path.realpath(filename)
     force_scipy = str(os.environ.get('SYNTH_MIRNOV_FORCE_SCIPY', '0')).lower() in {'1', 'true', 'yes'}
-    nfs_home_mount = resolved_filename.startswith('/mnt/home/')
+    nfs_home_mount = resolved_filename.startswith('/mnt/home/')*False
     if force_scipy or nfs_home_mount:
         reason = 'env override' if force_scipy else 'NFS mount (/mnt/home)'
         print(f"Using scipy backend directly due to {reason}")
@@ -315,6 +315,7 @@ def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, senso
     fig.colorbar(im0,ax=ax[0], label=r'$||\frac{d}{dt}B_\theta||$ [T/s]')
     ax[0].set_xlabel('Sensor Index')
     ax[0].set_ylabel('Frequency [kHz], t=%3.3f ms'%(ds['time'][timepoint_index]*1e3))
+    ax[0].set_xticks(np.arange(0,num_sensors,10))
     ax[0].set_xticklabels([sensor_names[i*2][:-5] for i in np.arange(0,num_sensors,10,dtype=int)],\
                         rotation=90)
     #ax[0].title(f'Real Component (Time Index {timepoint_index})')
@@ -385,15 +386,15 @@ if __name__ == '__main__':
         'n_threads' : 21,
     }
 
-    Mode_params = {'dt':1e-6,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
+    Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
                    'noise_envelope':0.01,'max_modes':1,'max_m':16,'max_n':16,'n_threads' : 20} 
 
     # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 
-    spectrogram_params = {'pad':0,'fft_window':None,'block_reduce':(800,800)}
+    spectrogram_params = {'pad':0,'fft_window':None,'block_reduce':(800,10)}
     save_Ext = '_Synth_low-n_New_Helicity'
     doSave = '../output_plots/low_m-n_spectrograms'*True
-    doPlot = False
+    doPlot = True
     training_shots = 1
     doPerturbation = True
     justLoadGeqdsk = True

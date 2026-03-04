@@ -210,7 +210,7 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
                      save_Ext,f_lim,shotno=None,
                      doSave_Extractor=False,tScale=1e3,doColorbar=False,
                      clabel='',cLim=None,cmap='viridis',figsize=(6,6),
-                     batch=False,doSave_data=False,doLog=True):
+                     batch=False,doSave_data=False,doLog=False):
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
@@ -225,8 +225,10 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     
     if doLog: 
 
-        out_spect= 10*np.log(out_spect*100)
-    vmin,vmax = cLim if cLim else [0,5*np.std(out_spect[f_inds])]
+        out_spect= np.log(out_spect)
+    
+    vmin,vmax = cLim if cLim else np.mean(out_spect[f_inds])+ 5*np.std(out_spect[f_inds])*np.array([-1,1])
+        
     #if not cLim and vmax < 1: vmax = 1 # protect against noise dominated signals
     ax.pcolormesh(time*tScale,freq[f_inds]*1e-3,out_spect[f_inds],
                   shading='auto',rasterized=True,vmin=vmin,vmax=vmax,cmap=cmap)
@@ -268,9 +270,16 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         )
         # spect_xr = xr.DataArray(out_spect[f_inds].T,dims=['time','frequency'],\
         #                         coords={'time':time,'frequency':freq[f_inds]})
-        spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName,format='NETCDF4')
+        spect_xr = spect_xr.where(np.isfinite(spect_xr), np.nan) # Replace inf values with 0 for saving
+        try:
+            spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName,format='NETCDF4')
+           
+        except Exception as e:
+            print('Error saving data: %s'%e)
+            print('Resaving with SciPy engine')
+            spect_xr.to_netcdf('../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName,engine='scipy')
         print('Saved Data To: '+ '../data_output/Spectrogram_Xarrays/'+'WavyStar_Spectrogram_%s.nc'%fName)
-
+        
     if batch: 
         plt.close(fName) # terminal blocks untill plot is closed for some reason    
     else:plt.show()
