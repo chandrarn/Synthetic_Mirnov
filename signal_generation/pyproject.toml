@@ -35,6 +35,12 @@ openfusiontoolkit = {path = "openfusiontoolkit", editable = true}
 [tool.isort]
 profile = "black"
 
+[tool.ruff.lint]
+ignore = ["E402"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["signal_generation"]
+
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
