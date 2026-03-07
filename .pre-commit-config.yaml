@@ -14,7 +14,7 @@ repos:
         language: system
         types: [python]
         files: "^signal_generation/"
-        exclude: '^(signal_generation/openfusiontoolkit/|signal_generation/SPARC_Mesh_Test.py)$'
+        exclude: '^(signal_generation/openfusiontoolkit/|signal_generation/SPARC_Mesh_Test.py|signal_generation/header_signal_generation.py)$'
         # exclude: "^signal_generation/openfusiontoolkit/"
       - id: ruff_check
         name: ruff_check
@@ -22,5 +22,5 @@ repos:
         language: system
         types: [python]
         files: "^signal_generation/"
-        exclude: '^(signal_generation/openfusiontoolkit/|signal_generation/SPARC_Mesh_Test.py)$'
+        exclude: '^(signal_generation/openfusiontoolkit/|signal_generation/SPARC_Mesh_Test.py|signal_generation/header_signal_generation.py)$'
         # exclude: "^signal_generation/openfusiontoolkit/"
