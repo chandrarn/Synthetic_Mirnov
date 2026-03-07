@@ -211,12 +211,15 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
     )
 
     # Save the Dataset to a NetCDF file
-    filename = f"{output_directory}/Spectrogram_{mn_out}_f{f_out}{save_Ext}.nc"
+    filename = f_save
 
     resolved_filename = os.path.realpath(filename)
     force_scipy = str(os.environ.get('SYNTH_MIRNOV_FORCE_SCIPY', '0')).lower() in {'1', 'true', 'yes'}
-    nfs_home_mount = resolved_filename.startswith('/mnt/home/')*False
-    if force_scipy or nfs_home_mount:
+    nfs_home_mount = resolved_filename.startswith('/mnt/home/')
+
+    ds.to_netcdf(filename, engine='netcdf4', format='NETCDF4_CLASSIC', mode='w')
+
+    if (force_scipy or nfs_home_mount)*False:
         reason = 'env override' if force_scipy else 'NFS mount (/mnt/home)'
         print(f"Using scipy backend directly due to {reason}")
         ds.to_netcdf(filename, engine='scipy', format='NETCDF3_64BIT', mode='w')
@@ -227,6 +230,7 @@ def save_xarray_results(output_directory, mode_param, time, freq, out_spect,Thin
     netcdf4_failed = False
     try:
         ds.to_netcdf(filename, engine='netcdf4', format='NETCDF4_CLASSIC', mode='w')
+        print("Saved with netcdf4 backend")
     except Exception as exc:
         netcdf4_failed = True
         print(f"netcdf4 write failed ({exc}); retrying with HDF5 file locking disabled")
@@ -278,25 +282,25 @@ def convert_spectrogram_to_training_data(xarray_f_name, timepoint_index=2,\
     """
 
     # Load in xarray dataset with spectrogram data
-    ds = xr.open_dataset(xarray_f_name)
+    with xr.open_dataset(xarray_f_name) as ds:
 
-    # Get sensor names (excluding 'frequency' and 'time' which are coordinates)
-    sensor_names = [var for var in ds.data_vars if "Mode" not in var]
-    num_sensors = len(sensor_names) // 2  # Divide by 2 since we have _real and _imag for each sensor
+        # Get sensor names (excluding 'frequency' and 'time' which are coordinates)
+        sensor_names = [var for var in ds.data_vars if "Mode" not in str(var)]
+        num_sensors = len(sensor_names) // 2  # Divide by 2 since we have _real and _imag for each sensor
 
-    # Initialize matrices to hold the real and imaginary components
-    spect_real = np.zeros((len(ds['frequency']), num_sensors))
-    spect_imag = np.zeros((len(ds['frequency']), num_sensors))
+        # Initialize matrices to hold the real and imaginary components
+        spect_real = np.zeros((len(ds['frequency']), num_sensors))
+        spect_imag = np.zeros((len(ds['frequency']), num_sensors))
 
-    # Populate the matrices
-    for i in range(num_sensors):
-        sensor_name = sensor_names[i*2][:-5] # Remove _real or _imag
-        spect_real[:, i] = ds[sensor_name + '_real'].isel(time=timepoint_index).values
-        spect_imag[:, i] = ds[sensor_name + '_imag'].isel(time=timepoint_index).values
+        # Populate the matrices
+        for i in range(num_sensors):
+            sensor_name = str(sensor_names[i*2])[:-5] # Remove _real or _imag
+            spect_real[:, i] = ds[sensor_name + '_real'].isel(time=timepoint_index).values
+            spect_imag[:, i] = ds[sensor_name + '_imag'].isel(time=timepoint_index).values
 
 
-    if doPlot:__plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, sensor_names,\
-                               num_sensors,doSave=doSave,cLim=cLim,ylim=ylim)
+        if doPlot:__plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, sensor_names,\
+                                   num_sensors,doSave=doSave,cLim=cLim,ylim=ylim)
 ############################################33
 def __plot_training_matricies(spect_real, spect_imag, ds, timepoint_index, sensor_names,\
                                num_sensors,cLim=None, ylim=None,doSave=''):
@@ -368,7 +372,8 @@ if __name__ == '__main__':
 
     # SPARC side
     # mesh_file = 'SPARC_vv_prtmrv_noext.h5'
-    mesh_file ='SPARC_mirnov_plugwest_v2-homology.h5'
+    # mesh_file ='SPARC_mirnov_plugwest_v2-homology.h5'
+    mesh_file = 'vacuum_mesh.h5'
     sensor_set = 'SPARC_BP_MRNV'
     # This is a guess for now
     eta = '1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5' + ', 2E-5, 2E-5' 
@@ -386,8 +391,8 @@ if __name__ == '__main__':
         'n_threads' : 21,
     }
 
-    Mode_params = {'dt':1e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
-                   'noise_envelope':0.01,'max_modes':1,'max_m':16,'max_n':16,'n_threads' : 20} 
+    Mode_params = {'dt':5e-7,'T':1e-3,'periods':2,'n_pts':60,'m_pts':60,'R':None,'r':None,\
+                   'noise_envelope':0.01,'max_modes':1,'max_m':16,'max_n':np.arange(1,17,dtype=int),'n_threads' : 20} 
 
     # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
 

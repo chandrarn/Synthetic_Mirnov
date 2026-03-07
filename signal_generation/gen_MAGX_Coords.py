@@ -9,8 +9,9 @@ Created on Thu Jan  9 14:47:17 2025
 from header_signal_generation import Mirnov, save_sensors, flux_loop, plt,\
     mds, np, json, Mirnov_Geometry_C_Mod, os, Dataset, xr,h5py, sys
 
-sys.path.append('/home/rianc/Documents/disruption-py/')
-from disruption_py.machine.d3d.mirnov import D3D_SENSORS_BP, D3D_PROBES_BR
+
+# sys.path.append('/home/rianc/Documents/disruption-py/')
+# from disruption_py.machine.d3d.mirnov import D3D_SENSORS_BP, D3D_PROBES_BR
 
 from get_Cmod_Data import BP
 
@@ -286,7 +287,7 @@ def get_sensor_category(sensor_set, sensor_name='', get_categories=False):
 
 ######################################################################################    
 def gen_Sensors_Updated(coord_file='input_data/MAGX_Coordinates_CFS.json',
-                        select_sensor='MRNV',cmod_shot=1051202011, skipBP=True, debug= False,
+                        select_sensor='SPARC_MRNV',cmod_shot=1051202011, skipBP=True, debug= False,
                         doSave_xarray=False):
     
     """

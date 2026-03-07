@@ -14,3 +14,8 @@ dependencies = [
     "xarray>=2026.1.0",
 ]
 
+[tool.uv.workspace]
+members = [
+    "signal_generation",
+]
+

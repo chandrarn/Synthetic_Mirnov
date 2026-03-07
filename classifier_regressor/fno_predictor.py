@@ -178,7 +178,7 @@ class SensorFourChannelDataset(Dataset):
         return x, y
 from sklearn.preprocessing import StandardScaler
 
-def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray, phi: np.ndarray, \
+def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray | None, phi: np.ndarray | None, \
                          zero_baseline: bool = False, sincos_channels: bool = True,\
                              sincos_only: bool = False ) -> \
             Tuple[np.ndarray, StandardScaler]:
@@ -198,8 +198,9 @@ def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray, phi: np.ndarray, \
         # if __check_angle_slope(delta_imag) < 0 : raise  ValueError("Angle differences are decreasing, check sensor ordering!")
         sin_imag = np.sin(delta_imag)
         cos_imag = np.cos(delta_imag)
-        th_diff = theta - theta[0]
-        ph_diff = phi - phi[0]
+        if theta is not None:
+            th_diff = theta - theta[0]
+            ph_diff = phi - phi[0]
 
         if sincos_only: 
             x = np.stack([sin_imag, cos_imag], axis=1)

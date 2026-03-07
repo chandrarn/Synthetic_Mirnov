@@ -67,7 +67,7 @@ tw_plate = ThinCurr(oft_env)
 # .xml file defines coils 
 # 'SPARC_Sept2023_noPR.h5'
 #tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
-tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/oft_in.xml')
+# tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/oft_in.xml')
 #tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
 #tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
 
@@ -75,7 +75,7 @@ tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filenam
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
 # tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
-# tw_plate.setup_model(mesh_file='input_data/TCV-homology.h5',xml_filename='input_data/oft_in.xml')
+tw_plate.setup_model(mesh_file='input_data/TCV-homology.h5',xml_filename='input_data/oft_in.xml')
 
 tw_plate.setup_io()
 

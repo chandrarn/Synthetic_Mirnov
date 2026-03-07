@@ -37,6 +37,9 @@ try: matplotlib.use('TkAgg')
 except: matplotlib.use('pdf')
 plt.ion()
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*Dataset.dims.*") 
+
 # Allow importing C-Mod utilities for geometry (optional)
 import sys
 sys.path.append('../C-Mod/')
@@ -385,11 +388,13 @@ class CacheConfig:
     load_saved_data: bool = False  # Whether to load existing cached data if available
     t_window_width: int = 0  # Width in timepoints for visualization rectangles
     saveDataset: bool = True  # Whether to save the cached dataset to disk
+    randomize_timepoints: bool = False  # Whether to randomize timepoint selection when num_timepoints is set
 
 
-def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1) -> List[str]:
+def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1, file_substring_identifier='spectrogram') -> List[str]:
     """Get sorted list of NetCDF dataset file paths from directory."""
-    files = sorted([os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.nc')])
+    files = sorted([os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.nc') and file_substring_identifier in f])
+    
     if n_datasets > 0:
         files = files[:n_datasets]
     return files
@@ -600,7 +605,18 @@ def _maybe_geometry_from_bp_k(geometry_shot: Optional[int], names_sorted: np.nda
     except Exception as e:
         print(f"Warning: could not load geometry from bp_k: {e}")
     return th, ph, matching_sensor_inds 
+################################################################################
+def _geometry_from_SPARC_Sensors(geometry_shot: str|list, names_sorted: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    # Either sensors is a sensor set, or list of sensor sets, or just a list of sensor names
+    if isinstance(geometry_shot, str):geometry_shot = [geometry_shot]
 
+    valid_indices = []
+    for sensor_set in geometry_shot: 
+        valid_indices.extend([i for i, nm in enumerate(names_sorted) if sensor_set in nm])
+
+    return np.array(valid_indices)
+
+#################################################################################
 def _geometry_from_gen_MAGX(geometry_shot: int, names_sorted: np.ndarray, r_magx: float = 0.68, z_magx : float = 0) \
      -> Tuple[np.ndarray, np.ndarray]:
 
@@ -671,6 +687,10 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         
         try:
             ds = _open_dataset(ds_filepath)
+            # sanity checks for bad data
+            if not ( 'time' in list(ds.dims) and 'frequency' in list(ds.dims) ):
+                print(f"Warning: unexpected dimensions in {ds_filepath}: {list(ds.dims)}. Skipping.")
+                continue
         except Exception as e:
             print(f"Warning: failed to open {ds_filepath}: {e}")
             continue
@@ -687,9 +707,13 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         # Determine time indices to use
         times = np.arange(len(ds['time']))
         if cfg.num_timepoints is not None and cfg.num_timepoints > 0 and cfg.num_timepoints < len(times):
-            # random subset for caching speed
-            rng = np.random.default_rng(42)
-            times = np.sort(rng.choice(times, size=cfg.num_timepoints, replace=False))
+            if cfg.randomize_timepoints:
+                # random subset for caching speed
+                rng = np.random.default_rng(42)
+                times = np.sort(rng.choice(times, size=cfg.num_timepoints, replace=False))
+            else:
+                # Take N evenly spaced timepoints across the range
+                times = np.linspace(times[0], times[-1], num=cfg.num_timepoints, dtype=int)
 
         F_mode_vars = [str(v) for v in ds.data_vars if str(v).startswith('F_Mode_')]
         mode_label_pairs = _get_mode_labels(ds, F_mode_vars)
@@ -766,8 +790,24 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
     theta = phi = None
     if cfg.include_geometry:
         # theta, phi = _maybe_geometry_from_bp_k(cfg.geometry_shot, names_sorted)
-        theta, phi = _geometry_from_gen_MAGX(cfg.geometry_shot, names_sorted) 
+        if isinstance(cfg.geometry_shot, int):
+            theta, phi = _geometry_from_gen_MAGX(cfg.geometry_shot, names_sorted) 
+        else: # assume we're operating on SPARC data
+            phi=[]
+            theta=[]
+            coord_file='../signal_generation/input_data/MAGX_Coordinates_CFS.json'
+            coords = json.load(open(coord_file,'r'))
 
+            for sensor in names_sorted:
+                for sensor_set in coords:
+                    if sensor in [s.replace('-', '_') for s in coords[sensor_set]]:
+                        if sensor not in coords[sensor_set]: sensor = sensor.replace('_', '-') # check necessary to match name formatting
+                        print(f"Found geometry for sensor {sensor} in set {sensor_set}")
+                        phi.append(coords[sensor_set][sensor]['PHI']*np.pi/180.0)
+                        theta.append(np.arctan2(coords[sensor_set][sensor]['Z'], \
+                                                   coords[sensor_set][sensor]['R'] - 1.85))
+                
+            # Ensure theta and phi are properly initialized
     meta = {
         'data_dir': cfg.data_dir,
         'num_samples': int(X_ri.shape[0]),
@@ -799,9 +839,15 @@ def sensor_reduction(X_ri: np.ndarray, sensor_names: np.ndarray, theta: Optional
                      phi: Optional[np.ndarray], geometry_shot: int)\
                           -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:  
     
-    th, ph, matching_sensor_inds = _maybe_geometry_from_bp_k(geometry_shot, sensor_names)
+    # Allow geometry_shot to be a sensor set name, or a list of sensor names, as well as a specific C-Mod shot
+    if isinstance(geometry_shot, str) or isinstance(geometry_shot, list):
+        # Assume it's a sensor set name or list of sensor names; try to load geometry from that
+        matching_sensor_inds = _geometry_from_SPARC_Sensors(geometry_shot, sensor_names)
+    else:
+        # Assume it's a C-Mod shot number; try to load geometry from bp_k for that shot
+        th, ph, matching_sensor_inds = _maybe_geometry_from_bp_k(geometry_shot, sensor_names)
 
-    theta = theta[matching_sensor_inds]; phi = phi[matching_sensor_inds]
+    theta = np.array(theta)[matching_sensor_inds]; phi = np.array(phi)[matching_sensor_inds]
     X_ri_reduced = X_ri[:, matching_sensor_inds, :]
     sensor_names_reduced = sensor_names[matching_sensor_inds]
 
@@ -868,6 +914,7 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
     if geometry_shot is not None and include_geometry:
         X_ri, sensor_names, theta, phi = \
             sensor_reduction(X_ri, sensor_names, theta, phi, geometry_shot) 
+
 
     if doVisualize: 
         visualize_cached_data(cfg, y_m, y_n, X_ri)
