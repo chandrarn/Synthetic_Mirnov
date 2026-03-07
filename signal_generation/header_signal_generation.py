@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
 Created on Tue Dec 17 12:04:59 2024
     header file for synthetic mirnov data
@@ -10,15 +11,6 @@ import sys
 import os
 
 
-import matplotlib.pyplot as plt
-
-
-from matplotlib import rc
-
-try:
-    pass
-except Exception:
-    pass
 # MDS load may not work on all machines
 try:
     import MDSplus as mds
@@ -27,7 +19,11 @@ except Exception:
         import mdsthin as mds
     except Exception:
         mds = None
+
+
 import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib import rc
 
 try:
     matplotlib.use("TkAgg")  # Use TkAgg backend for plotting
@@ -35,18 +31,19 @@ try:
 except Exception:
     pass  # TkAgg can't be assigned in headless operations
 
+
 # print(getcwd())
 # sys.path.append('/home/rianc/OpenFUSIONToolkit/build_release_sched_mit_psfc_r8/python/')
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Intel_Compiled/python/') # This one
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit_Updated/src/python/')
 # Updated OFT:
 # Updated binary
+
 # sys.path.append('/home/rianc/Downloads/OpenFUSIONToolkit_v1.0 (2).0-beta6-Ubuntu_22_04-GNU-x86_64/OpenFUSIONToolkit_v1.0.0-beta6-Linux-GNU-x86_64/python/')
 # Updated git repo source:
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit/build_release/python/')
 
 # Specific module load order to circumvent HDF5 issues with xarray
-
 
 from socket import gethostname
 
