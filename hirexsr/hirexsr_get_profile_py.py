@@ -14,13 +14,12 @@ import argparse
 from typing import Sequence
 
 import numpy as np
-import matplotlib
-matplotlib.use('TkAgg')  # Use interactive backend for plotting
-import matplotlib.pyplot as plt
 
 from hirexsr_lint_profile_py import openTree, multi_interpol
-from hirexsr_lint_profile_py import hirexsr_get_lint_profile_py, _plot_lint_profile, _line_display_name
+from hirexsr_lint_profile_py import hirexsr_get_lint_profile_py
+from hirexsr_lint_profile_py import _line_config
 from hirexsr_load_result_py import _ensure_profile_cube
+from hirexsr_plotting_py import _plot_inversion_profile, _plot_lint_profile, _plot_profile_vs_lint
 
 
 @dataclass
@@ -56,14 +55,25 @@ def _analysis_initstring(tht: int | None) -> str:
     return rf"\SPECTROSCOPY::TOP.HIREXSR.ANALYSIS{int(tht)}."
 
 
-def _line_from_keywords(w: bool, moly: bool, lya1: bool) -> tuple[str, str]:
-    if moly:
-        return "HLIKE.PROFILES.MO4D", "moly4d"
-    if lya1:
-        return "HLIKE.PROFILES.LYA1", "lya1"
-    if w:
-        return "HELIKE.PROFILES.W", "w"
-    return "HELIKE.PROFILES.Z", "z"
+def _line_from_index(line: int, tht: int) -> tuple[str, str]:
+    """Map lint-style integer line index to profile tree node and compact line id."""
+    cfg = _line_config(line, tht)
+    path = str(cfg["path"]).upper()
+
+    if ".HELIKE." in path:
+        family = "HELIKE"
+    elif ".HLIKE." in path:
+        family = "HLIKE"
+    else:
+        raise ValueError(f"Could not infer line family from path: {cfg['path']}")
+
+    if ".MOMENTS." not in path:
+        raise ValueError(f"Unexpected line path format: {cfg['path']}")
+
+    line_name = path.split(".MOMENTS.")[-1].rstrip(":")
+    line_node = f"{family}.PROFILES.{line_name}"
+    lineid = line_name.lower()
+    return line_node, lineid
 
 
 def _first_index_gt(vals: np.ndarray, threshold: float) -> int | None:
@@ -161,9 +171,7 @@ def _load_spectroscopy_profile_data(
 
 def hirexsr_get_profile_py(
     shot: int,
-    w: bool = False,
-    moly: bool = False,
-    lya1: bool = False,
+    line: int = 2,
     quiet: bool = False,
     dc_shift: float = 0.0,
     tht: int = 0,
@@ -176,7 +184,7 @@ def hirexsr_get_profile_py(
     toroidal rotation in km/s, with m=1 split handling matching the IDL logic.
     """
     initstring = _analysis_initstring(tht)
-    line_node, lineid = _line_from_keywords(w=w, moly=moly, lya1=lya1)
+    line_node, lineid = _line_from_index(line=line, tht=tht)
     pro_expr = initstring + line_node + ":PRO"
     proerr_expr = initstring + line_node + ":PROERR"
 
@@ -328,249 +336,16 @@ def _print_summary(out: InversionProfileResult) -> None:
     print(f"ti shape: {out.ti.shape}")
 
 
-def _plot_inversion_profile(out: InversionProfileResult, tht: int, every_nth: int = 10, x_axis: str = "psi",
-                            doSave: str = '',doOmega: bool = True) -> None:
-    """Plot emissivity, rotation, and Ti versus chosen radial coordinate."""
-    if x_axis not in {"psi", "r_maj"}:
-        raise ValueError(f"Unsupported x_axis='{x_axis}'. Use 'psi' or 'r_maj'.")
-
-    nt = out.time.size
-    time_indices = list(range(0, nt, max(1, every_nth)))
-    if not time_indices:
-        print("No time points to plot.")
-        return
-
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5), layout="constrained")
-    fig.suptitle(
-        f"shot {out.shot}  line {out.lineid}  tht {tht} profile  (every {max(1, every_nth)} time pts)"
-    )
-
-    cmap = plt.get_cmap("viridis", max(len(time_indices), 1))
-    for idx, it in enumerate(time_indices):
-        color = cmap(idx / max(len(time_indices) - 1, 1))
-        label = f"t={out.time[it]:.3f} s"
-        if x_axis == "psi":
-            xvals = out.psi[:, it]
-            x_label = r"$\Psi_N$"
-        else:
-            xvals = out.r_maj[:, it]
-            x_label = r"$R_{maj}$ [m]"
-
-        # Plot omega or v_phi on panel 1, Ti on panel 2, emissivity on panel 3.
-        yrot = out.omg[:, it] if doOmega else out.rot[:, it]
-        yrot_err = out.omgerr[:, it] if doOmega else out.roterr[:, it]
-        axes[0].errorbar(xvals, yrot, yerr=yrot_err, color=color, label=label)
-        axes[1].errorbar(xvals, out.ti[:, it], yerr=out.tierr[:, it], color=color, label=label)
-        axes[2].errorbar(xvals, out.emiss[:, it], yerr=out.emisserr[:, it], color=color, label=label)
-
-    axes[0].set_xlabel(x_label)
-    axes[0].set_ylabel(r"$\omega$ [kHz]" if doOmega else r"$v_\phi$ [km/s]")
-    axes[0].set_title("Inverted Toroidal Rotation")
-    axes[0].grid(True)
-    axes[0].legend(fontsize=8, loc="best")
-
-    axes[1].set_xlabel(x_label)
-    axes[1].set_ylabel(r"$T_i$ [keV]")
-    axes[1].set_title("Inverted Ion Temperature")
-    axes[1].grid(True)
-    axes[1].legend(fontsize=8, loc="best")
-
-    axes[2].set_xlabel(x_label)
-    axes[2].set_ylabel("Emissivity [a.u.]")
-    axes[2].set_title("Inverted Emissivity")
-    axes[2].grid(True)
-    axes[2].legend(fontsize=8, loc="best")
-
-    plt.show()
-    if doSave:
-        fig.savefig(f"{doSave}_shot{out.shot}_line{out.lineid}_tht{tht}_{x_axis}.pdf", transparent=True)
-        print(f"Saved plot to {doSave}_shot{out.shot}_line{out.lineid}_tht{tht}_{x_axis}.pdf")
-
-
-def _curve_mask(
-    x: np.ndarray,
-    y: np.ndarray,
-    yerr: np.ndarray | None = None,
-    x_bounds: tuple[float, float] | None = None,
-    y_abs_max: float | None = None,
-) -> np.ndarray:
-    """Return mask for valid/finite curve points with optional bounds.
-
-    Invalid points include non-finite values and sentinel x == -1 from tree data.
-    """
-    m = np.isfinite(x) & np.isfinite(y) & (x != -1.0)
-    if yerr is not None:
-        m &= np.isfinite(yerr)
-    if x_bounds is not None:
-        m &= (x >= x_bounds[0]) & (x <= x_bounds[1])
-    if y_abs_max is not None:
-        m &= (np.abs(y) <= y_abs_max)
-    return m
-
-
-def _plot_profile_vs_lint(
-    prof: InversionProfileResult,
-    lint,
-    tht: int,
-    x_axis: str = "psi",
-    every_nth: int = 5,
-    doSave: str = "",
-    omega_abs_max: float = 100.0,
-    ti_abs_max: float = 10.0,
-    emiss_abs_max: float | None = None,
-    v_lims: tuple[float, float] | None = [-40,40],
-    ti_lims: tuple[float, float] | None = [0,6],
-) -> None:
-    """Overlay inversion-profile and lint-profile measurements at matched times."""
-    if x_axis not in {"psi", "r_maj"}:
-        raise ValueError(f"Unsupported x_axis='{x_axis}'. Use 'psi' or 'r_maj'.")
-
-    if prof.time.size == 0 or lint.tau.size == 0:
-        print("No time points available for profile-vs-lint comparison.")
-        return
-
-    prof_time_idx = list(range(0, prof.time.size, max(1, every_nth)))
-    if not prof_time_idx:
-        print("No profile time points selected for comparison.")
-        return
-
-    line_name = _line_display_name(lint.line, lint.tht)
-    fig, axes = plt.subplots(1, 3, figsize=(17, 5), layout="constrained")
-    fig.suptitle(
-        f"shot {prof.shot}  line {line_name} profile vs lint comparison  "
-        f"tht {tht}  (every {max(1, every_nth)} profile times)"
-    )
-
-    cmap = plt.get_cmap("tab20", max(len(prof_time_idx), 1))
-
-    for i, ip in enumerate(prof_time_idx):
-        t_prof = prof.time[ip]
-        il = int(np.argmin(np.abs(lint.tau - t_prof)))
-        t_lint = lint.tau[il]
-        color = cmap(i / max(len(prof_time_idx) - 1, 1))
-
-        if x_axis == "psi":
-            x_prof = prof.psi[:, ip]
-            x_lint = lint.rhotang[il, :]
-            x_bounds = (0.0, 1.2)
-            x_label = r"$\Psi_N$ / rhotang"
-        else:
-            x_prof = prof.r_maj[:, ip]
-            x_lint = lint.r_proj[:, il]
-            x_bounds = None
-            x_label = r"$R$ [m]"
-
-        # Panel 1: omega (profile) vs lint v-like quantity.
-        m_prof_w = _curve_mask(x_prof, prof.omg[:, ip], prof.omgerr[:, ip], x_bounds=x_bounds, y_abs_max=omega_abs_max)
-        m_lint_w = _curve_mask(x_lint, lint.v[il, :], lint.verr[il, :], x_bounds=x_bounds, y_abs_max=omega_abs_max)
-        axes[0].errorbar(
-            x_prof[m_prof_w],
-            prof.omg[:, ip][m_prof_w],
-            yerr=prof.omgerr[:, ip][m_prof_w],
-            color=color,
-            linestyle="-",
-            marker="o",
-            markersize=3,
-            alpha=0.85,
-            label=f"profile t={t_prof:.3f}",
-        )
-        axes[0].errorbar(
-            x_lint[m_lint_w],
-            lint.v[il, :][m_lint_w],
-            yerr=lint.verr[il, :][m_lint_w],
-            color=color,
-            linestyle="--",
-            marker="x",
-            markersize=3,
-            alpha=0.85,
-            label=f"lint t={t_lint:.3f}",
-        )
-
-        # Panel 2: Ti comparison.
-        m_prof_ti = _curve_mask(x_prof, prof.ti[:, ip], prof.tierr[:, ip], x_bounds=x_bounds, y_abs_max=ti_abs_max)
-        m_lint_ti = _curve_mask(x_lint, lint.ti[il, :], lint.tierr[il, :], x_bounds=x_bounds, y_abs_max=ti_abs_max)
-        axes[1].errorbar(
-            x_prof[m_prof_ti],
-            prof.ti[:, ip][m_prof_ti],
-            yerr=prof.tierr[:, ip][m_prof_ti],
-            color=color,
-            linestyle="-",
-            marker="o",
-            markersize=3,
-            alpha=0.85,
-        )
-        axes[1].errorbar(
-            x_lint[m_lint_ti],
-            lint.ti[il, :][m_lint_ti],
-            yerr=lint.tierr[il, :][m_lint_ti],
-            color=color,
-            linestyle="--",
-            marker="x",
-            markersize=3,
-            alpha=0.85,
-        )
-
-        # Panel 3: emissivity comparison.
-        m_prof_em = _curve_mask(x_prof, prof.emiss[:, ip], prof.emisserr[:, ip], x_bounds=x_bounds, y_abs_max=emiss_abs_max)
-        m_lint_em = _curve_mask(x_lint, lint.emiss[il, :], lint.emisserr[il, :], x_bounds=x_bounds, y_abs_max=emiss_abs_max)
-        axes[2].errorbar(
-            x_prof[m_prof_em],
-            prof.emiss[:, ip][m_prof_em],
-            yerr=prof.emisserr[:, ip][m_prof_em],
-            color=color,
-            linestyle="-",
-            marker="o",
-            markersize=3,
-            alpha=0.85,
-        )
-        axes[2].errorbar(
-            x_lint[m_lint_em],
-            lint.emiss[il, :][m_lint_em],
-            yerr=lint.emisserr[il, :][m_lint_em],
-            color=color,
-            linestyle="--",
-            marker="x",
-            markersize=3,
-            alpha=0.85,
-        )
-
-    axes[0].set_xlabel(x_label)
-    axes[0].set_ylabel(r"$\omega$ [kHz]")
-    axes[0].set_title("Omega: Profile (solid) vs Lint (dashed)")
-    axes[0].grid(True)
-    axes[0].legend(fontsize=7, loc="best")
-    if v_lims is not None:
-        axes[0].set_ylim(v_lims)
-
-    axes[1].set_xlabel(x_label)
-    axes[1].set_ylabel(r"$T_i$ [keV]")
-    axes[1].set_title("Ti: Profile (solid) vs Lint (dashed)")
-    axes[1].grid(True)
-    axes[1].set_ylim(bottom=0.0)  # Ti should be non-negative, so set lower y-limit to zero.
-    if ti_lims is not None:
-        axes[1].set_ylim(ti_lims)
-
-    axes[2].set_xlabel(x_label)
-    axes[2].set_ylabel("Emissivity [a.u.]")
-    axes[2].set_title("Emissivity: Profile (solid) vs Lint (dashed)")
-    axes[2].grid(True)
-    axes[2].set_ylim(bottom=0.0)  # Emissivity should be non-negative, so set lower y-limit to zero.
-
-
-    plt.show()
-    if doSave:
-        out_path = f"{doSave}_shot{prof.shot}_line{prof.lineid}_tht{tht}_{x_axis}_profile_vs_lint.pdf"
-        fig.savefig(out_path, transparent=True)
-        print(f"Saved comparison plot to {out_path}")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Python rewrite of IDL HIREXSR_GET_PROFILE")
     parser.add_argument("--shot", type=int, default=1120906030, help="Shot number to load")
     parser.add_argument("--tht", type=int, default=0)
-    parser.add_argument("--w", action="store_true", help="Use W line instead of default Z")
-    parser.add_argument("--moly", action="store_true", help="Use MO4D line")
-    parser.add_argument("--lya1", action="store_true", help="Use LYA1 line")
+    parser.add_argument(
+        "--line",
+        type=int,
+        default=2,
+        help="Line index (lint-style mapping in _line_config; default 2=He-like Z)",
+    )
     parser.add_argument("--dc-shift", type=float, default=0.0, help="Additive shift applied to omega")
     parser.add_argument("--override", action="store_true", help="Bypass module mismatch safety check")
     parser.add_argument(
@@ -613,9 +388,7 @@ if __name__ == "__main__":
 
     out = hirexsr_get_profile_py(
         shot=args.shot,
-        w=args.w,
-        moly=args.moly,
-        lya1=args.lya1,
+        line=args.line,
         quiet=args.quiet,
         dc_shift=args.dc_shift,
         tht=args.tht,

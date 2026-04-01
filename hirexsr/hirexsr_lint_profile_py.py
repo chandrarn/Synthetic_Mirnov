@@ -20,14 +20,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import argparse
 from typing import Any
-import matplotlib
-matplotlib.use('TkAgg')  # Use interactive backend for plotting
-import matplotlib.pyplot as plt
-plt.ion()  # Enable interactive mode for live updates
-
-plt.rcParams.update({"text.usetex": True, "font.family": "serif"})
 import numpy as np
 import mdsthin as mds
+
+from hirexsr_plotting_py import _plot_lint_profile
 
 
 # -----------------------------
@@ -847,6 +843,9 @@ def hirexsr_load_tlintptr_py(shot: int, line: int = 2, tht: int = 0) -> TLintRes
     )
 
 
+
+
+
 def _print_summary(out: LintProfileResult) -> None:
     print("=== hirexsr_get_lint_profile_py summary ===")
     print(f"shot={out.shot}, line={out.line}, tht={out.tht}, Z={out.z}, lam_o={out.lam_o}")
@@ -857,91 +856,6 @@ def _print_summary(out: LintProfileResult) -> None:
     print(f"rhotang shape: {out.rhotang.shape}  [nt_valid, nch]")
     print(f"r_proj shape: {out.r_proj.shape}  [nch, nt_valid]")
     print(f"r_ave shape: {out.r_ave.shape}  [nch]")
-
-
-def _plot_lint_profile(out: LintProfileResult, every_nth: int = 10, x_axis: str = "r_proj",\
-                       specific_timepoint=1.29, w_lim=150, ti_lim=10) -> None:
-    """Plot v and Ti versus chosen radial coordinate for every nth valid time point.
-
-    Parameters
-    ----------
-    out : LintProfileResult
-        Result from hirexsr_get_lint_profile_py()
-    every_nth : int
-        Plot every nth time point (default 10).
-    x_axis : str
-        Radial coordinate to use on x-axis: "r_proj" (default) or "rhotang".
-    """
-    tau = out.tau         # (nt_valid,)
-    v = out.v             # (nt_valid, nch)
-    ti = out.ti           # (nt_valid, nch)
-    rhotang = out.rhotang # (nt_valid, nch)
-    r_proj = out.r_proj   # (nch, nt_valid)
-
-    if x_axis not in {"r_proj", "rhotang"}:
-        raise ValueError(f"Unsupported x_axis='{x_axis}'. Use 'r_proj' or 'rhotang'.")
-
-    nt_valid = tau.size
-    time_indices = list(range(0, nt_valid, every_nth))
-    if not time_indices:
-        print("No time points to plot.")
-        return
-    
-    if specific_timepoint is not None:
-        if type(specific_timepoint) is not list:
-            specific_timepoint = [specific_timepoint]
-        time_indices = []
-        for timepoint in specific_timepoint:
-            time_indices.append(np.argmin(np.abs(tau - timepoint)))
-
-
-    line_name = _line_display_name(out.line, out.tht)
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), layout='constrained')
-    fig.suptitle(
-        f"shot {out.shot}  line {line_name}  tht {out.tht}  (every {every_nth} time pts)"
-    )
-
-    cmap = plt.get_cmap("viridis", max(len(time_indices), 1))
-    for idx, it in enumerate(time_indices):
-        color = cmap(idx / max(len(time_indices) - 1, 1))
-        label = f"t={tau[it]:.3f} s"
-        if x_axis == "r_proj":
-            xvals = r_proj[:, it]
-        else:
-            xvals = rhotang[it, :]
-        # Check for allowable values
-        v_valid = np.isfinite(v[it, :]) & (np.abs(v[it, :]) < w_lim) & (xvals > 0)
-        ti_valid = np.isfinite(ti[it, :]) & (ti[it, :] < ti_lim) & (xvals > 0)
-        v_plot = v[it, v_valid]
-        ti_plot = ti[it, ti_valid]
-        axes[0].plot(xvals[v_valid], v_plot, color=color, label=label)
-        axes[1].plot(xvals[ti_valid], ti_plot, color=color, label=label)
-
-    if x_axis == "r_proj":
-        x_label = "Rproj [m]"
-    else:
-        x_label = "rhotang [PSIN]"
-
-    axes[0].set_xlabel(x_label)
-    axes[0].set_ylabel(r"$\omega$  [kHz]")
-    axes[0].set_title("Velocity")
-    axes[0].legend(fontsize=7, loc="best")
-
-    axes[1].set_xlabel(x_label)
-    axes[1].set_ylabel("Ti  [keV]")
-    axes[1].set_title("Ion Temperature")
-    axes[1].legend(fontsize=7, loc="best")
-
-    axes[0].grid(True)
-    axes[1].grid(True)
-    axes[0].set_xlim(0, 1)
-    axes[1].set_xlim(0, 1)
-    # axes[0].set_ylim([-20000,-16000])
-    axes[1].set_ylim([0,10])
-    plt.tight_layout()
-    plt.show()
-    fig.savefig(f"lint_profile_shot{out.shot}_line{out.line}_tht{out.tht}_{x_axis}.png", dpi=300)
-    print(f"Saved plot to lint_profile_shot{out.shot}_line{out.line}_tht{out.tht}_{x_axis}.png")
 
 
 if __name__ == "__main__":
