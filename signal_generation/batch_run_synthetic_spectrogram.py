@@ -552,7 +552,7 @@ if __name__ == "__main__":
         "noise_envelope": 0.01,
         "max_modes": 1,
         "max_m": 16,
-        "max_n": np.arange(1, 17, dtype=int),
+        "max_n": np.arange(2, 7, dtype=int),
         "n_threads": 20,
     }
 
@@ -562,7 +562,7 @@ if __name__ == "__main__":
     save_Ext = "_Synth_low-n_New_Helicity"
     doSave = "../output_plots/low_m-n_spectrograms" * True
     doPlot = False
-    training_shots = 100
+    training_shots = 1
     doPerturbation = True
     justLoadGeqdsk = True
     gEQDSK_files_dir = "input_data/gEQDSK_files/SPARC/"

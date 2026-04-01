@@ -36,6 +36,7 @@ from Time_dep_Freq import I_KM, F_KM, I_AE, F_AE, F_AE_plot,F_KM_plot, gen_coupl
 
 #####################3
 # Add paths
+working_directory = os.environ.get('SCRIPT_DIR', getcwd()+'/')
 print('Working Directory: ', working_directory)
 sys.path.append(working_directory+'../signal_analysis/')
 sys.path.append(working_directory+'../C-Mod/')

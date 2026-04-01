@@ -425,4 +425,6 @@ def hardcodedVals(shotno):
 
 ################################################33
 if __name__ == '__main__':
-    Mirnov_Geometry( 1151208900 )
+    # Mirnov_Geometry( 1151208900 )
+    phi, theta_pol, R, Z =  Mirnov_Geometry(1160714026, debug=True, doSave_json=True)
+    print('Finished')

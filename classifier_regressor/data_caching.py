@@ -389,6 +389,7 @@ class CacheConfig:
     t_window_width: int = 0  # Width in timepoints for visualization rectangles
     saveDataset: bool = True  # Whether to save the cached dataset to disk
     randomize_timepoints: bool = False  # Whether to randomize timepoint selection when num_timepoints is set
+    include_frequency_gap: bool = False  # Include the gap in frequency between the plasma and the lab-frame
 
 
 def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1, file_substring_identifier='spectrogram') -> List[str]:
@@ -745,8 +746,17 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
                     if src >= 0:
                         real_sorted[s_idx] = real_band[src]
                         imag_sorted[s_idx] = imag_band[src]
-                X_ri_list.append(np.stack([real_sorted, imag_sorted], axis=-1))  # (S, 2)
+
+                # Check for inclusion of frequency gap feature, and calculate if needed
+                if cfg.include_frequency_gap:
+                    m_label, n_label = mode_label_pairs[m_i]
+                    X_ri_list.append(np.stack([real_sorted, imag_sorted, n_label*np.ones_like(real_sorted) ], axis=-1))  # (S, 2)
+                else: 
+                    X_ri_list.append(np.stack([real_sorted, imag_sorted], axis=-1))  # (S, 2)
+              
                 # Check for negative magnitude
+
+            
 
                 # Choose which label to append based on cfg.use_mode while retaining both
                 m_label, n_label = mode_label_pairs[m_i]
@@ -806,9 +816,9 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
                         phi.append(coords[sensor_set][sensor]['PHI']*np.pi/180.0)
                         theta.append(np.arctan2(coords[sensor_set][sensor]['Z'], \
                                                    coords[sensor_set][sensor]['R'] - 1.85))
-                
-            # Ensure theta and phi are properly initialized
-    meta = {
+   
+
+    meta = {    
         'data_dir': cfg.data_dir,
         'num_samples': int(X_ri.shape[0]),
         'num_sensors': int(X_ri.shape[1]),
@@ -828,6 +838,7 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
     if theta is not None and phi is not None:
         save_dict['theta'] = theta
         save_dict['phi'] = phi
+
 
     if cfg.saveDataset:
         np.savez(cfg.out_path, **save_dict)
@@ -865,7 +876,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                                  viz_freq_lim: Optional[List[float]] = None,
                                  load_saved_data : bool = True,
                                  doVisualize : bool = False,
-                                 saveDataset: bool = True) -> Tuple[
+                                 saveDataset: bool = True,
+                                 include_frequency_gap: bool = False) -> Tuple[
                                      np.ndarray, np.ndarray, np.ndarray, np.ndarray,
                                      np.ndarray, Optional[np.ndarray], Optional[np.ndarray]
                                  ]:
@@ -900,7 +912,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                       geometry_shot=geometry_shot, use_mode=use_mode, n_datasets=n_datasets,
                       visualize_first=visualize_first, viz_save_path=viz_save_path,
                       viz_sensor=viz_sensor, viz_freq_lim=viz_freq_lim,\
-                        load_saved_data=load_saved_data, saveDataset=saveDataset)
+                        load_saved_data=load_saved_data, saveDataset=saveDataset,
+                        include_frequency_gap=include_frequency_gap)
     dat = cache_training_dataset(cfg)
     X_ri = dat['X_ri'] if isinstance(dat, dict) else dat.get('X_ri')
     y = dat['y'] if isinstance(dat, dict) else dat.get('y')

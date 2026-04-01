@@ -179,7 +179,7 @@ class SensorFourChannelDataset(Dataset):
 from sklearn.preprocessing import StandardScaler
 
 def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray | None, phi: np.ndarray | None, \
-                         zero_baseline: bool = False, sincos_channels: bool = True,\
+                         do_fgap: bool = False, zero_baseline: bool = False, sincos_channels: bool = True,\
                              sincos_only: bool = False ) -> \
             Tuple[np.ndarray, StandardScaler]:
     """
@@ -194,6 +194,8 @@ def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray | None, phi: np.nda
         delta_imag = xri[:, 1] - xri[0, 1]*(1 if zero_baseline else 0)
         delta_imag = np.angle(np.exp(1j*delta_imag ))  # wrap-aware, with sign check
         # delta_imag *= __check_angle_slope(delta_imag)
+        if do_fgap:
+            f_gap = xri[:, 2]
         
         # if __check_angle_slope(delta_imag) < 0 : raise  ValueError("Angle differences are decreasing, check sensor ordering!")
         sin_imag = np.sin(delta_imag)
@@ -205,7 +207,10 @@ def fit_and_apply_scaler(X_ri: np.ndarray, theta: np.ndarray | None, phi: np.nda
         if sincos_only: 
             x = np.stack([sin_imag, cos_imag], axis=1)
         elif sincos_channels: 
-            x = np.stack([real_diff, sin_imag, cos_imag, th_diff, ph_diff], axis=1)
+            if do_fgap:
+                x = np.stack([real_diff, sin_imag, cos_imag, th_diff, ph_diff, f_gap], axis=1) # Add frequency gap as additional channel
+            else:
+                x = np.stack([real_diff, sin_imag, cos_imag, th_diff, ph_diff], axis=1)
         else: 
             x = np.stack([real_diff, delta_imag, th_diff, ph_diff], axis=1) # Switch back to just angle
 

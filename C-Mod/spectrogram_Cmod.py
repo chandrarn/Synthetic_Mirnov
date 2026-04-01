@@ -9,10 +9,11 @@ Created on Wed Mar  5 16:21:32 2025
 
 from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter, \
     gaussianHighPassFilter, rolling_spectrogram_improved, grouped_average, \
-        gaussian_filter, downscale_local_mean, xr, sys
+        gaussian_filter, downscale_local_mean, xr, sys, matplotlib
 sys.path.append('../signal_generation/')
 from header_signal_generation import histfile, working_directory
 import get_Cmod_Data as gC
+matplotlib.use('Agg')
 
 ###############################################################################
 
@@ -25,7 +26,7 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
                             data_archive='',cmap='viridis',figsize=(6,6),
                             params={},save_Ext='',batch=False,sigma_plot_reduce=(3,5),
                             doSave_data=False,doPlot=True,mesh_file=None,archiveExt=None,
-                            filament=False,use_rolling_fft=False,tScale=1,):
+                            filament=False,use_rolling_fft=False,tScale=1,external_axes=None):
     r'''
     
 
@@ -113,7 +114,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
     if doPlot: plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
                  save_Ext,f_lim,shotno,doSave_Extractor=doSave_Extractor,tScale=tScale,
                  doColorbar=doColorbar,clabel=clabel,cLim=cLim,cmap=cmap,
-                 figsize=figsize,batch=batch,doSave_data=doSave_data)
+                 figsize=figsize,batch=batch,doSave_data=doSave_data,
+                 external_axes=external_axes)
     
     if debug: print('Finished Plot')
     
@@ -154,7 +156,8 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim,params,m
             params['tLim']=tLim
             forceReload='bp_k'
         else:forceReload=[]
-        # forceReload=[]
+        forceReload=[]#['bp_k']
+        params['tLim']=tLim
         if diag is None: diag = gC.__loadData(shotno,pullData=['bp_k'],
                    data_archive=data_archive,params=params,forceReload=forceReload)['bp_k']
         signals = diag.data 
@@ -210,14 +213,18 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
                      save_Ext,f_lim,shotno=None,
                      doSave_Extractor=False,tScale=1e3,doColorbar=False,
                      clabel='',cLim=None,cmap='viridis',figsize=(6,6),
-                     batch=False,doSave_data=False,doLog=False):
+                     batch=False,doSave_data=False,doLog=False, external_axes=None):
     
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
     fName = __gen_fName(params,sensor_set,save_Ext,filament,shotno)   
     plt.close(name)
     
-    fig,ax=plt.subplots(1,1,tight_layout=True,num=name,figsize=figsize)
+    if external_axes is not None:
+        ax = external_axes
+        fig = plt.gcf()
+    else:
+        fig,ax=plt.subplots(1,1,tight_layout=True,num=name,figsize=figsize)
     
     # Get fLim
     f_inds = np.arange(*[np.argmin((freq*1e-3-f)**2) for f in f_lim]) if f_lim\
@@ -244,16 +251,18 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         ax.get_yaxis().set_visible(True)
         plt.tick_params(left = True, bottom = True)
     
-    ax.set_xlabel('Time [%s]'%('s' if tScale==1 else 'ms'))
+    if external_axes is None: 
+        ax.set_xlabel('Time [%s]'%('s' if tScale==1 else 'ms'))
     ax.set_ylabel('Freq [kHz]')
+
     if doLog: clabel = r'Log ' + clabel 
 
     if doColorbar:
         norm = Normalize(vmin,vmax)
-        fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cmap),ax=ax,
-                     label=clabel)
+        fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cmap),ax=ax, label=clabel)
         
-    if shotno:ax.text(.05,.95,'%d'%shotno,transform=ax.transAxes,fontsize=8,
+    if shotno and external_axes is None:
+        ax.text(.05,.95,'%d'%shotno,transform=ax.transAxes,fontsize=8,
             verticalalignment='top',bbox={'boxstyle':'round','alpha':.7,
                                           'facecolor':'white'})
     
@@ -516,7 +525,75 @@ def __gen_filename(param,sensor_set,mesh_file,save_Ext='',archiveExt=''):
 
     
     return f_save
-        
+###############################################################################
+def _build_extra_axes(n_axes=2):
+    fig = plt.figure(num='Spectrogram with Traces',figsize=(6,7))
+    gs = fig.add_gridspec(n_axes, 1, height_ratios=[4]+[1]*(n_axes-1), hspace=0.05)
+    ax_spectrogram = fig.add_subplot(gs[-1])
+    ax_traces = []
+    for i in range(n_axes-1):
+        ax_traces.append(fig.add_subplot(gs[i], sharex=ax_spectrogram))
+        plt.setp(ax_traces[i].get_xticklabels(), visible=False)
+    return fig, ax_traces + [ax_spectrogram]  
+
+def __add_traces_to_axes(ax, trace, fig, tLim, ax_ind, shotno,doSave,):
+    # ax is now a list of two axes: [ax_spectrogram_with_colorbar, ax_traces]
+    if trace == 'ip':
+        ip = gC.Ip(shotno, debug=True)
+        ip.makePlot(ax[1+ax_ind],ylabel='[MA]', leg_ext=r', $\mathrm{I_p}$')  # Plot traces on the second axes
+        ax[1+ax_ind].set_xlim(tLim)
+
+    elif trace == ['q95', 'q0']:
+        basePath = r'\analysis::efit_aeqdsk:'
+        conn = gC.openTree(shotno)
+        q95 = conn.get(basePath+'qpsib').data()
+        q0 = conn.get(basePath+'qqmin').data()
+        time = conn.get('dim_of('+basePath+'qqmin)').data()
+
+        ax[1+ax_ind].plot(time, q0, label=r'$\mathrm{q_0}$')
+        ax_ = ax[1+ax_ind].twinx()
+        ax_.plot(time, q95, label=r'$\mathrm{q_{95}}$', color='orange', alpha=0.7)
+        ax[1+ax_ind].set_xlim(tLim)
+        ax[1+ax_ind].set_ylabel(r'q [ ]')
+        ax_.set_ylabel(r'q [ ]')
+        ax[1+ax_ind].grid()
+        l=ax[1+ax_ind].legend(loc='upper left',fontsize=8, handlelength=0.75)
+        l.set_zorder(10)
+        ax_.legend(loc='upper right',fontsize=8,handlelength=0.75)
+
+    elif trace == ['Te', 'ne']:
+        conn = gC.openTree(shotno,'electrons')
+        basePath = r'\electrons::gpc2_'
+        te = conn.get(basePath+'te0').data()
+        conn = gC.openTree(shotno)
+        ne = conn.get(r'\cmod::top.electrons.tci.results:nl_04').data()/.6 * 1e-20
+        time = conn.get('dim_of('+basePath+'te0)').data()
+        time_ne = conn.get('dim_of(\\cmod::top.electrons.tci.results:nl_04)').data()
+        ax[1+ax_ind].plot(time, te, label=r'$\mathrm{T_e}$')
+        ax_ = ax[1+ax_ind].twinx()
+        ax_.plot(time_ne, ne, label=r'$\mathrm{n_e}$', color='orange', alpha=0.7)
+        ax[1+ax_ind].set_xlim(tLim)
+        ax[1+ax_ind].set_ylabel(r'[keV]')
+        ax_.set_ylabel(r'[10$^{20}$ m$^{-3}$]')
+        ax[1+ax_ind].grid()
+        l=ax[1+ax_ind].legend(loc='upper left',fontsize=8, handlelength=0.75)
+        l.set_zorder(10)
+        ax_.legend(loc='upper right',fontsize=8,handlelength=0.75)
+    else: return 
+
+    
+    # Resize ax[1] to match the width of ax[0] (which was narrowed by the colorbar)
+    pos0 = ax[0].get_position()
+    pos1 = ax[1+ax_ind].get_position()
+    ax[1+ax_ind].set_position([pos0.x0, pos1.y0, pos0.width, pos1.height])
+    
+    if doSave:
+        for a in ax: a.set_xlabel('')
+        ax[-1].set_xlabel('Time [s]')
+
+        fig.savefig(doSave+f'Spectrogram_with_Traces_{shotno}_{tLim[0]}-{tLim[1]}.pdf',transparent=True)
+        print('Saved: '+doSave+f'Spectrogram_with_Traces_{shotno}_{tLim[0]}-{tLim[1]}.pdf')
+    
 ###############################################################################
 def gen_lf_signals():
     file = 'cmod_logbook_ntm.csv'
@@ -525,7 +602,7 @@ def gen_lf_signals():
     shotnos.sort()
     shotnos=shotnos[::-1]
     shotnos = [ ]#[1160714026]#1160826001#[1160930034]#[1110316031]#[1160930033]#[1050615011]
-    shotnos=[1110201006]
+    shotnos=[1110201006] 
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
@@ -535,15 +612,18 @@ def gen_lf_signals():
     #               'f_lim':[[0,100],[100,600]]}
     
     # Block reduce: [keep samples, drop samples]
-    dataRanges = {'tLim':[[1.7,1.87]], 'signal_reduce':1,\
+    dataRanges = {'tLim':[[1,1.2]], 'signal_reduce':1,\
                   'block_reduce':[3000,500],'sigma':(2,2),'plot_reduce':(1,1)}
-    f_lim=[0,40]; c_lim=None#[0,30]
+    f_lim=[0,40]; c_lim=[0,1.5]
     pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
     save_Ext= '_Training_Coherance'
     use_rolling_fft = True
     figsize = (6,3)
+    include_traces = ['ip', ['Te','ne'], ['q95','q0']]
+
+    if include_traces: fig,ax = _build_extra_axes(n_axes=4)
 
     for ind,shot in enumerate(shotnos):
         diag = None
@@ -552,7 +632,7 @@ def gen_lf_signals():
         for ind_t,tLim in enumerate(dataRanges['tLim']):
             #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
                 # try: 
-                diag,signals,time,out_spect, freq = \
+                out = \
                     signal_spectrogram_C_Mod(shot,sensor_set='BP_K',diag=diag,\
                         sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
                             block_reduce=dataRanges['block_reduce'],
@@ -562,9 +642,13 @@ def gen_lf_signals():
                             params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
                             batch=True,sigma_plot_reduce=dataRanges['sigma'],\
                                 plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
-                                doSave_data=True, use_rolling_fft=use_rolling_fft)
+                                doSave_data=True, use_rolling_fft=use_rolling_fft,
+                                external_axes=ax[0] if include_traces else None)
                 # except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
-    
+                for ind, trace in enumerate(include_traces):
+                    __add_traces_to_axes(ax, trace, fig, tLim, ind, shot, \
+                        doSave='../output_plots/training_plots/'*(ind == len(include_traces)-1) )
+
     print('Finished Batch')
 
 ###############################################################################

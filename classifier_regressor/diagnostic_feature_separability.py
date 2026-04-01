@@ -134,7 +134,8 @@ def compute_pairwise_linear_probe_auc(features_flat, y, classes, cv_splits=5, ra
     return auc_matrix, detectability_auc, worst_auc_partners
 
 
-def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt, geometry_shot, use_mode, num_timepoints, n_datasets):
+def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt, geometry_shot,\
+                                   use_mode, num_timepoints, n_datasets, forceReload):
     """Load data, compute t-SNE features, and evaluate separability metrics."""
 
 
@@ -143,7 +144,7 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
     print("=" * 70)
 
     le = LabelEncoder()
-    if os.path.exists(out_path_features):
+    if os.path.exists(out_path_features) and not forceReload:
         print(f"Using existing t-SNE features from: {out_path_features}")
         data = np.load(out_path_features)
         features_2d = data['features_2d']
@@ -158,8 +159,8 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
             result = build_or_load_cached_dataset(
                 data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
                 geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1,
-                n_datasets=n_datasets, load_saved_data=False, visualize_first=False,
-                doVisualize=False, saveDataset=True)
+                n_datasets=n_datasets, load_saved_data=True, visualize_first=False,
+                doVisualize=False, saveDataset=False,include_frequency_gap=True)
             X_ri, y, y_m, y_n, sensor_names, theta, phi = result
             y_enc = np.array(le.fit_transform(y))
             diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi)
@@ -171,8 +172,8 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
         result = build_or_load_cached_dataset(
             data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
             geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1,
-            n_datasets=n_datasets, load_saved_data=False, visualize_first=False,
-            doVisualize=False, saveDataset=True)
+            n_datasets=n_datasets, load_saved_data=True, visualize_first=False,
+            doVisualize=False, saveDataset=True, include_frequency_gap=True)
         X_ri, y, y_m, y_n, sensor_names, theta, phi = result
 
         y_enc = np.array(le.fit_transform(y))
@@ -182,10 +183,10 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
         print(f"   Class counts: {np.bincount(y_enc)}")
 
         print(f"\n2. Computing scaled features...")
-        diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi)
+        diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi, do_fgap=True)
         print(f"   Features shape: {diff_features_scaled.shape}")
         print(f"   Feature stats: mean={diff_features_scaled.mean():.4f}, std={diff_features_scaled.std():.4f}")
-
+ 
         print(f"\n3. Flattening features for t-SNE...")
         features_flat = diff_features_scaled.reshape(len(diff_features_scaled), -1)
         print(f"   Flattened shape: {features_flat.shape}")
@@ -320,14 +321,22 @@ def plot_tsne_separability(results):
     cmap = plt.get_cmap('tab20')
     bounds = np.arange(len(classes) + 1) - 0.5
     norm = mcolors.BoundaryNorm(bounds, len(classes))
-    s_map = plt.cm.ScalarMappable(cmap='tab20', norm=norm)
+    cmap = 'tab20' if len(classes) <= 20 else 'turbo'
+    s_map = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     s_map.set_array([])
 
     class_alpha_denom = max(1, len(classes) - 1)
-    for ind, mode in enumerate(classes):
-        mask = y == mode
+ 
+    # Sort classes by m/n as n and then m to group similar modes together in the color scheme
+    classes = np.array([c.split('/') for c in classes], dtype=int) 
+    sorted_indices = np.argsort( classes[:,1] * 100 + classes[:,0] )
+    classes_sorted = classes[sorted_indices]
+
+    for ind, mode in enumerate(classes_sorted):
+        mask = y == f'{mode[0]}/{mode[1]}'
+
         ax1.scatter(
-            features_2d[mask, 0], features_2d[mask, 1], label=mode, s=20,
+            features_2d[mask, 0], features_2d[mask, 1], label=f'{mode[0]}/{mode[1]}', s=20,
             alpha=0.6 - 0.5 * (ind / class_alpha_denom),
             edgecolors='none', c=ind * np.ones_like(features_2d[mask, 0]),
             cmap=cmap, norm=norm
@@ -335,7 +344,7 @@ def plot_tsne_separability(results):
 
     cbar1 = fig.colorbar(s_map, ax=ax1, label='Mode Number')
     cbar1.set_ticks(np.arange(len(classes)))
-    cbar1.set_ticklabels(classes)
+    cbar1.set_ticklabels([f'{cls[0]}/{cls[1]}' for cls in classes_sorted])
     cbar1.solids.set_alpha(0.8)
     ax1.set_xlabel('t-SNE 1')
     ax1.set_ylabel('t-SNE 2')
@@ -345,12 +354,14 @@ def plot_tsne_separability(results):
     unique_y_m = np.unique(y_m)
     bounds_m = np.arange(len(unique_y_m) + 1) - 0.5
     norm_m = mcolors.BoundaryNorm(bounds_m, len(unique_y_m))
-    s_map_m = plt.cm.ScalarMappable(cmap='tab20', norm=norm_m)
+    # Use 'tab20' for ≤20 categories (categorical), 'turbo' for >20 (perceptually uniform)
+    cmap_m = 'tab20' if len(unique_y_m) <= 20 else 'turbo'
+    s_map_m = plt.cm.ScalarMappable(cmap=cmap_m, norm=norm_m)
     m_alpha_denom = max(1, len(unique_y_m) - 1)
     for ind, m in enumerate(unique_y_m):
         mask = y_m == m
         ax2.scatter(
-            features_2d[mask, 0], features_2d[mask, 1], cmap='tab20',
+            features_2d[mask, 0], features_2d[mask, 1], cmap=cmap_m,
             c=ind * np.ones_like(features_2d[mask, 0]), s=20,
             alpha=0.6 - 0.5 * (ind / m_alpha_denom), edgecolors='none', norm=norm_m
         )
@@ -420,23 +431,32 @@ def plot_auc_detectability_bar_chart(results):
 
     print(f"\n11. Creating linear-probe AUC detectability bar chart...")
     scores = np.array([detectability_auc[cls] for cls in classes], dtype=np.float64)
+
+    # Sort classes by m/n as n and then m to group similar modes together in the color scheme
+    classes = np.array([c.split('/') for c in classes], dtype=int) 
+    sorted_indices = np.argsort( classes[:,1] * 100 + classes[:,0] )
+    classes_sorted = classes[sorted_indices]
+    scores = scores[sorted_indices]
+    
     fig, ax = plt.subplots(figsize=(12, 5), tight_layout=True)
     ax.bar(np.arange(len(classes)), scores, color=plt.get_cmap('tab20')(np.arange(len(classes)) % 20), alpha=0.9)
 
-    for i, cls_i in enumerate(classes):
-        partner = worst_auc_partners[cls_i]
+
+    for i, cls_i in enumerate(classes_sorted):
+        partner = worst_auc_partners[f'{cls_i[0]}/{cls_i[1]}']
         if partner is None:
             label_txt = 'single class'
         else:
-            j = np.where(classes == partner)[0][0]
+            j = np.where(np.array([f'{mode[0]}/{mode[1]}' for mode in classes_sorted]) == partner)[0][0]
             auc_val = auc_matrix[i, j]
-            label_txt = f"worst AUC {partner}: {auc_val:.2f}"
-        ax.text(i, min(0.98, scores[i] + 0.03), label_txt, rotation=90, ha='center', va='bottom', fontsize=8)
+            # label_txt = f"worst AUC {partner}: {auc_val:.2f}"
+            label_txt = f"worst pair: {partner}"
+        ax.text(i, (scores[i] + 0.03) if scores[i] < 0.4 else 0.1 , label_txt, rotation=90, ha='center', va='bottom', fontsize=8)
 
-    ax.set_xticks(np.arange(len(classes)))
-    ax.set_xticklabels(classes, rotation=45, ha='right')
+    ax.set_xticks(np.arange(len(classes_sorted)))
+    ax.set_xticklabels([f'{cls[0]}/{cls[1]}' for cls in classes_sorted], rotation=45, ha='right')
     ax.set_ylim(0.0, 1.05)
-    ax.set_ylabel('AUC detectability (2*(worst AUC - 0.5))')
+    ax.set_ylabel('AUC detectability [norm]')#(2*(worst AUC - 0.5))')
     ax.set_xlabel('Mode label')
     ax.set_title('Per-label detectability from linear-probe pairwise AUC')
     ax.grid(True, axis='y', alpha=0.3)
@@ -545,16 +565,33 @@ def run_separability_diagnostic():
     use_mode = 'mn'
     n_datasets = -1
     num_timepoints = 100
-    geometry_shot = ['BP','MRNV'] #1160930034
+    save_Ext = '_v_tor_V'
+    forceReload = False
+    # geometry_shot = ['BP'] #1160930034
+    # geometry_shot =  ['BP-IOL1-110U', 'BP-IOL2-190L', 'BP-DVT1-010L', 'BP-DT23-290U', 'MRNV_160M_H1',\
+    #                    'MRNV_160M_H2', 'MRNV_160M_H3', 'MRNV_160M_H5', 'MRNV_160M_V1', 'MRNV_160M_V2',\
+    #                       'MRNV_160M_V4', 'MRNV_160M_V5', 'MRNV_340M_H1', 'MRNV_340M_H3', 'MRNV_340M_H4',\
+    #                           'MRNV_340M_H5', 'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3', 'MRNV_340M_V4']
+    geometry_shot =  [  
+                    #    'MRNV_160M_H1', 'MRNV_160M_H2', 
+                       'MRNV_160M_H3', 'MRNV_160M_H4', 'MRNV_160M_H5',\
+                    #    'MRNV_160M_V1', 'MRNV_160M_V2',
+                         'MRNV_160M_V3', 'MRNV_160M_V4', 'MRNV_160M_V5',\
+                    #    'MRNV_340M_H1', 'MRNV_340M_H2', 
+                       'MRNV_340M_H3', 'MRNV_340M_H4',  'MRNV_340M_H5',\
+                    #    'MRNV_340M_V1', 'MRNV_340M_V2', 
+                       'MRNV_340M_V3', 'MRNV_340M_V4', 'MRNV_340M_V5',
+                       ]
+    # geometry_shot = ['MRNV']
 
     """Run full feature separability workflow (compute + plotting)."""
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/SPARC/"
-    out_path = data_dir + f"cached_data_{geometry_shot}_{use_mode}_{num_timepoints}_{n_datasets}.npz"
-    saveExt = f"_{use_mode}_{num_timepoints}_{n_datasets}_SPARC"
-    out_path_features = '../output_plots/tsne_features_SPARC.npz'
+    out_path = data_dir + f"cached_data_{geometry_shot[:5]}_{use_mode}_{num_timepoints}_{n_datasets}.npz"
+    saveExt = f"_{use_mode}_{num_timepoints}_{n_datasets}_{'-'.join(geometry_shot[:5])}{save_Ext}_SPARC"
+    out_path_features = f'../output_plots/tsne_features_SPARC{'-'.join(geometry_shot[:5])}.npz'
 
     results = load_and_compute_separability(data_dir, out_path, out_path_features,\
-            saveExt, geometry_shot, use_mode, num_timepoints, n_datasets)
+            saveExt, geometry_shot, use_mode, num_timepoints, n_datasets, forceReload)
     plot_tsne_separability(results)
     plot_detectability_bar_chart(results)
     plot_auc_detectability_bar_chart(results)

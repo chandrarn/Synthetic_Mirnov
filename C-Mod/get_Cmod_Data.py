@@ -419,13 +419,13 @@ class Ip:
         self.time = conn.get(r'dim_of(\MAGNETICS::IP)').data()
         conn.closeAllTrees()
         
-    def makePlot(self,ax=None):
+    def makePlot(self,ax=None,ylabel=r'$\mathrm{I_p}$ [mA]', leg_ext=''):
         if ax is None:
             plt.close('Ip')
             fig,ax=plt.subplots(1,1,num='Ip',tight_layout=True,figsize=(6,3))
-        ax.plot(self.time,self.ip*1e-3,label=self.shotno)
+        ax.plot(self.time,self.ip*1e-6,label=str(self.shotno)+leg_ext)
         ax.set_xlabel('Time [s]')
-        ax.set_ylabel(r'$\mathrm{I_p}$ [kA]')
+        ax.set_ylabel(ylabel)
         ax.grid()
         ax.legend(fontsize=8)
         plt.show()

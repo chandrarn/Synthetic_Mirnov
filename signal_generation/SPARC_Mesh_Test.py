@@ -22,9 +22,9 @@ from gen_MAGX_Coords import gen_Sensors_Updated, get_sensor_category
 
 sys.path.append("/home/rianc/Documents/disruption-py/")
 
-from disruption_py.machine.d3d.mirnov import (
-    _BP_SENSOR_CATEGORIES,
-)
+# from disruption_py.machine.d3d.mirnov import (
+#     _BP_SENSOR_CATEGORIES,
+# )
 
 plt.rcParams["figure.figsize"] = (6, 6)
 plt.rcParams["font.weight"] = "bold"
@@ -75,7 +75,7 @@ tw_plate = ThinCurr(oft_env)
 # .xml file defines coils
 # 'SPARC_Sept2023_noPR.h5'
 # tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
-# tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/oft_in.xml')
+tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
 
@@ -83,9 +83,9 @@ tw_plate = ThinCurr(oft_env)
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
 # tw_plate.setup_model(mesh_file='input_data/ThinCurr_DIIID-1_23_26-homology.h5',xml_filename='input_data/diiid_coils.xml')
-tw_plate.setup_model(
-    mesh_file="input_data/TCV-homology.h5", xml_filename="input_data/oft_in.xml"
-)
+# tw_plate.setup_model(
+#     mesh_file="input_data/TCV-homology.h5", xml_filename="input_data/oft_in.xml"
+# )
 
 tw_plate.setup_io()
 
@@ -111,20 +111,38 @@ print("Built Pyvista grid from ThinCurr mesh")
 # Gen sensors
 # sensors = conv_sensor('sensorLoc.xyz')[0]
 # sensors = gen_Sensors_Updated(select_sensor='DIII_D_BP')
-sensor_category_list = [category_name for category_name, _ in _BP_SENSOR_CATEGORIES]
+# sensor_category_list = [category_name for category_name, _ in _BP_SENSOR_CATEGORIES]
+select_sensor="SPARC_MRNV"
 
-sensors = gen_Sensors_Updated(select_sensor="SPARC_BP_MRNV")
+save_ext = '_V_only'
+sensors = gen_Sensors_Updated(select_sensor=select_sensor)
 sensor_category_list = get_sensor_category("SPARC", get_categories=True)
 
 # Msensor, Msc, sensor_obj = tw_plate.compute_Msensor('input_data/floops_BP_CFS.loc')
+# select_sensor_names = ['BP-DT23-290U', 'BP-IOL1-110U', 'BP-DVT1-010L', 'BP-IOL2-190L']
+# select_sensor_names.extend(['MRNV_160M_H%d'%i for i in range(1,6)])
+# select_sensor_names.extend(['MRNV_160M_V%d'%i for i in range(1,6)])
+# select_sensor_names.extend(['MRNV_340M_H%d'%i for i in range(1,6)])
+# select_sensor_names.extend(['MRNV_340M_V%d'%i for i in range(1,6)])
+select_sensor_names =  [ 
+                    # 'MRNV_160M_H1', 'MRNV_160M_H2', 'MRNV_160M_H3', 'MRNV_160M_H4', 'MRNV_160M_H5',\
+                    'MRNV_160M_V1', 'MRNV_160M_V2', 'MRNV_160M_V3', 'MRNV_160M_V4', 'MRNV_160M_V5',\
+                    # 'MRNV_340M_H1', 'MRNV_340M_H2', 'MRNV_340M_H3', 'MRNV_340M_H4',  'MRNV_340M_H5',\
+                    'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3', 'MRNV_340M_V4', 'MRNV_340M_V5',
+                    ]
 
+sensors = [s for s in sensors if s._name in select_sensor_names]
 
+# drop_sensors = ['MRNV_160M_H4', 'MRNV_160M_V3', 'MRNV_340M_H2', 'MRNV_340M_V5']
+
+# sensors = [s for s in sensors if s._name not in drop_sensors]
+# print(sensors)
 # Color grid cells
 # shading = np.dot(np.linalg.pinv(tw_plate.Lmat),np.dot(Mc.T,np.ones((10,)) ) )
 
 
 # Launch Plotter
-p = pyvista.Plotter()
+p = pyvista.Plotter(off_screen=True)
 print("Launched Plotter")
 
 # p2=pyvista.Plotter()
@@ -159,6 +177,7 @@ p.show_bounds(
 
 # Plot Sensors
 cmap_name = "tab20"
+used_categories = [] # track which sensor categories are used, to only add those to the legend
 for ind, s in enumerate(sensors):
     # p.add_points(np.mean(s._pts,axis=0),color='k',point_size=10,
     #              render_points_as_spheres=True,
@@ -166,13 +185,15 @@ for ind, s in enumerate(sensors):
     # category_name = get_bp_sensor_category(s._name)
     category_name = get_sensor_category("SPARC", s._name)
     category_order = np.argwhere(np.array(sensor_category_list) == category_name)[0][0]
+    if category_name not in used_categories:
+        used_categories.append(category_name)
     colors = plt.get_cmap(cmap_name)
     color = colors(category_order / len(sensor_category_list))
     # color='k'
     p.add_points(
         np.mean(s._pts, axis=0),
         color=color,
-        point_size=30,
+        point_size=20,
         render_points_as_spheres=True,
         cmap=cmap_name,
     )
@@ -180,6 +201,8 @@ for ind, s in enumerate(sensors):
 
 temp_pts = []
 for ind, name in enumerate(sensor_category_list):
+    if name not in used_categories:
+        continue
     temp_pts.append(
         p.add_points(
             np.array([0, 0, 0]),
@@ -194,9 +217,10 @@ p.add_legend()
 for tmp in temp_pts:
     tmp.visibility = False
 
-p.show()
+# p.show()
 # Plot Filaments
 t_pt = 0
+filament_coords = []
 for ind, filament in enumerate(filament_coords):
     pts = np.array(filament).T
     # print(np.array(calc_filament_coord(m,n,r,R,theta,phi)).shape)
@@ -227,7 +251,11 @@ for ind, filament in enumerate(filament_coords):
 p.add_legend()
 
 
-p.save_graphic("../output_plots/SPARC_Cad_Sensors_Mirnov_12-10.pdf")
+# p.save_graphic("../output_plots/SPARC_Cad_Sensors_Mirnov_12-10.pdf")
 # p2.save_graphic('../output_plots/SPARC_Cad_Sensors_Frame_Mirnov_12-10.pdf')
-p.show()
+p.screenshot(f"../output_plots/SPARC_Cad_Sensors_Mirnov_{select_sensor}{save_ext}.png")
+# p.save_graphic(f"../output_plots/SPARC_Cad_Sensors_Mirnov_{select_sensor}{save_ext}.png")
+print("Saved: ", f"../output_plots/SPARC_Cad_Sensors_Mirnov_{select_sensor}{save_ext}.png")
+# p.show()
 # p2.show()
+    
