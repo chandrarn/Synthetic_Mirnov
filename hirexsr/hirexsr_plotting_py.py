@@ -98,10 +98,11 @@ def _plot_inversion_profile(
     axes[2].legend(fontsize=8, loc="best")
     axes[2].set_ylim([0, emiss_lim] if emiss_lim is not None else None)
 
-    plt.show()
     if doSave:
         fig.savefig(f"{doSave}shot{out.shot}_line{out.lineid}_tht{tht}_{x_axis}.pdf", transparent=True)
         print(f"Saved plot to {doSave}_shot{out.shot}_line{out.lineid}_tht{tht}_{x_axis}.pdf")
+
+    plt.show( block=True)
 
 
 def _curve_mask(
@@ -135,12 +136,13 @@ def _plot_profile_vs_lint(
     v_lims: tuple[float, float] | None = (-40.0, 40.0),
     ti_lims: tuple[float, float] | None = (0.0, 6.0),
     emiss_lims: tuple[float, float] | None = (0.0, 3.0),
-    specific_timepoint: float | None = None,
+    specific_timepoint: float | list[float] | None = None,
 ) -> None:
     """Overlay inversion-profile and lint-profile measurements at matched times."""
     if x_axis not in {"psi", "r_maj"}:
         raise ValueError(f"Unsupported x_axis='{x_axis}'. Use 'psi' or 'r_maj'.")
 
+    # Check if time arrays are non-empty before proceeding with indexing
     if prof.time.size == 0 or lint.tau.size == 0:
         print("No time points available for profile-vs-lint comparison.")
         return
@@ -150,8 +152,12 @@ def _plot_profile_vs_lint(
         print("No profile time points selected for comparison.")
         return
     if specific_timepoint is not None:
-        prof_time_idx = [int(np.argmin(np.abs(prof.time - specific_timepoint)))]
+        if isinstance(specific_timepoint, (int, float)):
+            prof_time_idx = [int(np.argmin(np.abs(prof.time - specific_timepoint)))]
+        else:
+            prof_time_idx = [int(np.argmin(np.abs(prof.time - t))) for t in specific_timepoint]
 
+    # Attempt to get a more descriptive line name for the plot title
     line_name = str(getattr(lint, "line", "?"))
     try:
         from hirexsr_lint_profile_py import _line_display_name
@@ -163,7 +169,7 @@ def _plot_profile_vs_lint(
     fig, axes = plt.subplots(1, 3, figsize=(17, 5), layout="constrained")
     fig.suptitle(
         f"shot {prof.shot}  line {line_name} profile vs lint comparison  "
-        f"tht {tht}  (every {max(1, every_nth)} profile times)"
+        f"tht {tht}  {f'(every {max(1, every_nth)} profile times)' if not specific_timepoint else f'(specific timepoint(s) {specific_timepoint})'}"
     )
 
     cmap = plt.get_cmap("tab20", max(len(prof_time_idx), 1))
@@ -281,12 +287,13 @@ def _plot_profile_vs_lint(
     if emiss_lims is not None:
         axes[2].set_ylim(emiss_lims)
 
-    plt.show()
+    
     if doSave:
         out_path = f"{doSave}shot{prof.shot}_line{prof.lineid}_tht{tht}_{x_axis}_profile_vs_lint.pdf"
         fig.savefig(out_path, transparent=True)
         print(f"Saved comparison plot to {out_path}")
 
+    plt.show( block=True)
 
 def _plot_lint_profile(
     out: Any,
@@ -376,7 +383,7 @@ def _plot_lint_profile(
     axes[1].set_ylim([0, ti_lim])
     axes[2].set_ylim([0, emiss_lim])
     plt.tight_layout()
-    plt.show()
+   
     if doSave:
         fig.savefig(
             f"{doSave}lint_profile_shot{out.shot}_line{out.line}_tht{out.tht}_{x_axis}.pdf",
@@ -385,3 +392,5 @@ def _plot_lint_profile(
         print(
             f"Saved plot to {doSave}lint_profile_shot{out.shot}_line{out.line}_tht{out.tht}_{x_axis}.pdf"
         )
+
+    plt.show( block=True)
