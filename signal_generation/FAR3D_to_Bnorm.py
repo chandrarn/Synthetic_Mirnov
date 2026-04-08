@@ -1368,5 +1368,13 @@ if __name__ == "__main__":
     # sandbox()
     # plot_B(plot_directory='../output_plots/')
     # map_psi_to_equilibrium(plot_directory='../output_plots/')
-    convert_FAR3D_to_Bnorm(doSave="../output_plots/")
+    convert_FAR3D_to_Bnorm(
+        doSave="../output_plots/",
+        br_file="br_1002.bin",
+        bth_file="bth_1002.bin",
+        lambda_merezhkin=0.4,
+        psi_contour_select=0.1,
+        m=np.arange(1, 23),
+        n=14,
+    )
     print("Finished")

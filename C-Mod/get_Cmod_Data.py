@@ -6,7 +6,7 @@ Spyder Editor
 
 
 from header_Cmod import np, plt, mds, Normalize, cm, gaussianHighPassFilter, \
-    gaussianLowPassFilter, __doFilter, pk, json, MDSplus, data_archive_path, Mirnov
+    gaussianLowPassFilter, __doFilter, pk, json, MDSplus, data_archive_path, Mirnov, safe_show
 from mirnov_Probe_Geometry import Mirnov_Geometry
         
     
@@ -103,7 +103,7 @@ class BP:
         ax[1].set_xlabel('Time [s]')
         
         
-        plt.show()
+        safe_show()
 
 
 ###############################################################################
@@ -256,7 +256,7 @@ class BP_T:
         for i in range(2):ax[i,0].set_ylabel('Signal [arb?]')
         for i in range(3):ax[1,i].set_xlabel('Time [s]')
         
-        plt.show()
+        safe_show()
         
     
 ###############################################################################
@@ -283,7 +283,7 @@ class ECE:
         norm = Normalize(np.min(self.Te)*1e-3,np.max(self.Te)*1e-3)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
                      label=r'$\mathrm{T_e}$ [keV]')
-        plt.show()
+        safe_show()
 
 ###############################################################################
 class GPC:
@@ -324,7 +324,7 @@ class GPC:
         norm = Normalize(np.min(self.Te)*1e-3,np.max(self.Te)*1e-3)
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
                      label=r'$\mathrm{T_e}$ [keV]')
-        plt.show()
+        safe_show()
 ###############################################################################
 class GPC_2:
     # ECE radial profile [not high frequency ECE data]
@@ -366,7 +366,7 @@ class GPC_2:
         norm = Normalize(np.min(self.Te),np.max(self.Te))
         fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
                      label=r'$\mathrm{T_e}$ [keV]')
-        plt.show()
+        safe_show()
                 
 ###############################################################################
 class FRCECE:
@@ -390,6 +390,7 @@ class FRCECE:
     
     def makePlot(self,ax=None,downsample=100,figParams={}):
         self.R=self.R.squeeze()
+        show_plot = ax is None
         if ax is None:
             plt.close('C-ECE-Profile')
             fig,ax=plt.subplots(1,1,num='C-ECE-Profile',tight_layout=True,figsize=(6,3))
@@ -404,7 +405,8 @@ class FRCECE:
         if 'noBar' not in figParams: 
             fig.colorbar(cm.ScalarMappable(norm=norm,cmap='plasma'),ax=ax,
                      label=r'CECE [V?]')
-        plt.show()
+        if show_plot:
+            safe_show()
 ###############################################################################
 class Ip:
     # Plasma current
@@ -420,6 +422,7 @@ class Ip:
         conn.closeAllTrees()
         
     def makePlot(self,ax=None,ylabel=r'$\mathrm{I_p}$ [mA]', leg_ext=''):
+        show_plot = ax is None
         if ax is None:
             plt.close('Ip')
             fig,ax=plt.subplots(1,1,num='Ip',tight_layout=True,figsize=(6,3))
@@ -428,7 +431,8 @@ class Ip:
         ax.set_ylabel(ylabel)
         ax.grid()
         ax.legend(fontsize=8)
-        plt.show()
+        if show_plot:
+            safe_show()
         
 ###############################################################################
 class RF_PWR():
@@ -446,6 +450,7 @@ class RF_PWR():
         conn.closeAllTrees()
         
     def makePlot(self,ax=None,figParams={}):
+        show_plot = ax is None
         if ax is None:
             plt.close('RF_Pwr')
             fig,ax=plt.subplots(1,1,num='RF_Pwr',figsize=(6,3),tight_layout=True)
@@ -456,7 +461,8 @@ class RF_PWR():
         ax.set_ylabel(r'$\mathrm{P_{rf}}$ [MW]')
         if 'noGrid' not in figParams: ax.grid()
         if 'noLeg' not in figParams: ax.legend(fontsize=8,handlelength=1)
-        plt.show()
+        if show_plot:
+            safe_show()
 ###############################################################################
 class YAG():
     # Nd:YAG Thomson scattering laser Te, ne profiles
@@ -585,7 +591,7 @@ class YAG():
         
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
-        plt.show()
+        safe_show()
         
         return ax,ax1
 ###############################################################################
@@ -692,7 +698,7 @@ class POWER_SYSTEM():
                 if i==1:ax[i,j].set_xlabel('Time [s]')
                 if j==1:plt.setp(ax[i,j].get_yticklabels(), visible=False)
     
-        plt.show()
+        safe_show()
         
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
@@ -762,11 +768,11 @@ class A_EQDSK_CCBRSP():
                 if i==1:ax[i,j].set_xlabel('Time [s]')
                 #if j==1:plt.setp(ax[i,j].get_yticklabels(), visible=False)
     
-        #plt.show()
+        #safe_show()
         
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                               transparent=True)
-        plt.show()
+        safe_show()
         
 ###############################################################################
 class TRANSP():
@@ -885,7 +891,7 @@ class TRANSP():
         if doSave: fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',
                                transparent=True)
         
-        plt.show()
+        safe_show()
     
     def makePlots1D(self,timePoint,ax=None,ax1=None,doSave=''):
         
@@ -916,7 +922,7 @@ class TRANSP():
         if doSave:
             plt.gcf().savefig(doSave+plt.gcf().canvas.manager.get_window_title()+'_efit.pdf',
                         transparent=True)
-        plt.show()
+        safe_show()
         
 ###############################################################################
 
@@ -1067,7 +1073,7 @@ class XTOMO():
         ax.set_ylabel(r'Emissivity ($\sim Zn_e^2\sqrt{T_e}$) [kW/m$^3$]')
         
         
-        plt.show()
+        safe_show()
         if doSave:fig.savefig(doSave+fig.canvas.manager.get_window_title()+'.pdf',\
                               transparent=True)
 ###############################################################################

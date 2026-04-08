@@ -18,7 +18,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import pyvista
-from gen_MAGX_Coords import gen_Sensors_Updated, get_sensor_category
+# from gen_MAGX_Coords import gen_Sensors_Updated, get_sensor_category
+gen_Sensors_Updated, get_sensor_category = None, None
 
 sys.path.append("/home/rianc/Documents/disruption-py/")
 
@@ -38,6 +39,8 @@ from OpenFUSIONToolkit.ThinCurr import ThinCurr
 
 # from OpenFUSIONToolkit.util import build_XDMF
 from OpenFUSIONToolkit import OFT_env
+import OpenFUSIONToolkit as oft
+print(oft.__file__)
 
 
 """
@@ -68,15 +71,15 @@ params = {
 
 # sM.gen_filaments('oft_in.xml',params,filament_coords,eta='1E-5, 1E-5 , 1E-5 , 1E-5, 1E-5, 1E-5, 1E-5, 1E-5' )
 
-oft_env = OFT_env(nthreads=20)
+oft_env = OFT_env(nthreads=4)
 tw_plate = ThinCurr(oft_env)
 # Mesh file contains dict name 'mesh', and sub attributes LC (mesh cells, n_cells),
 # R (npts x 2) (Resistances? matches number of points), REG  [npts x 1] (? just ones?)
 # .xml file defines coils
 # 'SPARC_Sept2023_noPR.h5'
 # tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
-tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/oft_in.xml')
-# tw_plate.setup_model(mesh_file='vacuum_mesh.h5',xml_filename='oft_in.xml')
+# tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/xml_3d_coil_example.xml')
+tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/xml_3d_coil_example.xml')
 # tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
 
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters-homology.h5',xml_filename='input_data/oft_in.xml')

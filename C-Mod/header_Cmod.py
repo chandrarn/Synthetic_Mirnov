@@ -53,6 +53,24 @@ try:
 except:pass
 from rolling_spectrogram import rolling_spectrogram, rolling_spectrogram_improved
 
+
+def safe_show(block=None):
+    """Show figures while tolerating Tk teardown race conditions in debug sessions."""
+    try:
+        if block is None:
+            plt.show()
+        else:
+            plt.show(block=block)
+    except Exception as e:
+        err = str(e)
+        if (
+            'invalid command name' in err
+            or 'application has been destroyed' in err
+            or 'TclError' in type(e).__name__
+        ):
+            return
+        raise
+
 # TODO: verift atht this works for other users
 try:
     data_archive_path = '/home/rianc/Documents/data_archive/' if \

@@ -9,11 +9,10 @@ Created on Wed Mar  5 16:21:32 2025
 
 from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter, \
     gaussianHighPassFilter, rolling_spectrogram_improved, grouped_average, \
-        gaussian_filter, downscale_local_mean, xr, sys, matplotlib
+        gaussian_filter, downscale_local_mean, xr, sys, matplotlib, safe_show
 sys.path.append('../signal_generation/')
 from header_signal_generation import histfile, working_directory
 import get_Cmod_Data as gC
-matplotlib.use('Agg')
 
 ###############################################################################
 
@@ -291,7 +290,8 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
         
     if batch: 
         plt.close(fName) # terminal blocks untill plot is closed for some reason    
-    else:plt.show()
+    else:
+        safe_show()
 ###############################################################################
 def __gen_fName(params,sensor_set,save_Ext,filament,shotno):
     if 'm' in params:
@@ -602,7 +602,7 @@ def gen_lf_signals():
     shotnos.sort()
     shotnos=shotnos[::-1]
     shotnos = [ ]#[1160714026]#1160826001#[1160930034]#[1110316031]#[1160930033]#[1050615011]
-    shotnos=[1110316018] 
+    shotnos=[1120906030] 
 
     #shotnos = np.append(shotnos,[1051202011,1160930034])
     print(shotnos)
@@ -613,9 +613,9 @@ def gen_lf_signals():
     #               'f_lim':[[0,100],[100,600]]}
     
     # Block reduce: [keep samples, drop samples]
-    dataRanges = {'tLim':[[1.0,1.5]], 'signal_reduce':1,\
+    dataRanges = {'tLim':[[1.15,1.2]], 'signal_reduce':1,\
                   'block_reduce':[3000,500],'sigma':(2,2),'plot_reduce':(1,1)}
-    f_lim=[0,40]; c_lim=[0,1.5]
+    f_lim=[0,60]; c_lim=[0,1.5]
     pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
@@ -624,12 +624,12 @@ def gen_lf_signals():
     figsize = (6,3)
     include_traces = ['ip', ['Te','ne'], ['q95','q0']]
 
-    if include_traces: fig,ax = _build_extra_axes(n_axes=4)
-
     for ind,shot in enumerate(shotnos):
         diag = None
         # if shot > 1080221018: continue
-        plt.close('all') # Clear plots    
+        plt.close('all') # Clear plots
+        if include_traces:
+            fig,ax = _build_extra_axes(n_axes=4)
         for ind_t,tLim in enumerate(dataRanges['tLim']):
             #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
                 # try: 
