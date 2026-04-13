@@ -13,7 +13,7 @@ Created on Wed Dec  4 16:45:23 2024
 """
 
 import sys
-
+import os
 # import h5py
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,7 +22,7 @@ import pyvista
 gen_Sensors_Updated, get_sensor_category = None, None
 
 sys.path.append("/home/rianc/Documents/disruption-py/")
-
+sys.path.append(os.getenv('OFT_ROOTPATH'))
 # from disruption_py.machine.d3d.mirnov import (
 #     _BP_SENSOR_CATEGORIES,
 # )
@@ -79,8 +79,8 @@ tw_plate = ThinCurr(oft_env)
 # 'SPARC_Sept2023_noPR.h5'
 # tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/xml_3d_coil_example.xml')
-tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/xml_3d_coil_example.xml')
-# tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
+# tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/xml_3d_coil_example.xml')
+tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
 
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters-homology.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')

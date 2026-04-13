@@ -1,7 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
-
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman"],
+})
 
 try:
     import MDSplus
@@ -510,6 +514,34 @@ def _get_ts_local(shot, efit, verbose=False):
 
     return ts
 
+def make_plots(tgrid, ip_neo_ma, ip_ma, times, zeff, zeff_grid, shot, save_plots=""):
+    plt.ion()
+    fig, axs = plt.subplots(1, 2, figsize=(11, 4))
+
+    ax = axs[0]
+    for i, z_val in enumerate(zeff_grid):
+        ax.plot(tgrid, ip_neo_ma[:, i], lw=1.0, label=f"Zeff={z_val:.2f}")
+    ax.plot(tgrid, ip_ma, c="k", lw=2.0, label="Ip measured")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Plasma Current [MA]")
+    ax.legend(fontsize=8, ncol=2)
+
+    ax = axs[1]
+    ax.plot(times, zeff, "-o", ms=3)
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Zeff")
+    ax.set_title(f"Shot {shot}")
+    for i in range(2): axs[i].grid(True)
+    
+
+    fig.tight_layout()
+
+    if save_plots:
+        fig.savefig(f"{save_plots}/zeff_neo_{shot}.pdf", transparent=True)
+        print('Saved plot to:', f"{save_plots}/zeff_neo_{shot}.pdf")
+
+#################################################################################
+#################################################################################
 
 def zeff_neo(
     shot,
@@ -521,6 +553,7 @@ def zeff_neo(
     plot=False,
     verbose=False,
     strict_diagnostics=False,
+    save_plots="",
 ):
     """
     Python port of the legacy IDL `zeff_neo` routine.
@@ -685,26 +718,7 @@ def zeff_neo(
             zeff[i] = _interp_zeff_from_ip_curve(zeff_grid, ip_curve, target_ip)
 
     if plot:
-        plt.ion()
-        fig, axs = plt.subplots(1, 2, figsize=(11, 4))
-
-        ax = axs[0]
-        for i, z_val in enumerate(zeff_grid):
-            ax.plot(tgrid, ip_neo_ma[:, i], lw=1.0, label=f"Zeff={z_val:.2f}")
-        ax.plot(tgrid, ip_ma, c="k", lw=2.0, label="Ip measured")
-        ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Plasma Current [MA]")
-        ax.legend(fontsize=8)
-
-        ax = axs[1]
-        ax.plot(times, zeff, "-o", ms=3)
-        ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Zeff")
-        ax.set_title(f"Shot {shot}")
-        for i in range(2): axs[i].grid(True)
-        
-
-        fig.tight_layout()
+         make_plots(tgrid, ip_neo_ma, ip_ma, times, zeff, zeff_grid, shot, save_plots)
 
     if strict_diagnostics:
         diagnostics = {
@@ -740,7 +754,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Python port of zeff_neo IDL routine")
-    parser.add_argument("--shot", type=int, default = 1120815026, help="C-Mod shot number")
+    parser.add_argument("--shot", type=int, default = 1110316020)#1120815026, help="C-Mod shot number")
     parser.add_argument("--dt", type=float, default=0.1)
     parser.add_argument("--tmin", type=float, default=0.5)
     parser.add_argument("--tmax", type=float, default=1.5)
@@ -750,6 +764,7 @@ def main():
     parser.add_argument("--plot", default=True, action="store_true")
     parser.add_argument("--verbose", default=True,  action="store_true")
     parser.add_argument("--strict-diagnostics", action="store_true")
+    parser.add_argument("--save-plots", type=str, default='../output_plots')
     args = parser.parse_args()
 
     out = zeff_neo(
@@ -762,6 +777,7 @@ def main():
         plot=args.plot,
         verbose=args.verbose,
         strict_diagnostics=args.strict_diagnostics,
+        save_plots=args.save_plots,
     )
     if args.strict_diagnostics:
         zeff, times, diagnostics = out
