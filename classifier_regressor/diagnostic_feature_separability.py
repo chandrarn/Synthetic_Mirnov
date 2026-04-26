@@ -135,7 +135,9 @@ def compute_pairwise_linear_probe_auc(features_flat, y, classes, cv_splits=5, ra
 
 
 def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt, geometry_shot,\
-                                   use_mode, num_timepoints, n_datasets, forceReload):
+                                   use_mode, num_timepoints, n_datasets, forceReload,
+                                   include_frequency_gap=True,
+                                   allow_rebuild_missing_cache=False):
     """Load data, compute t-SNE features, and evaluate separability metrics."""
 
 
@@ -143,8 +145,17 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
     print("DIAGNOSTIC: Feature Space Separability Analysis")
     print("=" * 70)
 
+    has_feature_cache = os.path.exists(out_path_features)
+    has_dataset_cache = os.path.exists(out_path)
+    if (not forceReload) and (not has_feature_cache) and (not has_dataset_cache) and (not allow_rebuild_missing_cache):
+        raise FileNotFoundError(
+            "No cache available and implicit rebuild is disabled. "
+            f"Missing feature cache: {out_path_features} and dataset cache: {out_path}. "
+            "Set forceReload=True or allow_rebuild_missing_cache=True to rebuild explicitly."
+        )
+
     le = LabelEncoder()
-    if os.path.exists(out_path_features) and not forceReload:
+    if has_feature_cache and not forceReload:
         print(f"Using existing t-SNE features from: {out_path_features}")
         data = np.load(out_path_features)
         features_2d = data['features_2d']
@@ -156,24 +167,39 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
 
         if features_flat is None:
             print("   Cached t-SNE file missing flattened features; recomputing feature vectors...")
+            if (not has_dataset_cache) and (not allow_rebuild_missing_cache):
+                raise FileNotFoundError(
+                    "t-SNE cache is missing flattened features and dataset cache is unavailable. "
+                    f"Missing dataset cache: {out_path}. "
+                    "Set forceReload=True or allow_rebuild_missing_cache=True to rebuild explicitly."
+                )
             result = build_or_load_cached_dataset(
                 data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
                 geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1,
                 n_datasets=n_datasets, load_saved_data=True, visualize_first=False,
-                doVisualize=False, saveDataset=False,include_frequency_gap=True)
+                doVisualize=False, saveDataset=False, include_frequency_gap=include_frequency_gap)
             X_ri, y, y_m, y_n, sensor_names, theta, phi = result
             y_enc = np.array(le.fit_transform(y))
-            diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi)
+            diff_features_scaled, scaler = fit_and_apply_scaler(
+                X_ri, theta, phi, do_fgap=include_frequency_gap
+            )
             features_flat = diff_features_scaled.reshape(len(diff_features_scaled), -1)
             np.savez(out_path_features, features_2d=features_2d, features_flat=features_flat, y=y, y_m=y_m, y_n=y_n)
             print(f"Saved updated features with flattened data to: {out_path_features}")
     else:
         print(f"\n1. Loading dataset from cache...")
+        if (not has_dataset_cache) and (not forceReload) and (not allow_rebuild_missing_cache):
+            raise FileNotFoundError(
+                "Dataset cache missing and implicit rebuild is disabled. "
+                f"Missing dataset cache: {out_path}. "
+                "Set forceReload=True or allow_rebuild_missing_cache=True to rebuild explicitly."
+            )
         result = build_or_load_cached_dataset(
             data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
             geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1,
             n_datasets=n_datasets, load_saved_data=True, visualize_first=False,
-            doVisualize=False, saveDataset=True, include_frequency_gap=True)
+            doVisualize=False, saveDataset=(forceReload or allow_rebuild_missing_cache),
+            include_frequency_gap=include_frequency_gap)
         X_ri, y, y_m, y_n, sensor_names, theta, phi = result
 
         y_enc = np.array(le.fit_transform(y))
@@ -183,7 +209,9 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
         print(f"   Class counts: {np.bincount(y_enc)}")
 
         print(f"\n2. Computing scaled features...")
-        diff_features_scaled, scaler = fit_and_apply_scaler(X_ri, theta, phi, do_fgap=True)
+        diff_features_scaled, scaler = fit_and_apply_scaler(
+            X_ri, theta, phi, do_fgap=include_frequency_gap
+        )
         print(f"   Features shape: {diff_features_scaled.shape}")
         print(f"   Feature stats: mean={diff_features_scaled.mean():.4f}, std={diff_features_scaled.std():.4f}")
  
@@ -307,7 +335,7 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
     }
 
 
-def plot_tsne_separability(results):
+def plot_tsne_separability(results, doSave=True):
     """Plot t-SNE visualization colored by class label and poloidal mode."""
     features_2d = results['features_2d']
     y = results['y']
@@ -381,11 +409,12 @@ def plot_tsne_separability(results):
 
     plt.tight_layout()
     out_path = f'../output_plots/feature_separability_tsne{saveExt}.pdf'
-    plt.savefig(out_path, transparent=True, bbox_inches='tight')
-    print(f"   Saved to: {out_path}")
+    if doSave:
+        plt.savefig(out_path, transparent=True, bbox_inches='tight')
+        print(f"   Saved to: {out_path}")
 
 
-def plot_detectability_bar_chart(results):
+def plot_detectability_bar_chart(results, doSave):
     """Plot per-label detectability score based on worst pairwise t-SNE overlap."""
     classes = results['classes']
     detectability_scores = results['detectability_scores']
@@ -417,11 +446,12 @@ def plot_detectability_bar_chart(results):
     ax.grid(True, axis='y', alpha=0.3)
 
     out_path = f'../output_plots/feature_detectability_bar{saveExt}.pdf'
-    plt.savefig(out_path, transparent=True, bbox_inches='tight')
-    print(f"   Saved to: {out_path}")
+    if doSave:
+        plt.savefig(out_path, transparent=True, bbox_inches='tight')
+        print(f"   Saved to: {out_path}")
 
 
-def plot_auc_detectability_bar_chart(results):
+def plot_auc_detectability_bar_chart(results, doSave=True):
     """Plot per-label detectability from worst-pair linear-probe ROC-AUC."""
     classes = results['classes']
     detectability_auc = results['detectability_auc']
@@ -461,9 +491,334 @@ def plot_auc_detectability_bar_chart(results):
     ax.set_title('Per-label detectability from linear-probe pairwise AUC')
     ax.grid(True, axis='y', alpha=0.3)
 
-    out_path = f'../output_plots/feature_detectability_auc_bar{saveExt}.pdf'
-    plt.savefig(out_path, transparent=True, bbox_inches='tight')
-    print(f"   Saved to: {out_path}")
+    if doSave:
+        out_path = f'../output_plots/feature_detectability_auc_bar{saveExt}.pdf'
+        plt.savefig(out_path, transparent=True, bbox_inches='tight')
+        print(f"   Saved to: {out_path}")
+
+
+def _parse_mode_label(mode_label):
+    """Parse mode label formatted as 'm/n' into integer tuple; return None if unavailable."""
+    try:
+        m_val, n_val = str(mode_label).split('/')
+        return int(m_val), int(n_val)
+    except Exception:
+        return None
+
+
+def _sort_mode_labels(mode_labels):
+    """Sort mode labels by toroidal n then poloidal m for consistent plotting order."""
+    def _key(label):
+        parsed = _parse_mode_label(label)
+        if parsed is None:
+            return 10**9, 10**9, str(label)
+        m_val, n_val = parsed
+        return n_val, m_val, str(label)
+
+    return sorted(
+        mode_labels,
+        key=_key,
+    )
+
+
+def _geometry_tag(geometry_shot):
+    """Compact string identifier for geometry selection used in cache/output names."""
+    if isinstance(geometry_shot, list):
+        if len(geometry_shot) == 1:
+            base = str(geometry_shot[0])
+        else:
+            base = f"list{len(geometry_shot)}_{'-'.join([str(v) for v in geometry_shot[:3]])}"
+    else:
+        base = str(geometry_shot)
+    for ch in [' ', '/', ':', '[', ']', "'", '"', ',']:
+        base = base.replace(ch, '_')
+    return base
+
+
+def _shared_cache_paths(data_dir, geometry_shot, use_mode, num_timepoints,
+                        n_datasets, include_frequency_gap):
+    """Return shared dataset/feature cache paths used by both single and multi workflows."""
+    cfg_tag = _geometry_tag(geometry_shot)
+    fgap_tag = 'fgap_on' if include_frequency_gap else 'fgap_off'
+
+    out_path = os.path.join(
+        data_dir,
+        f"cached_data_{cfg_tag}_{fgap_tag}_{use_mode}_{num_timepoints}_{n_datasets}.npz",
+    )
+    out_path_features = os.path.join(
+        '../output_plots',
+        f"tsne_features_{cfg_tag}_{fgap_tag}_{use_mode}_{num_timepoints}_{n_datasets}.npz",
+    )
+    save_ext = f"_{use_mode}_{num_timepoints}_{n_datasets}_{cfg_tag}_{fgap_tag}"
+    return out_path, out_path_features, save_ext
+
+
+def compute_auc_detectability_for_configuration(
+    data_dir,
+    geometry_shot,
+    include_frequency_gap,
+    use_mode='mn',
+    num_timepoints=100,
+    n_datasets=-1,
+    force_rebuild_cache=False,
+    allow_rebuild_missing_cache=True,
+):
+    """Compute per-mode AUC detectability for a single sensor/frequency-gap configuration."""
+    out_path, out_path_features, save_ext = _shared_cache_paths(
+        data_dir,
+        geometry_shot,
+        use_mode,
+        num_timepoints,
+        n_datasets,
+        include_frequency_gap,
+    )
+
+    print("\n" + "-" * 70)
+    print(
+        f"AUC detectability config: geometry={geometry_shot}, "
+        f"include_frequency_gap={include_frequency_gap}, force_rebuild_cache={force_rebuild_cache}"
+    )
+
+    results = load_and_compute_separability(
+        data_dir=data_dir,
+        out_path=out_path,
+        out_path_features=out_path_features,
+        saveExt=save_ext,
+        geometry_shot=geometry_shot,
+        use_mode=use_mode,
+        num_timepoints=num_timepoints,
+        n_datasets=n_datasets,
+        forceReload=force_rebuild_cache,
+        include_frequency_gap=include_frequency_gap,
+        allow_rebuild_missing_cache=allow_rebuild_missing_cache,
+    )
+    features_flat = results['features_flat']
+    y = results['y']
+
+    le = LabelEncoder()
+    classes = le.fit(y).classes_
+
+    auc_matrix, detectability_auc, worst_auc_partners = compute_pairwise_linear_probe_auc(
+        features_flat, y, classes
+    )
+
+    return {
+        'classes': classes,
+        'detectability_auc': detectability_auc,
+        'worst_auc_partners': worst_auc_partners,
+        'auc_matrix': auc_matrix,
+        'geometry_shot': geometry_shot,
+        'include_frequency_gap': include_frequency_gap,
+        'cache_path': out_path,
+        'feature_cache_path': out_path_features,
+    }
+
+
+def plot_auc_detectability_multi_configuration(
+    data_dir,
+    use_mode='mn',
+    num_timepoints=100,
+    n_datasets=-1,
+    doSave=True,
+    force_rebuild_all=False,
+    force_rebuild_no_gap=True,
+    allow_rebuild_missing_cache=True,
+    split_into_two_subplots=False,
+    split_index=None,
+):
+    
+
+    """Compare per-mode AUC detectability across multiple sensor/frequency-gap configurations."""
+    configs = [
+        {
+            'name': r'MRNV all + $v_\phi$',
+            'geometry_shot': ['MRNV'],
+            'include_frequency_gap': True,
+            'color': '#1f77b4',
+            'force_rebuild': force_rebuild_all,
+        },
+        {
+            'name': r'MRNV horizontal + $v_\phi$',
+            'geometry_shot': [ 'MRNV_160M_H1', 'MRNV_160M_H2', 
+                       'MRNV_160M_H3', 'MRNV_160M_H4', 'MRNV_160M_H5',\
+                          'MRNV_340M_H1', 'MRNV_340M_H2', 'MRNV_340M_H3',\
+                              'MRNV_340M_H4', 'MRNV_340M_H5'],
+            'include_frequency_gap': True,
+            'color': '#2ca02c',
+            'force_rebuild': force_rebuild_all,
+        },
+        {
+            'name': r'MRNV vertical + $v_\phi$',
+            'geometry_shot': ['MRNV_160M_V1', 'MRNV_160M_V2', 'MRNV_160M_V3',\
+                               'MRNV_160M_V4', 'MRNV_160M_V5',
+                              'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3',\
+                                  'MRNV_340M_V4', 'MRNV_340M_V5'],
+            'include_frequency_gap': True,
+            'color': '#ff7f0e',
+            'force_rebuild': force_rebuild_all,
+        },
+        {
+            'name': r'MRNV all (no $v_\phi$-info)',
+            'geometry_shot': ['MRNV'],
+            'include_frequency_gap': False,
+            'color': '#d62728',
+            'force_rebuild': force_rebuild_all or force_rebuild_no_gap,
+        },
+    ]
+
+    config_results = {}
+    all_modes = set()
+
+    print("\n" + "=" * 70)
+    print("DIAGNOSTIC: Multi-Configuration AUC Detectability Comparison")
+    print("=" * 70)
+
+    for cfg in configs:
+        result = compute_auc_detectability_for_configuration(
+            data_dir=data_dir,
+            geometry_shot=cfg['geometry_shot'],
+            include_frequency_gap=cfg['include_frequency_gap'],
+            use_mode=use_mode,
+            num_timepoints=num_timepoints,
+            n_datasets=n_datasets,
+            force_rebuild_cache=cfg['force_rebuild'],
+            allow_rebuild_missing_cache=allow_rebuild_missing_cache,
+        )
+        config_results[cfg['name']] = result
+        all_modes.update([str(mode) for mode in result['classes']])
+
+    modes_sorted = _sort_mode_labels(list(all_modes))
+    n_cfg = len(configs)
+    n_modes = len(modes_sorted)
+    score_grid = np.full((n_cfg, n_modes), np.nan, dtype=np.float64)
+
+    for i, cfg in enumerate(configs):
+        detectability_map = config_results[cfg['name']]['detectability_auc']
+        for j, mode in enumerate(modes_sorted):
+            if mode in detectability_map:
+                score_grid[i, j] = detectability_map[mode]
+
+    group_width = 0.86
+    group_gap = 0.36
+    bar_width = group_width / max(1, n_cfg)
+    centers = np.arange(n_cfg, dtype=np.float64) - (n_cfg - 1) / 2.0
+    offsets = centers * bar_width
+
+    def _plot_mode_slice(ax, start, end, title_suffix=''):
+        modes_slice = modes_sorted[start:end]
+        scores_slice = score_grid[:, start:end]
+        n_modes_slice = len(modes_slice)
+        x = np.arange(n_modes_slice, dtype=np.float64) * (group_width + group_gap)
+
+        for i, cfg in enumerate(configs):
+            x_offset = x + offsets[i]
+            ax.bar(
+                x_offset,
+                scores_slice[i],
+                width=bar_width * 0.9,
+                label=cfg['name'],
+                color=cfg['color'],
+                alpha=0.7,
+                edgecolor='black',
+                linewidth=0.4,
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(modes_slice, rotation=45, ha='right')
+        if n_modes_slice > 1:
+            separators = (x[:-1] + x[1:]) / 2.0
+            for xpos in separators:
+                ax.axvline(xpos, color='0.88', linewidth=0.8, zorder=0)
+        ax.set_ylim(0.0, 1.05)
+        ax.set_ylabel('AUC detectability [norm]')
+        ax.set_xlabel('Mode label')
+        ax.set_title(f'Per-mode detectability from pairwise linear-probe AUC{title_suffix}')
+        ax.grid(True, axis='y', alpha=0.3)
+
+        return np.any(np.isnan(scores_slice))
+
+    if split_into_two_subplots and n_modes > 1:
+        if split_index is None:
+            split_index = int(np.ceil(n_modes / 2))
+        split_index = int(np.clip(split_index, 1, n_modes - 1))
+
+        fig, (ax_top, ax_bottom) = plt.subplots(
+            2,
+            1,
+            figsize=(max(12, 0.9 * max(split_index, n_modes - split_index)), 10),
+            tight_layout=True,
+            sharey=True,
+        )
+
+        has_nan_top = _plot_mode_slice(ax_top, 0, split_index, title_suffix=' (modes part 1)')
+        has_nan_bottom = _plot_mode_slice(ax_bottom, split_index, n_modes, title_suffix=' (modes part 2)')
+        ax_top.legend(loc='best', framealpha=0.9)
+        if has_nan_top or has_nan_bottom:
+            ax_bottom.text(
+                0.01,
+                0.01,
+                'Note: missing bars indicate mode not present in that configuration.',
+                transform=ax_bottom.transAxes,
+                fontsize=9,
+                alpha=0.8,
+            )
+    else:
+        fig, ax = plt.subplots(figsize=(max(10, 0.9 * n_modes), 6), tight_layout=True)
+        has_nan = _plot_mode_slice(ax, 0, n_modes)
+        ax.legend(loc='best', framealpha=0.9)
+        if has_nan:
+            ax.text(
+                0.01,
+                0.01,
+                'Note: missing bars indicate mode not present in that configuration.',
+                transform=ax.transAxes,
+                fontsize=9,
+                alpha=0.8,
+            )
+
+    split_tag = '_2panel' if (split_into_two_subplots and n_modes > 1) else ''
+    saveExt = f"_{use_mode}_{num_timepoints}_{n_datasets}_multi_cfg_auc{split_tag}"
+    if doSave:
+        out_path = f'../output_plots/feature_detectability_auc_bar{saveExt}.pdf'
+        plt.savefig(out_path, transparent=True, bbox_inches='tight')
+        print(f"Saved multi-configuration AUC detectability plot to: {out_path}")
+
+    return {
+        'configs': configs,
+        'config_results': config_results,
+        'modes_sorted': modes_sorted,
+        'score_grid': score_grid,
+        'saveExt': saveExt,
+    }
+
+
+def run_multi_configuration_auc_detectability_diagnostic():
+    """Entry point for comparing AUC detectability over multiple sensor configurations."""
+    data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/SPARC/"
+    use_mode = 'mn'
+    n_datasets = -1
+    num_timepoints = 100
+    doSave = True
+
+    results = plot_auc_detectability_multi_configuration(
+        data_dir=data_dir,
+        use_mode=use_mode,
+        num_timepoints=num_timepoints,
+        n_datasets=n_datasets,
+        doSave=doSave,
+        force_rebuild_all=False,
+        force_rebuild_no_gap=False,
+        allow_rebuild_missing_cache=True,
+        split_into_two_subplots=True,
+    )
+
+    print("\n" + "=" * 70)
+    print("Multi-configuration AUC detectability diagnostic complete.")
+    print(
+        f"Modes compared: {len(results['modes_sorted'])} | "
+        f"Configurations: {len(results['configs'])}"
+    )
+    print("=" * 70)
 
 
 def _fit_pairwise_lr_in_2d_pca(features_flat, y, cls_i, cls_j, cv_splits=5, random_state=42):
@@ -506,7 +861,7 @@ def _fit_pairwise_lr_in_2d_pca(features_flat, y, cls_i, cls_j, cv_splits=5, rand
     return X_2d, y_pair, xx, yy, prob, auc_cv
 
 
-def plot_pairwise_linear_boundaries(results):
+def plot_pairwise_linear_boundaries(results, doSave=True):
     """Plot and save two pairwise 2D PCA logistic boundaries (hardest and easiest class pairs)."""
     classes = results['classes']
     auc_matrix = results['auc_matrix']
@@ -556,17 +911,19 @@ def plot_pairwise_linear_boundaries(results):
         ax.legend(loc='best', framealpha=0.85)
 
     fig.colorbar(cf, ax=axes[-1], shrink=0.9, label='Predicted probability of positive class (cls_j)')
-    out_path = f'../output_plots/feature_linear_boundary_examples{saveExt}.pdf'
-    plt.savefig(out_path, transparent=True, bbox_inches='tight')
-    print(f"   Saved to: {out_path}")
+    if doSave:
+        out_path = f'../output_plots/feature_linear_boundary_examples{saveExt}.pdf'
+        plt.savefig(out_path, transparent=True, bbox_inches='tight')
+        print(f"   Saved to: {out_path}")
 
 
 def run_separability_diagnostic():
     use_mode = 'mn'
     n_datasets = -1
     num_timepoints = 100
-    save_Ext = '_v_tor_V'
     forceReload = False
+    allow_rebuild_missing_cache = False
+    include_frequency_gap = True
     # geometry_shot = ['BP'] #1160930034
     # geometry_shot =  ['BP-IOL1-110U', 'BP-IOL2-190L', 'BP-DVT1-010L', 'BP-DT23-290U', 'MRNV_160M_H1',\
     #                    'MRNV_160M_H2', 'MRNV_160M_H3', 'MRNV_160M_H5', 'MRNV_160M_V1', 'MRNV_160M_V2',\
@@ -586,16 +943,24 @@ def run_separability_diagnostic():
 
     """Run full feature separability workflow (compute + plotting)."""
     data_dir = "/home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/SPARC/"
-    out_path = data_dir + f"cached_data_{geometry_shot[:5]}_{use_mode}_{num_timepoints}_{n_datasets}.npz"
-    saveExt = f"_{use_mode}_{num_timepoints}_{n_datasets}_{'-'.join(geometry_shot[:5])}{save_Ext}_SPARC"
-    out_path_features = f'../output_plots/tsne_features_SPARC{'-'.join(geometry_shot[:5])}.npz'
+    out_path, out_path_features, saveExt = _shared_cache_paths(
+        data_dir,
+        geometry_shot,
+        use_mode,
+        num_timepoints,
+        n_datasets,
+        include_frequency_gap,
+    )
+    doSave=True
 
     results = load_and_compute_separability(data_dir, out_path, out_path_features,\
-            saveExt, geometry_shot, use_mode, num_timepoints, n_datasets, forceReload)
-    plot_tsne_separability(results)
-    plot_detectability_bar_chart(results)
-    plot_auc_detectability_bar_chart(results)
-    plot_pairwise_linear_boundaries(results)
+            saveExt, geometry_shot, use_mode, num_timepoints, n_datasets, forceReload,
+            include_frequency_gap=include_frequency_gap,
+            allow_rebuild_missing_cache=allow_rebuild_missing_cache)
+    plot_tsne_separability(results, doSave)
+    plot_detectability_bar_chart(results, doSave)
+    plot_auc_detectability_bar_chart(results, doSave)
+    plot_pairwise_linear_boundaries(results, doSave)
 
     print(f"\n" + "=" * 70)
     print(f"Diagnostic complete. Check ../output_plots/feature_separability_tsne{results['saveExt']}.pdf")
@@ -608,4 +973,11 @@ def run_separability_diagnostic():
     print('Finished')
 
 if __name__ == "__main__":
-    run_separability_diagnostic()
+    # run_separability_diagnostic()
+    run_multi_configuration_auc_detectability_diagnostic()
+    '''
+    No cache available and implicit rebuild is disabled. 
+    Missing feature cache: ../output_plots/tsne_features_MRNV_fgap_on_mn_100_-1.npz 
+    and dataset cache: /home/rianc/Documents/Synthetic_Mirnov/data_output/synthetic_spectrograms/SPARC/cached_data_MRNV_fgap_on_mn_100_-1.npz. Set forceReload=True or allow_rebuild_missing_cache=True to rebuild explicitly.
+'''
+    print("Done")

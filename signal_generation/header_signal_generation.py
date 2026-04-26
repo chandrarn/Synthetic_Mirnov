@@ -63,6 +63,8 @@ except:
 #sys.path.append('/home/rianc/Downloads/OpenFUSIONToolkit_v1.0 (2).0-beta6-Ubuntu_22_04-GNU-x86_64/OpenFUSIONToolkit_v1.0.0-beta6-Linux-GNU-x86_64/python/')
 # Updated git repo source:
 # sys.path.append('/home/rianc/Documents/OpenFUSIONToolkit/build_release/python/')
+
+sys.path.append(os.getenv('OFT_ROOTPATH'))
 from OpenFUSIONToolkit import OFT_env
 from OpenFUSIONToolkit.ThinCurr import ThinCurr
 from OpenFUSIONToolkit.ThinCurr.sensor import Mirnov, save_sensors,flux_loop

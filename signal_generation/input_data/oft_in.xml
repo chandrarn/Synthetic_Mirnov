@@ -1,9 +1,9 @@
-<?xml version='1.0' encoding='utf-8'?>
 <oft>
 	<thincurr>
-	<eta>1.8E-5</eta>
+	<eta>1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5, 2E-5, 2E-5</eta>
 	<icoils>
-	<coil_set name="Custom Testing Filament">
+	<coil_set>
+
 		<coil npts="300" scale="1.0">
 			 2.363, 0.000, -0.000
 			 2.363, 0.032, 0.010

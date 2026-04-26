@@ -472,7 +472,7 @@ def run_frequency_scan(
     # Compute mutual inductance between coil filaments and mesh
     Mcoil = tw_mesh.compute_Mcoil()
     driver = np.zeros((2, tw_mesh.nelems))
-    driver[0, :] = Mcoil[0, :] * coil_current_magnitude
+    driver = np.matmul(coil_current_magnitude, Mcoil)
 
     # Mutual between the mesh and sensors, and coil and sensors
     Msensor, Msc, _ = tw_mesh.compute_Msensor("input_data/floops_%s.loc" % sensor_set)
@@ -486,7 +486,7 @@ def run_frequency_scan(
         # contribution from the mesh current to the sensor, with the mesh current at a given frequency
         probe_signals = np.dot(result, Msensor)
         # Contribuion from the coil current directly to the sensor
-        probe_signals[0, :] += np.dot(np.r_[coil_current_magnitude], Msc)
+        probe_signals += np.dot(np.r_[coil_current_magnitude], Msc)
 
         # for i in range(probe_signals.shape[1]):
         #     print('Real: {0:13.5E}, Imaginary: {1:13.5E}'.format(*probe_signals[:,i]))
@@ -731,6 +731,7 @@ if __name__ == "__main__":
     sensor_set = "SPARC_BP_MRNV"
     eta = "1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5" + ", 2E-5, 2E-5"
     # {'dt':1e-6,'T':10e-3,'periods':3}
+
     params = {
         "m": [2],
         "n": [1],
@@ -746,6 +747,13 @@ if __name__ == "__main__":
         "I": 1,
         "noise_envelope": 0.00,
     }
+
+    params["I"] = np.vstack(
+        (
+            np.cos(np.linspace(0, 2 * np.pi, params["n"][0] * params["n_pts"][0])),
+            np.sin(np.linspace(0, 2 * np.pi, params["n"][0] * params["n_pts"][0])),
+        )
+    )
     # Misc
     # mesh_file='thincurr_ex-torus.h5'True
     # mesh_file='vacuum_mesh.h5'
@@ -828,4 +836,3 @@ if __name__ == "__main__":
     )
 
     print("Run complete")
-eta

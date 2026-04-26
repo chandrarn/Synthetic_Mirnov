@@ -196,7 +196,7 @@ class BP_T:
         
         
         # Presaved spatial geometetry dicts
-        phi, theta_pol, R, Z = Mirnov_Geometry(self.shotno)
+        phi, theta_pol, R, Z = Mirnov_Geometry(self.shotno, debug=debug)
         
         for i in np.arange(1,7):
             

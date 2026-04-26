@@ -112,6 +112,16 @@ def _tri_interp(x_src, y_src, z_src, x_grid, y_grid):
 
     return z_grid
 
+def doConsistencyCheck(zeff, times):
+    if zeff.ndim != 1 or times.ndim != 1 or zeff.size < 2:
+        raise ValueError("zeff_neo returned insufficient Zeff samples.")
+
+    finite = np.isfinite(zeff) & np.isfinite(times)
+    if np.count_nonzero(finite) < 2:
+        raise ValueError("zeff_neo returned non-finite Zeff values.")
+    
+    if np.any(zeff < 0.0):
+        raise ValueError("zeff_neo returned negative Zeff values, which are unphysical.")
 
 def _interp_zeff_from_ip_curve(zeff_grid, ip_curve, target_ip):
     """
@@ -540,6 +550,8 @@ def make_plots(tgrid, ip_neo_ma, ip_ma, times, zeff, zeff_grid, shot, save_plots
         fig.savefig(f"{save_plots}/zeff_neo_{shot}.pdf", transparent=True)
         print('Saved plot to:', f"{save_plots}/zeff_neo_{shot}.pdf")
 
+    plt.show(block=True)
+
 #################################################################################
 #################################################################################
 
@@ -746,6 +758,10 @@ def zeff_neo(
             "ip_neo_ma": _array_stats(ip_neo_ma),
         }
         return zeff, times, diagnostics
+
+
+    # Consistency check:
+    doConsistencyCheck(zeff, times)
 
     return zeff, times
 

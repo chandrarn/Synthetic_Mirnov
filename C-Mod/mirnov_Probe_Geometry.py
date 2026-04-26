@@ -331,7 +331,7 @@ def Mirnov_Geometry(shotno,debug=True, doSave_json = False):
         theta_pol_ab, theta_pol_gh, nodenames = hardcodedVals(shotno)
         if debug:
             print(f'Using hardcoded values for shot {shotno}')
-    print('checkpoint')
+    if debug:print('checkpoint')
     for sensor_name in theta_pol:
         
         try: sensor_index = int(np.argwhere(nodenames==sensor_name)[0,0])
@@ -390,6 +390,7 @@ def Mirnov_Geometry(shotno,debug=True, doSave_json = False):
         with open(working_directory + '../C-Mod/C_Mod_Mirnov_Geometry_Theta_Pol.json','w', encoding='utf-8') as f: 
             json.dump(theta_pol,f, ensure_ascii=False, indent=4)
     ####################################
+    if debug: print('Completed loading geometry information')
     return phi, theta_pol, R, Z
 
 

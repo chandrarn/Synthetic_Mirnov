@@ -8,7 +8,6 @@ plt.rcParams.update({
 })
 import numpy as np
 
-from charset_normalizer import cd
 path.append('/home/rianc/Documents/eqtools-1.0/')
 import eqtools as eq
 from freeqdsk import geqdsk

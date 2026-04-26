@@ -10,6 +10,9 @@ Created on Wed Mar  5 16:21:32 2025
 from header_Cmod import np, plt, Normalize, cm, rolling_spectrogram, __doFilter, \
     gaussianHighPassFilter, rolling_spectrogram_improved, grouped_average, \
         gaussian_filter, downscale_local_mean, xr, sys, matplotlib, safe_show
+#import numpy as np
+from scipy.signal.windows import hann, hamming, blackman
+from scipy.signal import ShortTimeFFT, stft
 sys.path.append('../signal_generation/')
 from header_signal_generation import histfile, working_directory
 import get_Cmod_Data as gC
@@ -87,7 +90,8 @@ def signal_spectrogram_C_Mod(shotno=1051202011,sensor_set='BP_K',diag=None,
     # Pull and select data
     signals, time, clabel,diag, sensor_name = get_data(shotno,diag,sensor_name,sensor_set,\
                     data_archive,debug,tLim, params,mesh_file,archiveExt)
-    if debug: print('Loaded Signals, Size ',signals.shape)
+    if debug: 
+        print('Loaded Signals, Size ',signals.shape)
         
     t_inds = np.arange(*[np.argmin((time-t)**2) for t in tLim],dtype=int)
     
@@ -141,11 +145,11 @@ def get_data(shotno,diag,sensor_name,sensor_set,data_archive,debug,tLim,params,m
     # Pull C-Mod data from server for a given diagnostic
     elif sensor_set == 'BP_T':
         if diag is None: diag = gC.__loadData(shotno,pullData=['bp_t'],
-                                   data_archive=data_archive)['bp_t']
+                                   data_archive=data_archive, debug=True)['bp_t']
             
         # Extract specific sensor, if desired. Otherwise FFTs will be averaged
         signals = diag.gh_data if sensor_name == '' else \
-            diag.ab_data[(np.array(diag.gh_names) ==  sensor_name)]
+            diag.ab_data[[np.argwhere(np.array(diag.gh_names) == n).squeeze() for n in sensor_name if n in diag.gh_names]] 
         time = diag.time
         
         clabel=r'$\partial_t{\mathrm{B}}_\theta$ [T/s]'
@@ -358,9 +362,7 @@ def smooth_and_downsample_spectrogram(spectrogram,time,freq, sigma=1.0, factors=
 # )
 
 
-#import numpy as np
-from scipy.signal.windows import hann, hamming, blackman
-from scipy.signal import stft
+
 
 def extract_and_window_blocks(signal, n_samples, m_skip, window_type='hanning'):
     """
@@ -458,8 +460,11 @@ def compute_averaged_spectrogram_from_blocks(signals, sampling_rate, n_samples, 
                 raise ValueError("Unsupported rolling_window. Choose from 'hanning', 'hamming', 'blackman'.")
 
             window = window_func(n_samples)
-            frequencies = np.fft.rfftfreq(nfft, d=1/sampling_rate)
-            f, t, current_spectrogram = stft(signal, fs=sampling_rate, window=window, nperseg=n_samples, noverlap=n_samples - m_skip, nfft=nfft, return_onesided=True)
+            # frequencies = np.fft.fftfreq(nfft, d=1/sampling_rate)
+            frequencies, t, current_spectrogram = stft(signal, fs=sampling_rate, window=window, nperseg=n_samples, noverlap=n_samples - m_skip, nfft=nfft, return_onesided=False)
+        
+            frequencies = np.fft.fftshift(frequencies)
+            current_spectrogram = np.fft.fftshift(current_spectrogram, axes=0)
             averaged_spectrogram_magnitude = np.abs(current_spectrogram)
             block_time_centers = t
             all_individual_spectrograms.append(current_spectrogram)
@@ -602,10 +607,12 @@ def gen_lf_signals():
     shotnos.sort()
     shotnos=shotnos[::-1]
     shotnos = [ ]#[1160714026]#1160826001#[1160930034]#[1110316031]#[1160930033]#[1050615011]
-    shotnos=[1120906030] 
+    shotnos=[1120906030
+            ] 
+    shotnos = np.unique(shotnos)
 
     #shotnos = np.append(shotnos,[1051202011,1160930034])
-    print(shotnos)
+    # print(shotnos)
     # Split up in time chunks, frequency range chunks [ to make it easier to see lf, hf signals]
     # tLims=[.5,1.6]
     # Break up into two frequency bins[.5,.8],
@@ -613,9 +620,9 @@ def gen_lf_signals():
     #               'f_lim':[[0,100],[100,600]]}
     
     # Block reduce: [keep samples, drop samples]
-    dataRanges = {'tLim':[[1.15,1.2]], 'signal_reduce':1,\
+    dataRanges = {'tLim':[[.5,1.7]], 'signal_reduce':1,\
                   'block_reduce':[3000,500],'sigma':(2,2),'plot_reduce':(1,1)}
-    f_lim=[0,60]; c_lim=[0,1.5]
+    f_lim=[0,50]; c_lim=[0,1.5]
     pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
@@ -639,7 +646,7 @@ def gen_lf_signals():
                             block_reduce=dataRanges['block_reduce'],
                             signal_reduce=dataRanges['signal_reduce'],
                             pad=pad,fft_window=fft_window,cmap=cmap,
-                            figsize=figsize,doSave='../output_plots/training_plots/'*True,\
+                            figsize=figsize,doSave='../output_plots/training_plots/'*False,\
                             params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
                             batch=True,sigma_plot_reduce=dataRanges['sigma'],\
                                 plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
@@ -710,5 +717,5 @@ if __name__ == '__main__':
     # signal_spectrogram_C_Mod(     )
     # fix_xarray()
     gen_lf_signals()
-    print('Finished All')
+0    print('Finished All')
 

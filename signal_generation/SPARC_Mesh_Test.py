@@ -18,11 +18,11 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pyvista
-# from gen_MAGX_Coords import gen_Sensors_Updated, get_sensor_category
-gen_Sensors_Updated, get_sensor_category = None, None
+from gen_MAGX_Coords import gen_Sensors_Updated, get_sensor_category
+# gen_Sensors_Updated, get_sensor_category = None, None
 
 sys.path.append("/home/rianc/Documents/disruption-py/")
-sys.path.append(os.getenv('OFT_ROOTPATH'))
+# sys.path.append(os.getenv('OFT_ROOTPATH'))
 # from disruption_py.machine.d3d.mirnov import (
 #     _BP_SENSOR_CATEGORIES,
 # )
@@ -80,7 +80,7 @@ tw_plate = ThinCurr(oft_env)
 # tw_plate.setup_model(mesh_file='input_data/SPARC_Sept2023_noPR.h5',xml_filename='input_data/Soft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/SPARC_vv_prtmrv_noext.h5',xml_filename='input_data/xml_3d_coil_example.xml')
 # tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/xml_3d_coil_example.xml')
-tw_plate.setup_model(mesh_file='input_data/thincurr_ex-plate.h5',xml_filename='input_data/oft_in.xml')
+tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_VV-homology.h5',xml_filename='input_data/oft_in.xml')
 
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters-homology.h5',xml_filename='input_data/oft_in.xml')
 # tw_plate.setup_model(mesh_file='input_data/C_Mod_ThinCurr_Limiters_Combined-homology.h5',xml_filename='input_data/oft_in.xml')
@@ -155,7 +155,7 @@ p.add_mesh(grid, color="white", opacity=0.3, show_edges=True, label="Mesh")
 
 
 p.camera.focal_point = (0, 0, 0)
-p.camera.zoom(400)
+# p.camera.zoom(400)
 
 p.show_bounds(
     bounds=(-5, 5, -5, 5, -5, 5),

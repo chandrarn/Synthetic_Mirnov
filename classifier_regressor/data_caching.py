@@ -656,6 +656,8 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         data = np.load(cfg.out_path, allow_pickle=True)
         print(f"Loaded cached dataset from {cfg.out_path} :: X_ri={data['X_ri'].shape}, y={data['y'].shape}")
         return {k: data[k] for k in data.files}
+    else: 
+        print(f"No existing cached dataset found at {cfg.out_path}. Building new dataset from NetCDF files in {cfg.data_dir}...")
 
     # Get list of dataset file paths
     dataset_files = _get_dataset_filepaths(cfg.data_dir, n_datasets=cfg.n_datasets)
