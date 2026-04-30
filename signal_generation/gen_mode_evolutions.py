@@ -12,6 +12,28 @@ from freeqdsk import geqdsk
 
 
 ###################33
+def __is_valid_geqdsk_file(file_path):
+    """Return (is_valid, reason) for a gEQDSK file path."""
+    try:
+        with open(file_path, "r") as f:
+            raw = f.read()
+        # Common malformed token observed in failed/partial files.
+        if "ANN" in raw.upper():
+            return False, "contains ANN token"
+
+        with open(file_path, "r") as f:
+            eqdsk = geqdsk.read(f)
+
+        if (not np.all(np.isfinite(eqdsk.qpsi))) or (
+            not np.all(np.isfinite(eqdsk.psi))
+        ):
+            return False, "contains non-finite qpsi/psi values"
+        return True, "ok"
+    except Exception as exc:
+        return False, str(exc)
+
+
+###################33
 def gen_mode_params(
     training_shots=1, params={"T": 10, "dt": 0.01}, doPlot=False, save_ext=""
 ):
@@ -129,8 +151,17 @@ def gen_mode_params_for_training(
             raise ValueError("prescribed_mn_pairs was provided but is empty")
         training_shots = len(prescribed_mn_pairs)
 
+    geqdsk_dir = gEQDSK_files_dir.rstrip("/") + "/"
+    geqdsk_subdir = geqdsk_dir.strip("/")
+    if geqdsk_subdir.startswith("input_data/"):
+        geqdsk_subdir = geqdsk_subdir[len("input_data/") :]
+
     # Load the coorect number of gEQDSK files
-    gEQDSK_files = __build_geqdsks(training_shots, justLoad=justLoadGeqdsk)
+    gEQDSK_files = __build_geqdsks(
+        training_shots,
+        justLoad=justLoadGeqdsk,
+        output_file=working_directory + geqdsk_dir,
+    )
     # Loop over the number of training shots
 
     for shot_ind, shot in enumerate(range(training_shots)):
@@ -151,7 +182,7 @@ def gen_mode_params_for_training(
         }
 
         # Randomly select a gEQDSK file, to determind minimum, maximum m/n
-        params["file_geqdsk"] = "gEQDSK_files/" + gEQDSK_files[shot]
+        params["file_geqdsk"] = geqdsk_subdir + "/" + gEQDSK_files[shot]
 
         # Generate up to 5 modes per shot
         try:
@@ -459,15 +490,30 @@ def __build_geqdsks(
 ):
     # Only pulling from existing gEQDSK files, not loading new ones
     if justLoad:
-        files = os.listdir(output_file)
-        if len(files) < n_equilibria:
+        files = [
+            f
+            for f in os.listdir(output_file)
+            if os.path.isfile(os.path.join(output_file, f))
+        ]
+        valid_files = []
+        for f_name in files:
+            is_valid, reason = __is_valid_geqdsk_file(os.path.join(output_file, f_name))
+            if is_valid:
+                valid_files.append(f_name)
+            elif debug:
+                print(f"Skipping invalid gEQDSK {f_name}: {reason}")
+
+        if len(valid_files) == 0:
+            raise ValueError(f"No valid gEQDSK files found in {output_file}")
+
+        if len(valid_files) < n_equilibria:
             print(
-                f"Requested {n_equilibria} equilibria, but only {len(files)} found in {output_file}."
+                f"Requested {n_equilibria} equilibria, but only {len(valid_files)} valid files found in {output_file}."
             )
             print("\n\n\n\n Operating With Replacement \n\n\n\n")
-            return np.random.choice(files, n_equilibria, replace=True)
+            return np.random.choice(valid_files, n_equilibria, replace=True)
         else:
-            return np.random.choice(files, n_equilibria, replace=False)
+            return np.random.choice(valid_files, n_equilibria, replace=False)
 
     #####################
     shotnos = np.loadtxt(
@@ -500,13 +546,19 @@ def __build_geqdsks(
             eq.filewriter.gfile(
                 eq_f, times[ind], nw=200, nh=200, tunit="s", name=output_file + g_file
             )
+            is_valid, reason = __is_valid_geqdsk_file(output_file + g_file)
+            if not is_valid:
+                raise ValueError(f"Generated invalid gEQDSK ({reason})")
             g_files_out.append(g_file)
         except Exception as e:
             if debug:
                 print(
                     f"Failed to generate gEQDSK for shot {shots[ind]} at time {times[ind]}: {e}"
                 )
-            g_files_out.append(g_files_out[-1])  # Add previous file if fail to generate
+            if len(g_files_out) > 0:
+                g_files_out.append(
+                    g_files_out[-1]
+                )  # Add previous file if fail to generate
             continue
 
     if len(g_files_out) < n_equilibria:
