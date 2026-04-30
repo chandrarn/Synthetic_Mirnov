@@ -35,8 +35,8 @@ def convert_FAR3D_to_Bnorm(
     br_file="br_1103",
     bth_file="bth_1103",
     psi_contour_select=0.3,
-    m=[14, 13, 12, 11, 10, 9, 8],
-    n=11,
+    m=None,
+    n=None,
     eqdsk_file="g1051202011.1000",
     debug=True,
     lambda_merezhkin=0.4,
@@ -46,18 +46,54 @@ def convert_FAR3D_to_Bnorm(
     normalization=1,
     a=0.21,
 ):
-    # Improved version of FAR3D to Bnorm conversion using built in formulation:
-    # B_n = B_rho / B_0 / |grad(rho)|, where |grad(rho)| = 1/(B_0 a) * q/rho * |grad(psi)|
+    """
+    Convert FAR3D eigenfunctions to ThinCurr B-normal format.
 
+    Improved version using built-in formulation:
+    B_n = B_rho / B_0 / |grad(rho)|, where |grad(rho)| = 1/(B_0 a) * q/rho * |grad(psi)|
+
+    Args:
+        br_file, bth_file (str): FAR3D B_radial and B_theta filenames
+        psi_contour_select (float): Normalized flux surface selection
+        m (array or None): Poloidal mode numbers. If None and extract_modes=True, read from file.
+        n (array or None): Toroidal mode numbers. If None and extract_modes=True, read from file.
+        eqdsk_file (str): GEQDSK equilibrium filename
+        debug (bool): Enable debug output and visualization
+        lambda_merezhkin (float): Merezhkin correction parameter
+        doSave (str): Directory for saving output plots
+        downsample (int): Downsampling factor for contour points
+        data_directory (str): Directory containing data files
+        normalization (float): B-norm normalization factor
+        a (float): Minor radius for normalization
+        extract_modes (bool): If True and m/n not provided, extract from file header
+    """
     # Load equilibrium file and 2D grid of psi_norm(R,Z)
     psi_normalized, R, Z, rmagx, zmagx, psi, eqdsk = get_psi_grid(
         data_directory + eqdsk_file
     )
 
-    # Load in data
-    psi_tor_FAR3D, dat_r, dat_th = load_FAR3D_data(
-        br_file=br_file, bth_file=bth_file, data_directory=data_directory
-    )
+    # Load in data and extract modes if needed
+    # br_path = data_directory + br_file
+    if m is None or n is None:
+        psi_tor_FAR3D, dat_r, dat_th, m_extracted, n_extracted = load_FAR3D_data(
+            br_file=br_file,
+            bth_file=bth_file,
+            data_directory=data_directory,
+            extract_modes=True,
+        )
+        # Use extracted m/n if not provided, otherwise use provided values
+        m = m_extracted
+        n = n_extracted
+        if debug:
+            print(f"Extracted m values from file: {m}")
+            print(f"Extracted n values from file: {n}")
+    else:
+        psi_tor_FAR3D, dat_r, dat_th = load_FAR3D_data(
+            br_file=br_file,
+            bth_file=bth_file,
+            data_directory=data_directory,
+            extract_modes=False,
+        )
 
     ## Convert psi_tor to psi_norm
     psi_norm_to_psi_tor, psi_tor_to_psi_norm = psi_tor(eqdsk)
@@ -1316,18 +1352,399 @@ def get_normalization(
 ##############################################33
 
 
+def parse_far3d_header(file_path):
+    """
+    Parse FAR3D file header to extract (m, n) mode pairs.
+
+    The header line contains tab-separated mode pairs in format 'm/n'
+    (e.g., '  22/  16  21/  16  20/  16  -22/ -16  -21/ -16')
+    First element is the row label 'r'.
+
+    Args:
+        file_path (str): Full path to the br or bth file
+
+    Returns:
+        list: List of tuples [(m1, n1), (m2, n2), ...]
+    """
+    with open(file_path, "r") as f:
+        header_line = f.readline().strip()
+
+    modes = []
+    for mode_str in header_line.split("\t"):
+        mode_str = mode_str.strip()
+        if (
+            mode_str and "/" in mode_str
+        ):  # Skip empty strings and non-mode fields (like 'r')
+            # Handle spacing around the '/' separator
+            parts = mode_str.split("/")
+            try:
+                m = int(parts[0].strip())
+                n = int(parts[1].strip())
+                modes.append((m, n))
+            except (ValueError, IndexError):
+                # Skip malformed mode strings
+                continue
+
+    return modes
+
+
+def extract_modes_from_file(file_path):
+    """
+    Extract unique m and n values from FAR3D file.
+
+    Args:
+        file_path (str): Full path to the br or bth file
+
+    Returns:
+        tuple: (m_array, n_array, all_modes)
+            - m_array: Sorted unique m values (numpy array)
+            - n_array: Sorted unique n values (numpy array)
+            - all_modes: List of all (m, n) tuples from file
+    """
+    all_modes = parse_far3d_header(file_path)
+
+    m_values = sorted(set(m for m, n in all_modes))
+    n_values = sorted(set(n for m, n in all_modes))
+
+    return np.array(m_values), np.array(n_values), all_modes
+
+
 def load_FAR3D_data(
-    br_file="br_0000", bth_file="bth_0000", data_directory="../M3D-C1_Data/"
+    br_file="br_0000",
+    bth_file="bth_0000",
+    data_directory="../M3D-C1_Data/",
+    extract_modes=False,
 ):
+    """
+    Load FAR3D B_r and B_theta data from files.
+
+    Args:
+        br_file (str): Filename for B_radial data
+        bth_file (str): Filename for B_theta data
+        data_directory (str): Directory path
+        extract_modes (bool): If True, also extract and return m/n modes from header
+
+    Returns:
+        tuple: (psi_tor, dat_r, dat_th) or (psi_tor, dat_r, dat_th, m_vals, n_vals) if extract_modes=True
+    """
+    br_path = data_directory + br_file
+    bth_path = data_directory + bth_file
+
     # Load in Data
-    dat_r = np.loadtxt(data_directory + br_file, skiprows=1)
-    dat_th = np.loadtxt(data_directory + bth_file, skiprows=1)
+    dat_r = np.loadtxt(br_path, skiprows=1)
+    dat_th = np.loadtxt(bth_path, skiprows=1)
 
     psi_tor = dat_r[:, 0]
     dat_r = dat_r[:, 1:]
     dat_th = dat_th[:, 1:]
 
-    return psi_tor, dat_r, dat_th
+    if extract_modes:
+        m_vals, n_vals, _ = extract_modes_from_file(br_path)
+        return psi_tor, dat_r, dat_th, m_vals, n_vals
+    else:
+        return psi_tor, dat_r, dat_th
+
+
+def plot_far3d_mode_spectrum(
+    br_file="br_1103",
+    bth_file="bth_1103",
+    psi_contour_select=0.3,
+    eqdsk_file="g1051202011.1000",
+    data_directory="../M3D-C1_Data/",
+    doSave="",
+    show_plot=True,
+    highlight_top_n_groups=3,
+    y_lim_Br=None,
+):
+    """
+    Plot FAR3D mode content diagnostics.
+
+    Subplot 1: B_r coefficient vs psi_tor for all available (m, n) modes.
+    Subplot 2: Total mode energy grouped by |n| at the selected psi contour.
+    """
+    br_path = data_directory + br_file
+    bth_path = data_directory + bth_file
+
+    # Load coefficient tables (first column is psi_tor)
+    dat_r = np.loadtxt(br_path, skiprows=1)
+    dat_th = np.loadtxt(bth_path, skiprows=1)
+    psi_tor_vals = dat_r[:, 0]
+    b_r_coeff = dat_r[:, 1:]
+    b_th_coeff = dat_th[:, 1:]
+
+    # Parse (m, n) metadata from header and align with loaded columns
+    modes = parse_far3d_header(br_path)
+    ncols = min(len(modes), b_r_coeff.shape[1], b_th_coeff.shape[1])
+    if ncols == 0:
+        raise ValueError("No mode columns were found in the FAR3D input file.")
+    modes = modes[:ncols]
+    b_r_coeff = b_r_coeff[:, :ncols]
+    b_th_coeff = b_th_coeff[:, :ncols]
+
+    # Convert FAR3D psi_tor grid to psi_norm for plotting and contour selection
+    psi_plot = psi_tor_vals.copy()
+    psi_marker = psi_contour_select
+    q_profile_psi = None
+    q_profile_vals = None
+    try:
+        _, _, _, _, _, _, eqdsk = get_psi_grid(data_directory + eqdsk_file)
+        _, psi_tor_to_psi_norm = psi_tor(eqdsk)
+        psi_plot = psi_tor_to_psi_norm(psi_tor_vals)
+        psi_marker = psi_contour_select
+        psi_lin = np.linspace(eqdsk.simagx, eqdsk.sibdry, eqdsk.nx)
+        q_profile_psi = np.sqrt(
+            (psi_lin - eqdsk.simagx) / (eqdsk.sibdry - eqdsk.simagx)
+        )
+        q_profile_vals = np.asarray(eqdsk.qpsi)
+    except Exception:
+        # Fallback: retain psi_tor axis if conversion is unavailable
+        psi_plot = psi_tor_vals
+        psi_marker = psi_contour_select
+
+    # Closest radial index to the requested contour location
+    i_contour = np.argmin(np.abs(psi_plot - psi_marker))
+
+    # Group per-mode energy at contour location by |n|
+    energy_by_abs_n = {}
+    amp_by_mode = np.sqrt(b_r_coeff[i_contour, :] ** 2 + b_th_coeff[i_contour, :] ** 2)
+    for i, (_, n_mode) in enumerate(modes):
+        n_abs = abs(int(n_mode))
+        e_mode = b_r_coeff[i_contour, i] ** 2 + b_th_coeff[i_contour, i] ** 2
+        energy_by_abs_n[n_abs] = energy_by_abs_n.get(n_abs, 0.0) + e_mode
+
+    n_groups = np.array(sorted(energy_by_abs_n.keys()), dtype=int)
+    e_groups = np.array([energy_by_abs_n[n_] for n_ in n_groups])
+    a_groups = np.sqrt(e_groups)  # Back to field amplitude [T]
+    e_total = np.sum(e_groups)
+    e_frac = e_groups / e_total if e_total > 0 else np.zeros_like(e_groups)
+
+    # Select |n| groups to emphasize in both the left trace plot and summary annotations
+    top_count = min(highlight_top_n_groups, len(n_groups))
+    top_inds = np.argsort(e_groups)[::-1][:top_count]
+    top_n_groups = n_groups[top_inds]
+    highlight_colors = ["tab:red", "tab:orange", "tab:green"]
+
+    # Dominant m within the dominant |n| group at contour location
+    dominant_abs_n = int(top_n_groups[0]) if top_count > 0 else None
+    dominant_mode = None
+    if dominant_abs_n is not None:
+        dom_mode_inds = [
+            i
+            for i, (m_mode, n_mode) in enumerate(modes)
+            if abs(int(n_mode)) == dominant_abs_n
+        ]
+        if len(dom_mode_inds) > 0:
+            i_dom_mode = dom_mode_inds[int(np.argmax(amp_by_mode[dom_mode_inds]))]
+            dominant_mode = {
+                "m": int(modes[i_dom_mode][0]),
+                "n": int(modes[i_dom_mode][1]),
+                "abs_n": dominant_abs_n,
+                "amplitude_T": float(amp_by_mode[i_dom_mode]),
+            }
+
+    # Additional Br-only checks requested by user.
+    # 1) Mode with largest |Br| at selected contour
+    i_br_contour = int(np.argmax(np.abs(b_r_coeff[i_contour, :])))
+    mode_br_contour = {
+        "m": int(modes[i_br_contour][0]),
+        "n": int(modes[i_br_contour][1]),
+        "Br_at_contour_T": float(b_r_coeff[i_contour, i_br_contour]),
+        "abs_Br_at_contour_T": float(np.abs(b_r_coeff[i_contour, i_br_contour])),
+    }
+
+    # 2) Mode with largest peak |Br| over full radial profile
+    peak_abs_br_per_mode = np.max(np.abs(b_r_coeff), axis=0)
+    i_br_peak = int(np.argmax(peak_abs_br_per_mode))
+    mode_br_peak = {
+        "m": int(modes[i_br_peak][0]),
+        "n": int(modes[i_br_peak][1]),
+        "Br_peak_T": float(peak_abs_br_per_mode[i_br_peak]),
+        "psi_at_Br_peak": float(psi_plot[np.argmax(np.abs(b_r_coeff[:, i_br_peak]))]),
+    }
+
+    # Build diagnostic figure
+    plt.close("FAR3D_Mode_Spectrum")
+    fig, ax = plt.subplots(
+        1,
+        2,
+        num="FAR3D_Mode_Spectrum",
+        figsize=(10, 4),
+        tight_layout=True,
+    )
+
+    # Left panel: all B_r profiles; emphasize top-|n| groups with color
+    color_map_by_abs_n = {}
+    for i_n, n_abs in enumerate(top_n_groups):
+        color_map_by_abs_n[int(n_abs)] = highlight_colors[i_n % len(highlight_colors)]
+
+    for i in range(ncols):
+        m_mode, n_mode = modes[i]
+        n_abs = abs(int(n_mode))
+        if n_abs in color_map_by_abs_n:
+            ax[0].plot(
+                psi_plot,
+                np.abs(b_r_coeff[:, i]),
+                color=color_map_by_abs_n[n_abs],
+                alpha=0.45,
+                lw=0.8,
+            )
+        else:
+            ax[0].plot(
+                psi_plot,
+                np.abs(b_r_coeff[:, i]),
+                color="tab:blue",
+                alpha=0.06,
+                lw=0.5,
+            )
+
+    # Overlay two requested Br diagnostic traces.
+    ax[0].plot(
+        psi_plot,
+        np.abs(b_r_coeff[:, i_br_contour]),
+        color="tab:purple",
+        lw=1.6,
+        alpha=0.95,
+        linestyle="-",
+        label=rf"max $|B_r|$ @ contour: m={mode_br_contour['m']}, n={mode_br_contour['n']}",
+        zorder=6,
+    )
+    ax[0].plot(
+        psi_plot,
+        np.abs(b_r_coeff[:, i_br_peak]),
+        color="tab:cyan",
+        lw=1.6,
+        alpha=0.95,
+        linestyle="--",
+        label=rf"max peak $|B_r|$: m={mode_br_peak['m']}, n={mode_br_peak['n']}",
+        zorder=6,
+    )
+
+    # Sign-aware logarithmic scale to reveal spatial decay while retaining negative values.
+    # abs_br = np.abs(b_r_coeff)
+    # nonzero_abs_br = abs_br[abs_br > 0]
+    # if nonzero_abs_br.size > 0:
+    #     linthresh = np.percentile(nonzero_abs_br, 10)
+    #     linthresh = max(linthresh, np.finfo(float).eps)
+    #     ax[0].set_yscale("symlog", linthresh=linthresh)
+    ax[0].set_yscale("log")
+
+    contour_label = r"$\psi$ contour"
+    ax[0].set_xlabel(r"$\bar{\psi}_{\mathrm{norm}}$")
+    ax[0].set_ylabel(r"$[|\tilde{B}_r/B_\phi|]$ ")
+    ax[0].set_title("All B_r Modes vs psi_norm")
+    ax[0].grid(alpha=0.25)
+
+    ax_q = None
+    q_at_contour = None
+    if q_profile_psi is not None and q_profile_vals is not None:
+        q_mask = np.isfinite(q_profile_psi) & np.isfinite(q_profile_vals)
+        if np.any(q_mask):
+            ax_q = ax[0].twinx()
+            ax_q.plot(
+                q_profile_psi[q_mask],
+                q_profile_vals[q_mask],
+                color="k",
+                linestyle="-.",
+                linewidth=1.2,
+                alpha=0.85,
+                label=r"$q(\bar{\psi}_{\mathrm{norm}})$",
+                zorder=7,
+            )
+            ax_q.set_ylabel(r"$q(\bar{\psi}_{\mathrm{norm}})$")
+            ax_q.tick_params(axis="y", colors="k")
+            q_at_contour = float(
+                np.interp(
+                    psi_plot[i_contour], q_profile_psi[q_mask], q_profile_vals[q_mask]
+                )
+            )
+            contour_label = rf"$\psi$ contour, $q={q_at_contour:.3f}$"
+
+    ax[0].axvline(
+        psi_plot[i_contour],
+        color="k",
+        linestyle=":",
+        linewidth=1.2,
+        label=contour_label,
+    )
+
+    for i_n, n_abs in enumerate(top_n_groups):
+        ax[0].plot(
+            [],
+            [],
+            color=highlight_colors[i_n % len(highlight_colors)],
+            lw=2,
+            label=rf"$|n|={int(n_abs)}$",
+        )
+    handles, labels = ax[0].get_legend_handles_labels()
+    if ax_q is not None:
+        handles_q, labels_q = ax_q.get_legend_handles_labels()
+        handles += handles_q
+        labels += labels_q
+    ax[0].legend(handles, labels, fontsize=8)
+    if y_lim_Br is not None:
+        ax[0].set_ylim(y_lim_Br)
+
+    # Right panel: grouped field amplitude [T] at contour (sqrt of summed energy)
+    ax[1].bar(n_groups, a_groups, width=0.8, color="tab:orange", alpha=0.9)
+    ax[1].set_xlabel(r"$|n|$ group ($\pm n$ combined)")
+    ax[1].set_ylabel(r"$\sqrt{\sum_m (|B_r|^2 + |B_\theta|^2)}$ at contour [T]")
+    ax[1].set_title("Grouped Mode Amplitude vs |n| at Selected Contour")
+    ax[1].grid(alpha=0.25, axis="y")
+
+    # Annotate dominant |n| and retained fraction for fast interpretation
+    if len(n_groups) > 0:
+        i_peak = int(np.argmax(e_groups))
+        ax[1].text(
+            0.03,
+            0.97,
+            f"dominant {'$|n|$'}={n_groups[i_peak]}\nfrac={e_frac[i_peak]:.3f}",
+            transform=ax[1].transAxes,
+            va="top",
+            ha="left",
+            fontsize=8,
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75),
+        )
+
+    if dominant_mode is not None:
+        ax[1].text(
+            0.03,
+            0.78,
+            f"dominant {'$m$'}={dominant_mode['m']}\nfor n={dominant_mode['n']}",
+            transform=ax[1].transAxes,
+            va="top",
+            ha="left",
+            fontsize=8,
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75),
+        )
+
+    if doSave:
+        fig.savefig(
+            doSave + f"FAR3D_Mode_Spectrum_{br_file}_psi{psi_contour_select:.2f}.pdf",
+            transparent=True,
+        )
+        print(
+            f"Saved FAR3D mode spectrum plot to {doSave}FAR3D_Mode_Spectrum_{br_file}_psi{psi_contour_select:.2f}.pdf"
+        )
+
+    if show_plot:
+        plt.show()
+
+    return (
+        fig,
+        ax,
+        {
+            "psi_marker": psi_plot[i_contour],
+            "q_at_contour": q_at_contour,
+            "n_groups": n_groups,
+            "energy_by_n": e_groups,
+            "amplitude_by_n_T": a_groups,
+            "energy_fraction": e_frac,
+            "top_n_groups": top_n_groups,
+            "dominant_mode": dominant_mode,
+            "mode_br_max_at_contour": mode_br_contour,
+            "mode_br_max_peak": mode_br_peak,
+        },
+    )
 
 
 ##############################################33
@@ -1368,13 +1785,24 @@ if __name__ == "__main__":
     # sandbox()
     # plot_B(plot_directory='../output_plots/')
     # map_psi_to_equilibrium(plot_directory='../output_plots/')
-    convert_FAR3D_to_Bnorm(
+    # convert_FAR3D_to_Bnorm(
+    #     doSave="../output_plots/",
+    #     br_file="br_1074.bin",#"br_1002.bin",
+    #     bth_file="bth_1074.bin",#"bth_1002.bin",
+    #     lambda_merezhkin=0.4,
+    #     psi_contour_select=0.1,
+    #     m=None,#np.arange(1, 23),
+    #     n=None#14,
+    # )
+    plot_far3d_mode_spectrum(
+        br_file="br_1076.bin",
+        bth_file="bth_1076.bin",
+        psi_contour_select=0.3,
+        eqdsk_file="g1051202011.1000",
+        data_directory="../M3D-C1_Data/",
         doSave="../output_plots/",
-        br_file="br_1002.bin",
-        bth_file="bth_1002.bin",
-        lambda_merezhkin=0.4,
-        psi_contour_select=0.1,
-        m=np.arange(1, 23),
-        n=14,
+        show_plot=False,
+        highlight_top_n_groups=3,
+        y_lim_Br=[1e-12, 1e-3],
     )
     print("Finished")

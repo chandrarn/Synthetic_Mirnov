@@ -730,8 +730,8 @@ def plot_auc_detectability_multi_configuration(
             for xpos in separators:
                 ax.axvline(xpos, color='0.88', linewidth=0.8, zorder=0)
         ax.set_ylim(0.0, 1.05)
-        ax.set_ylabel('AUC detectability [norm]')
-        ax.set_xlabel('Mode label')
+        ax.set_ylabel(r'Detectability: $2\times (\mathrm{AUC}-\frac{1}{2})$')
+        ax.set_xlabel(r'$m/n$ Mode \#')
         ax.set_title(f'Per-mode detectability from pairwise linear-probe AUC{title_suffix}')
         ax.grid(True, axis='y', alpha=0.3)
 

@@ -1323,7 +1323,8 @@ def plot_diamagnetic_vs_q_times(
     f_lims_omega: list[float] = [-50, 50],
     f_lims_f: list[float] = [-15, 15],
     line: int = 2,
-    tht: int = 0
+    tht: int = 0,
+    max_err_omega: float = 10.0,
 ) -> None:
     """Production summary plot: pressure vs psi_n, combined drift frequencies vs q,
     and toroidal rotation (omega_tor) with error bars vs psi_n.
@@ -1409,6 +1410,12 @@ def plot_diamagnetic_vs_q_times(
             psi_hx_s = psi_hx_col[order_hx]
             omg_s = omg_col[order_hx] # kHz
             omg_err_s = omg_err_col[order_hx] 
+
+            # Filter out points with errors exceeding the maximum allowed value
+            valid_mask = omg_err_s <= max_err_omega
+            psi_hx_s = psi_hx_s[valid_mask]
+            omg_s = omg_s[valid_mask]
+            omg_err_s = omg_err_s[valid_mask]
             ax_omg.errorbar(
                 psi_hx_s, omg_s,
                 yerr=omg_err_s,
@@ -1605,7 +1612,12 @@ def parse_args() -> argparse.Namespace:
         help = "Diagnostic line name for HIREXSR MHD+ Tree (e.g. 'core', 'edge')"
     )
 
-
+    parser.add_argument(
+        "--max-omega-err",
+        type=float,
+        default=10.0,
+        help="Maximum allowed error in omega_* [kHz]"
+    )
 
     return parser.parse_args()
 
@@ -1630,7 +1642,8 @@ def main() -> None:
     )
 
     plot_diamagnetic_vs_q_times(result, profiles, equilibrium, args.shot, args.plot_times, \
-                                doSave=args.doSave, f_lims_omega=args.f_lims_omega, tht=args.tht, line=args.line)
+                                doSave=args.doSave, f_lims_omega=args.f_lims_omega, \
+                                    tht=args.tht, line=args.line, max_err_omega=args.max_omega_err)
 
 
 if __name__ == "__main__":

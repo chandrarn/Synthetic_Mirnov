@@ -25,7 +25,8 @@ warnings.filterwarnings('ignore')
 
 def CMOD_HXR_counts(shot, ch=np.arange(9, 24), t=np.arange(.5, 1.5, .1), e=[40, 200], data_dict=None, plot_Min=None, 
                    plot_Max=None, plot_ET=True, movie_ET=False, c_shield=0, 
-                   c_detector=0, analysis='keV', minDt=0.0, debug=True, debug_bins=False, savePlot=''):
+                   c_detector=0, analysis='keV', minDt=0.0, debug=True, debug_bins=False,
+                   savePlot='', force_two_rows=False):
     """
     Extract and process HXR count data from C-Mod tokamak.
     
@@ -61,6 +62,8 @@ def CMOD_HXR_counts(shot, ch=np.arange(9, 24), t=np.arange(.5, 1.5, .1), e=[40, 
         Print debug messages (default True)
     debug_bins : bool
         Print per-channel gridding diagnostics (default False)
+    force_two_rows : bool
+        If True, arrange E-T plots in two rows with as many columns as needed (default False)
     
     Returns
     -------
@@ -164,7 +167,11 @@ def CMOD_HXR_counts(shot, ch=np.arange(9, 24), t=np.arange(.5, 1.5, .1), e=[40, 
                 try:
                     baseline = conn.get(rf'\LH::TOP.HXR.RESULTS.BASELINEOLD:CH{ch_num:02d}').data()
                 except:
-                    baseline = conn.get(rf'\LH::TOP.HXR.RESULTS.BASELINE').data()
+                    try:
+                        baseline = conn.get(rf'\LH::TOP.HXR.RESULTS.BASELINE').data()
+                    except:
+                        baseline = 0
+                        print('WARNING: No Baseline Found')
                     
                 if value is not None and baseline is not None:
                     data[ch_num]['time'] = time_data
@@ -321,10 +328,16 @@ def CMOD_HXR_counts(shot, ch=np.arange(9, 24), t=np.arange(.5, 1.5, .1), e=[40, 
             plot_Max = np.log10(cmax + 1)
         
         n_channels = len(channels)
-        n_cols = int(np.ceil(np.sqrt(n_channels)))
-        n_rows = int(np.ceil(n_channels / n_cols))
+        if force_two_rows and n_channels > 1:
+            n_rows = 2
+            n_cols = int(np.ceil(n_channels / n_rows))
+            figsize = (max(12, 2.4 * n_cols), 8)
+        else:
+            n_cols = int(np.ceil(np.sqrt(n_channels)))
+            n_rows = int(np.ceil(n_channels / n_cols))
+            figsize = (12, 10)
         
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 10), sharex=True, sharey=True, layout='constrained')
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, sharex=True, sharey=True, layout='constrained')
         if n_channels == 1:
             axes = [axes]
         else:
@@ -500,7 +513,7 @@ def qgriddata(px, py, data, x_axis, y_axis, operation='sum'):
 
 if __name__ == '__main__':
     # Example usage
-    shot = 1110201006#1080219008
+    shot = 1110201006#1080219008 #1140613008#
     ch=np.arange(1, 32)
     t=np.arange(.5, 2, .05)
     e=np.arange(50,400, 10)
@@ -508,10 +521,12 @@ if __name__ == '__main__':
     plot_ET=True
     c_shield=0
 
+    ch = np.arange(1,17,dtype=int)
+
     # Simple call with defaults
     res, t, e, channels, f, M = CMOD_HXR_counts(shot=shot, analysis=analysis, plot_ET=plot_ET,\
                                                  c_shield=c_shield, ch=ch, t=t, e=e, debug=True, debug_bins=True,\
-                                                    savePlot='../output_plots/')
+                                                    savePlot='../output_plots/', force_two_rows=True)
     
     print(f"Processed shot {shot}")
     print(f"Result shape: {res.shape}")

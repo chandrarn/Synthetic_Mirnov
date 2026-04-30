@@ -46,6 +46,7 @@ def batch_run_synthetic_spectrogram(
     justLoadGeqdsk=False,
     gEQDSK_files_dir="input_data/gEQDSK_files/",
     one_of_each_mn=False,
+    prescribed_mn_pairs=None,
 ):
     """
     Batch run synthetic spectrogram generation for given parameters.
@@ -67,9 +68,13 @@ def batch_run_synthetic_spectrogram(
     - None
     """
 
+    effective_training_shots = (
+        len(prescribed_mn_pairs) if prescribed_mn_pairs is not None else training_shots
+    )
+
     # Generate frequencies and mode numbers
     per_shot_mode_params = gen_mode_params_for_training(
-        training_shots=training_shots,
+        training_shots=effective_training_shots,
         params=Mode_params,
         doPlot=doPlot * False,
         save_ext=save_Ext + "_",
@@ -77,6 +82,7 @@ def batch_run_synthetic_spectrogram(
         justLoadGeqdsk=justLoadGeqdsk,
         gEQDSK_files_dir=gEQDSK_files_dir,
         one_of_each_mn=one_of_each_mn,
+        prescribed_mn_pairs=prescribed_mn_pairs,
     )
 
     # Initialize OFT environment
@@ -524,7 +530,9 @@ if __name__ == "__main__":
     mesh_file = "SPARC_vv_prtmrv_noext.h5"
     # mesh_file ='SPARC_mirnov_plugwest_v2-homology.h5'
     # mesh_file = "vacuum_mesh.h5"
-    sensor_set = "SPARC_BP_MRNV"
+    # sensor_set = "SPARC_BP_MRNV"
+    sensor_set = "SPARC_MRNV"
+
     # This is a guess for now
     eta = "1.8E-5, 3.6E-5, 2.4E-5, 6.54545436E-5, 2.4E-5" + ", 2E-5, 2E-5"
 
@@ -538,7 +546,7 @@ if __name__ == "__main__":
         "wind_in": "theta",
         "file_geqdsk": "g1051202011.1000",
         "eta": eta,
-        "n_threads": 21,
+        "n_threads": 20,
     }
 
     Mode_params = {
@@ -560,13 +568,48 @@ if __name__ == "__main__":
 
     spectrogram_params = {"pad": 0, "fft_window": None, "block_reduce": (800, 10)}
     save_Ext = "_Synth_low-n_New_Helicity"
-    doSave = "../output_plots/low_m-n_spectrograms" * True
+    doSave = "../output_plots/low_m-n_spectrograms" * False
     doPlot = False
-    training_shots = 1
+    training_shots = 33
     doPerturbation = True
     justLoadGeqdsk = True
     gEQDSK_files_dir = "input_data/gEQDSK_files/SPARC/"
     one_of_each_mn = True
+    prescribed_mn_pairs = [
+        (8, 8),
+        (9, 9),
+        (14, 9),
+        (15, 10),
+        (17, 11),
+        (18, 12),
+        (20, 13),
+        (21, 14),
+        (23, 15),
+        (10, 5),
+        (12, 6),
+        (14, 7),
+        (16, 8),
+        (18, 9),
+        (20, 10),
+        (22, 11),
+        (24, 12),
+        (26, 13),
+        (28, 14),
+        (30, 15),
+        (9, 3),
+        (12, 4),
+        (15, 5),
+        (18, 6),
+        (21, 7),
+        (24, 8),
+        (27, 9),
+        (30, 10),
+        (33, 11),
+        (36, 12),
+        (39, 13),
+        (42, 14),
+        (45, 15),
+    ]
 
     batch_run_synthetic_spectrogram(
         output_directory=output_directory,
@@ -581,6 +624,7 @@ if __name__ == "__main__":
         justLoadGeqdsk=justLoadGeqdsk,
         gEQDSK_files_dir=gEQDSK_files_dir,
         one_of_each_mn=one_of_each_mn,
+        prescribed_mn_pairs=prescribed_mn_pairs,
     )
 
     print("Done batch running synthetic spectrograms")

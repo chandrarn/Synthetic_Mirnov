@@ -403,7 +403,7 @@ if __name__ == '__main__':
 
     comparison_sensor_names =['BP02_GHK', 'BP1T_ABK']
 
-    doSave=True
+    doSave=False
 
     saveExt = f'_{synthDataFileNameInfo['file_geqdsk']}_f_{synthDataFileNameInfo['f']*1e-3:1.0f}kHz_n={synthDataFileNameInfo["n"]}'+\
         f'_rho={synthDataFileNameInfo["rho"]:1.1f}_lambda={synthDataFileNameInfo["lambda_merezhkin"]:1.2f}'+\

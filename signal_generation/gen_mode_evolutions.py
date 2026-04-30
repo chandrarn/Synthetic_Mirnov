@@ -111,6 +111,7 @@ def gen_mode_params_for_training(
     justLoadGeqdsk=False,
     gEQDSK_files_dir="input_data/gEQDSK_files/",
     one_of_each_mn=True,
+    prescribed_mn_pairs=None,
 ):
     """
     Generate mode parameters for training.
@@ -122,6 +123,11 @@ def gen_mode_params_for_training(
     """
 
     params_per_shot = []  # Empty list: will contain dicts for each shot
+
+    if prescribed_mn_pairs is not None:
+        if len(prescribed_mn_pairs) == 0:
+            raise ValueError("prescribed_mn_pairs was provided but is empty")
+        training_shots = len(prescribed_mn_pairs)
 
     # Load the coorect number of gEQDSK files
     gEQDSK_files = __build_geqdsks(training_shots, justLoad=justLoadGeqdsk)
@@ -149,18 +155,25 @@ def gen_mode_params_for_training(
 
         # Generate up to 5 modes per shot
         try:
-            params["m"], params["n"], plausible_mode_pairs = __get_plausible_mn_values(
-                gEQDSK_file=params["file_geqdsk"],
-                max_modes=params["max_modes"],
-                max_n=params["max_n"],
-                max_m=params["max_m"],
-            )
+            if prescribed_mn_pairs is not None:
+                m_val, n_val = prescribed_mn_pairs[shot_ind]
+                params["m"] = [int(m_val)]
+                params["n"] = [int(n_val)]
+            else:
+                params["m"], params["n"], plausible_mode_pairs = (
+                    __get_plausible_mn_values(
+                        gEQDSK_file=params["file_geqdsk"],
+                        max_modes=params["max_modes"],
+                        max_n=params["max_n"],
+                        max_m=params["max_m"],
+                    )
+                )
 
-            if one_of_each_mn:
-                # Just pick modes sequentially
-                params["m"], params["n"] = plausible_mode_pairs[shot_ind]
-                params["m"] = [int(params["m"])]
-                params["n"] = [int(params["n"])]
+                if one_of_each_mn:
+                    # Just pick modes sequentially
+                    params["m"], params["n"] = plausible_mode_pairs[shot_ind]
+                    params["m"] = [int(params["m"])]
+                    params["n"] = [int(params["n"])]
         except Exception:
             continue  # If fail to get plausible m/n values, skip this shot
 
