@@ -546,7 +546,7 @@ if __name__ == "__main__":
         "wind_in": "theta",
         "file_geqdsk": "g1051202011.1000",
         "eta": eta,
-        "n_threads": 20,
+        "n_threads": 50,
     }
 
     Mode_params = {
@@ -561,7 +561,7 @@ if __name__ == "__main__":
         "max_modes": 1,
         "max_m": 16,
         "max_n": np.arange(2, 7, dtype=int),
-        "n_threads": 20,
+        "n_threads": 50,
     }
 
     # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
