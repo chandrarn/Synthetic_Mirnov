@@ -18,7 +18,7 @@ cd "$(dirname "$0")"
 
 echo "Starting batch_run_synthetic_spectrogram at $(date)"
 echo "Running on host: $(hostname)"
-echo "CPUs available: $SLURM_CPUS_PER_TASK"
+echo "CPUs available: ${SLURM_CPUS_PER_TASK:-unset}"
 
 mkdir -p ../slurm_logs
 
