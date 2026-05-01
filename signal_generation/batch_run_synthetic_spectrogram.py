@@ -47,6 +47,7 @@ def batch_run_synthetic_spectrogram(
     gEQDSK_files_dir="input_data/gEQDSK_files/",
     one_of_each_mn=False,
     prescribed_mn_pairs=None,
+    doSave_Training_Data=False,
 ):
     """
     Batch run synthetic spectrogram generation for given parameters.
@@ -154,9 +155,10 @@ def batch_run_synthetic_spectrogram(
                 sensor_name,
             )
 
-            convert_spectrogram_to_training_data(
-                xarray_file, timepoint_index=2, doSave=doSave, doPlot=doPlot
-            )
+            if doSave_Training_Data:
+                convert_spectrogram_to_training_data(
+                    xarray_file, timepoint_index=2, doSave=doSave, doPlot=doPlot
+                )
         # except Exception as e:
         #     print(f"Error occurred for mode {mode_param['m']}/{mode_param['n']} at frequency {mode_param['f']} Hz: {e}")
         #     continue
@@ -216,7 +218,7 @@ def save_xarray_results(
         )
 
     # Generate filename
-    fName = f"spectrogram_mn_{mn_out}_f_{f_out}_{ThinCurr_params['sensor_set']}_{ThinCurr_params['mesh_file']}_{save_Ext}_Count_{current_files + 1}.nc"
+    fName = f"spectrogram_mn_{mn_out}_f_{f_out}_{ThinCurr_params['sensor_set']}_{ThinCurr_params['mesh_file'][:-2]}_{save_Ext}_Count_{current_files + 1}.nc"
 
     f_save = os.path.join(output_directory, fName)
 
@@ -568,7 +570,7 @@ if __name__ == "__main__":
 
     spectrogram_params = {"pad": 0, "fft_window": None, "block_reduce": (800, 10)}
     save_Ext = "_Synth_low-n_New_Helicity"
-    doSave = "../output_plots/low_m-n_spectrograms" * False
+    doSave = "../output_plots/low_m-n_spectrograms" * True
     doPlot = False
     training_shots = 33
     doPerturbation = True
