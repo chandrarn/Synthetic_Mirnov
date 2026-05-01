@@ -5,22 +5,30 @@
 #SBATCH --cpus-per-task=50
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=8:00:00
-#SBATCH --output=../slurm_logs/synth_mirnov_%j.out
-#SBATCH --error=../slurm_logs/synth_mirnov_%j.err
+#SBATCH --output=slurm_logs/synth_mirnov_%j.out
+#SBATCH --error=slurm_logs/synth_mirnov_%j.err
 
-set -euo pipefail
+set -eo pipefail
+
+# If not already running inside a SLURM job, re-submit via sbatch and exit
+if [[ -z "${SLURM_JOB_ID:-}" ]]; then
+    echo "Not running under SLURM — submitting via sbatch..."
+    sbatch "$0"
+    exit $?
+fi
 
 # Activate virtual environment
 source ~/venv/bin/activate
-
-# Run from signal_generation/ so relative paths (input_data/, training_data/, etc.) resolve correctly
-cd "$(dirname "$0")"
 
 echo "Starting batch_run_synthetic_spectrogram at $(date)"
 echo "Running on host: $(hostname)"
 echo "CPUs available: ${SLURM_CPUS_PER_TASK:-unset}"
 
-mkdir -p ../slurm_logs
+# Create log dir relative to submission directory (SLURM_SUBMIT_DIR is set by sbatch)
+mkdir -p "${SLURM_SUBMIT_DIR}/slurm_logs"
+
+# Run from signal_generation/ so relative paths (input_data/, training_data/, etc.) resolve correctly
+cd "${SLURM_SUBMIT_DIR}/signal_generation"
 
 python batch_run_synthetic_spectrogram.py
 
