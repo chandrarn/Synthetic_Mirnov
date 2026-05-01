@@ -506,6 +506,16 @@ def _parse_mode_label(mode_label):
         return None
 
 
+def _normalise_mode_label(entry):
+    """Convert a mode entry to the canonical 'm/n' string.
+
+    Accepts either a string ``'m/n'`` or a tuple/list ``(m, n)``.
+    """
+    if isinstance(entry, (tuple, list)) and len(entry) == 2:
+        return f'{int(entry[0])}/{int(entry[1])}'
+    return str(entry)
+
+
 def _sort_mode_labels(mode_labels):
     """Sort mode labels by toroidal n then poloidal m for consistent plotting order."""
     def _key(label):
@@ -562,8 +572,17 @@ def compute_auc_detectability_for_configuration(
     n_datasets=-1,
     force_rebuild_cache=False,
     allow_rebuild_missing_cache=True,
+    mode_subset=None,
 ):
-    """Compute per-mode AUC detectability for a single sensor/frequency-gap configuration."""
+    """Compute per-mode AUC detectability for a single sensor/frequency-gap configuration.
+
+    Parameters
+    ----------
+    mode_subset : list of str, optional
+        If provided, only samples whose label is in this set are included when
+        computing pairwise AUC.  This makes the distinguishability scores reflect
+        only confusion *within* the chosen subset of modes.
+    """
     out_path, out_path_features, save_ext = _shared_cache_paths(
         data_dir,
         geometry_shot,
@@ -578,6 +597,8 @@ def compute_auc_detectability_for_configuration(
         f"AUC detectability config: geometry={geometry_shot}, "
         f"include_frequency_gap={include_frequency_gap}, force_rebuild_cache={force_rebuild_cache}"
     )
+    if mode_subset is not None:
+        print(f"   mode_subset active: {mode_subset}")
 
     results = load_and_compute_separability(
         data_dir=data_dir,
@@ -594,6 +615,17 @@ def compute_auc_detectability_for_configuration(
     )
     features_flat = results['features_flat']
     y = results['y']
+
+    # Restrict to mode_subset if requested
+    if mode_subset is not None:
+        subset_set = set(str(m) for m in mode_subset)
+        mask = np.array([str(label) in subset_set for label in y])
+        features_flat = features_flat[mask]
+        y = y[mask]
+        if len(y) == 0:
+            raise ValueError(
+                f"mode_subset={mode_subset} matched no samples in dataset at {out_path}."
+            )
 
     le = LabelEncoder()
     classes = le.fit(y).classes_
@@ -625,15 +657,33 @@ def plot_auc_detectability_multi_configuration(
     allow_rebuild_missing_cache=True,
     split_into_two_subplots=False,
     split_index=None,
+    mode_groups=None,
+    mode_group_labels=None,
 ):
-    
+    """Compare per-mode AUC detectability across multiple sensor/frequency-gap configurations.
 
-    """Compare per-mode AUC detectability across multiple sensor/frequency-gap configurations."""
+    Parameters
+    ----------
+    mode_groups : list of list of str, optional
+        Explicit grouping and ordering of modes for the plot, e.g.::
+
+            [['1/1', '2/2', '3/3'], ['2/1', '4/2', '6/3']]
+
+        The flat union of all groups defines which modes are included in the
+        distinguishability computation (AUC is computed only within that subset).
+        Modes are plotted in the order they appear across the groups, with each
+        group visually separated by a tinted background band.
+        When *None* (default), all modes found in the data are used in default
+        sorted order.
+    mode_group_labels : list of str, optional
+        Display label for each group in *mode_groups*.  Falls back to
+        ``'Group 1'``, ``'Group 2'``, … when not supplied.
+    """
     configs = [
         {
             'name': r'MRNV all + $v_\phi$',
             'geometry_shot': ['MRNV'],
-            'include_frequency_gap': True,
+            'include_frequency_gap': False,
             'color': '#1f77b4',
             'force_rebuild': force_rebuild_all,
         },
@@ -643,28 +693,54 @@ def plot_auc_detectability_multi_configuration(
                        'MRNV_160M_H3', 'MRNV_160M_H4', 'MRNV_160M_H5',\
                           'MRNV_340M_H1', 'MRNV_340M_H2', 'MRNV_340M_H3',\
                               'MRNV_340M_H4', 'MRNV_340M_H5'],
-            'include_frequency_gap': True,
+            'include_frequency_gap': False,
             'color': '#2ca02c',
             'force_rebuild': force_rebuild_all,
         },
-        {
-            'name': r'MRNV vertical + $v_\phi$',
-            'geometry_shot': ['MRNV_160M_V1', 'MRNV_160M_V2', 'MRNV_160M_V3',\
-                               'MRNV_160M_V4', 'MRNV_160M_V5',
-                              'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3',\
-                                  'MRNV_340M_V4', 'MRNV_340M_V5'],
-            'include_frequency_gap': True,
-            'color': '#ff7f0e',
-            'force_rebuild': force_rebuild_all,
-        },
-        {
-            'name': r'MRNV all (no $v_\phi$-info)',
-            'geometry_shot': ['MRNV'],
-            'include_frequency_gap': False,
-            'color': '#d62728',
-            'force_rebuild': force_rebuild_all or force_rebuild_no_gap,
-        },
+        # {
+        #     'name': r'MRNV vertical + $v_\phi$',
+        #     'geometry_shot': ['MRNV_160M_V1', 'MRNV_160M_V2', 'MRNV_160M_V3',\
+        #                        'MRNV_160M_V4', 'MRNV_160M_V5',
+        #                       'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3',\
+        #                           'MRNV_340M_V4', 'MRNV_340M_V5'],
+        #     'include_frequency_gap': False,
+        #     'color': '#ff7f0e',
+        #     'force_rebuild': force_rebuild_all,
+        # },
+        # {
+        #     'name': r'MRNV all (no $v_\phi$-info)',
+        #     'geometry_shot': ['MRNV'],
+        #     'include_frequency_gap': False,
+        #     'color': '#d62728',
+        #     'force_rebuild': force_rebuild_all or force_rebuild_no_gap,
+        # },
     ]
+
+    # ------------------------------------------------------------------ #
+    # Build ordered mode list and group metadata                          #
+    # ------------------------------------------------------------------ #
+    if mode_groups is not None:
+        modes_sorted = []
+        _seen_modes = set()
+        _group_info = []  # list of (global_start, global_end, label)
+        for _g_idx, _grp in enumerate(mode_groups):
+            _g_start = len(modes_sorted)
+            for _m in _grp:
+                _ms = _normalise_mode_label(_m)
+                if _ms not in _seen_modes:
+                    modes_sorted.append(_ms)
+                    _seen_modes.add(_ms)
+            _g_end = len(modes_sorted)
+            _g_label = (
+                mode_group_labels[_g_idx]
+                if mode_group_labels and _g_idx < len(mode_group_labels)
+                else f'Group {_g_idx + 1}'
+            )
+            _group_info.append((_g_start, _g_end, _g_label))
+        mode_subset = modes_sorted  # restrict AUC computation to this set
+    else:
+        mode_subset = None
+        _group_info = None
 
     config_results = {}
     all_modes = set()
@@ -683,11 +759,15 @@ def plot_auc_detectability_multi_configuration(
             n_datasets=n_datasets,
             force_rebuild_cache=cfg['force_rebuild'],
             allow_rebuild_missing_cache=allow_rebuild_missing_cache,
+            mode_subset=mode_subset,
         )
         config_results[cfg['name']] = result
         all_modes.update([str(mode) for mode in result['classes']])
 
-    modes_sorted = _sort_mode_labels(list(all_modes))
+    if mode_groups is None:
+        modes_sorted = _sort_mode_labels(list(all_modes))
+    # else modes_sorted already built from mode_groups above
+
     n_cfg = len(configs)
     n_modes = len(modes_sorted)
     score_grid = np.full((n_cfg, n_modes), np.nan, dtype=np.float64)
@@ -698,17 +778,44 @@ def plot_auc_detectability_multi_configuration(
             if mode in detectability_map:
                 score_grid[i, j] = detectability_map[mode]
 
+    # Pastel background colors cycling across groups
+    _GROUP_BG_COLORS = [
+        '#d4e6f1', '#fde8d8', '#d5f5e3', '#f9ebea',
+        '#e8daef', '#fdfcd9', '#d6eaf8', '#fdebd0',
+    ]
+
     group_width = 0.86
     group_gap = 0.36
     bar_width = group_width / max(1, n_cfg)
     centers = np.arange(n_cfg, dtype=np.float64) - (n_cfg - 1) / 2.0
     offsets = centers * bar_width
 
-    def _plot_mode_slice(ax, start, end, title_suffix=''):
+    def _plot_mode_slice(ax, start, end):
         modes_slice = modes_sorted[start:end]
         scores_slice = score_grid[:, start:end]
         n_modes_slice = len(modes_slice)
         x = np.arange(n_modes_slice, dtype=np.float64) * (group_width + group_gap)
+        half_step = (group_width + group_gap) / 2.0
+
+        # Draw group background bands behind everything
+        if _group_info is not None:
+            for _g_idx, (_g_start, _g_end, _g_label) in enumerate(_group_info):
+                # Translate global group indices into slice-local indices
+                local_start = max(_g_start, start) - start
+                local_end = min(_g_end, end) - start
+                if local_end <= local_start:
+                    continue
+                x_left = x[local_start] - half_step
+                x_right = x[local_end - 1] + half_step
+                bg_color = _GROUP_BG_COLORS[_g_idx % len(_GROUP_BG_COLORS)]
+                ax.axvspan(x_left, x_right, alpha=0.35, color=bg_color, zorder=0, linewidth=0)
+                # Label placed inside the band, near the bottom-left corner
+                ax.text(
+                    x_left + 0.02 * (x_right - x_left), 0.03, _g_label,
+                    ha='left', va='bottom', fontsize=8, color='0.30',
+                    transform=ax.get_xaxis_transform(),
+                    style='italic',
+                )
 
         for i, cfg in enumerate(configs):
             x_offset = x + offsets[i]
@@ -732,10 +839,11 @@ def plot_auc_detectability_multi_configuration(
         ax.set_ylim(0.0, 1.05)
         ax.set_ylabel(r'Detectability: $2\times (\mathrm{AUC}-\frac{1}{2})$')
         ax.set_xlabel(r'$m/n$ Mode \#')
-        ax.set_title(f'Per-mode detectability from pairwise linear-probe AUC{title_suffix}')
         ax.grid(True, axis='y', alpha=0.3)
 
         return np.any(np.isnan(scores_slice))
+
+    shared_title = 'Per-mode detectability from pairwise linear-probe AUC'
 
     if split_into_two_subplots and n_modes > 1:
         if split_index is None:
@@ -749,9 +857,10 @@ def plot_auc_detectability_multi_configuration(
             tight_layout=True,
             sharey=True,
         )
+        fig.suptitle(shared_title)
 
-        has_nan_top = _plot_mode_slice(ax_top, 0, split_index, title_suffix=' (modes part 1)')
-        has_nan_bottom = _plot_mode_slice(ax_bottom, split_index, n_modes, title_suffix=' (modes part 2)')
+        has_nan_top = _plot_mode_slice(ax_top, 0, split_index)
+        has_nan_bottom = _plot_mode_slice(ax_bottom, split_index, n_modes)
         ax_top.legend(loc='best', framealpha=0.9)
         if has_nan_top or has_nan_bottom:
             ax_bottom.text(
@@ -764,6 +873,7 @@ def plot_auc_detectability_multi_configuration(
             )
     else:
         fig, ax = plt.subplots(figsize=(max(10, 0.9 * n_modes), 6), tight_layout=True)
+        ax.set_title(shared_title)
         has_nan = _plot_mode_slice(ax, 0, n_modes)
         ax.legend(loc='best', framealpha=0.9)
         if has_nan:
@@ -777,7 +887,8 @@ def plot_auc_detectability_multi_configuration(
             )
 
     split_tag = '_2panel' if (split_into_two_subplots and n_modes > 1) else ''
-    saveExt = f"_{use_mode}_{num_timepoints}_{n_datasets}_multi_cfg_auc{split_tag}"
+    grp_tag = f'_grp{len(mode_groups)}' if mode_groups is not None else ''
+    saveExt = f"_{use_mode}_{num_timepoints}_{n_datasets}_multi_cfg_auc{split_tag}{grp_tag}"
     if doSave:
         out_path = f'../output_plots/feature_detectability_auc_bar{saveExt}.pdf'
         plt.savefig(out_path, transparent=True, bbox_inches='tight')
@@ -800,6 +911,12 @@ def run_multi_configuration_auc_detectability_diagnostic():
     num_timepoints = 100
     doSave = True
 
+    # Example: group modes by resonant surface (q=1 and q=2)
+    mode_groups = [['1/1', '2/2', '3/3'], ['2/1', '4/2', '6/3']]
+    mode_group_labels = [r'$q=1$ surface', r'$q=2$ surface']
+    # mode_groups = None
+    # mode_group_labels = None
+
     results = plot_auc_detectability_multi_configuration(
         data_dir=data_dir,
         use_mode=use_mode,
@@ -810,6 +927,8 @@ def run_multi_configuration_auc_detectability_diagnostic():
         force_rebuild_no_gap=False,
         allow_rebuild_missing_cache=True,
         split_into_two_subplots=True,
+        mode_groups=mode_groups,
+        mode_group_labels=mode_group_labels,
     )
 
     print("\n" + "=" * 70)
