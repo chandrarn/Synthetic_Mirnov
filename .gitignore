@@ -16,3 +16,4 @@ g1*
 g9*
 *.svg
 signal_generation/openfusiontoolkit
+slurm_logs/
