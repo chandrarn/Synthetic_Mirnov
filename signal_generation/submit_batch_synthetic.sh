@@ -33,6 +33,6 @@ mkdir -p "${SLURM_SUBMIT_DIR}/slurm_logs"
 # Run from signal_generation/ so relative paths (input_data/, training_data/, etc.) resolve correctly
 cd "${SLURM_SUBMIT_DIR}/signal_generation"
 
-python batch_run_synthetic_spectrogram.py
+python -u batch_run_synthetic_spectrogram.py
 
 echo "Finished at $(date)"

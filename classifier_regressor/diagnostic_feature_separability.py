@@ -137,7 +137,8 @@ def compute_pairwise_linear_probe_auc(features_flat, y, classes, cv_splits=5, ra
 def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt, geometry_shot,\
                                    use_mode, num_timepoints, n_datasets, forceReload,
                                    include_frequency_gap=True,
-                                   allow_rebuild_missing_cache=False):
+                                   allow_rebuild_missing_cache=False,
+                                   desired_mode_labels=None):
     """Load data, compute t-SNE features, and evaluate separability metrics."""
 
 
@@ -177,15 +178,19 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
                 data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
                 geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1,
                 n_datasets=n_datasets, load_saved_data=True, visualize_first=False,
-                doVisualize=False, saveDataset=False, include_frequency_gap=include_frequency_gap)
+                doVisualize=False, saveDataset=False, include_frequency_gap=include_frequency_gap,
+                desired_mode_labels=desired_mode_labels)
             X_ri, y, y_m, y_n, sensor_names, theta, phi = result
             y_enc = np.array(le.fit_transform(y))
             diff_features_scaled, scaler = fit_and_apply_scaler(
                 X_ri, theta, phi, do_fgap=include_frequency_gap
             )
             features_flat = diff_features_scaled.reshape(len(diff_features_scaled), -1)
-            np.savez(out_path_features, features_2d=features_2d, features_flat=features_flat, y=y, y_m=y_m, y_n=y_n)
-            print(f"Saved updated features with flattened data to: {out_path_features}")
+            if desired_mode_labels is None:
+                np.savez(out_path_features, features_2d=features_2d, features_flat=features_flat, y=y, y_m=y_m, y_n=y_n)
+                print(f"Saved updated features with flattened data to: {out_path_features}")
+            else:
+                print("Subset mode filter active; skipping feature-cache overwrite for shared cache path")
     else:
         print(f"\n1. Loading dataset from cache...")
         if (not has_dataset_cache) and (not forceReload) and (not allow_rebuild_missing_cache):
@@ -198,8 +203,10 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
             data_dir=data_dir, out_path=out_path, use_mode=use_mode, include_geometry=True,
             geometry_shot=geometry_shot, num_timepoints=num_timepoints, freq_tolerance=0.1,
             n_datasets=n_datasets, load_saved_data=True, visualize_first=False,
-            doVisualize=False, saveDataset=(forceReload or allow_rebuild_missing_cache),
-            include_frequency_gap=include_frequency_gap)
+            doVisualize=False,
+            saveDataset=((forceReload or allow_rebuild_missing_cache) and (desired_mode_labels is None)),
+            include_frequency_gap=include_frequency_gap,
+            desired_mode_labels=desired_mode_labels)
         X_ri, y, y_m, y_n, sensor_names, theta, phi = result
 
         y_enc = np.array(le.fit_transform(y))
@@ -223,7 +230,10 @@ def load_and_compute_separability(data_dir, out_path, out_path_features, saveExt
         tsne = TSNE(n_components=2, random_state=42, perplexity=100, max_iter=1000, verbose=1)
         features_2d = tsne.fit_transform(features_flat)
         print(f"   t-SNE complete: shape={features_2d.shape}")
-        np.savez(out_path_features, features_2d=features_2d, features_flat=features_flat, y=y, y_m=y_m, y_n=y_n)
+        if desired_mode_labels is None:
+            np.savez(out_path_features, features_2d=features_2d, features_flat=features_flat, y=y, y_m=y_m, y_n=y_n)
+        else:
+            print("Subset mode filter active; skipping feature-cache overwrite for shared cache path")
 
     classes = le.classes_
     print(f"\n5. Computing class statistics in t-SNE space...")
@@ -581,7 +591,8 @@ def compute_auc_detectability_for_configuration(
     mode_subset : list of str, optional
         If provided, only samples whose label is in this set are included when
         computing pairwise AUC.  This makes the distinguishability scores reflect
-        only confusion *within* the chosen subset of modes.
+        only confusion *within* the chosen subset of modes. During cache rebuild,
+        this list is also used to pre-filter files by dataset-level mode labels.
     """
     out_path, out_path_features, save_ext = _shared_cache_paths(
         data_dir,
@@ -612,16 +623,18 @@ def compute_auc_detectability_for_configuration(
         forceReload=force_rebuild_cache,
         include_frequency_gap=include_frequency_gap,
         allow_rebuild_missing_cache=allow_rebuild_missing_cache,
+        desired_mode_labels=mode_subset,
     )
     features_flat = results['features_flat']
     y = results['y']
 
     # Restrict to mode_subset if requested
     if mode_subset is not None:
-        subset_set = set(str(m) for m in mode_subset)
-        mask = np.array([str(label) in subset_set for label in y])
+        subset_set = set(_normalise_mode_label(m) for m in mode_subset)
+        y_norm = np.array([_normalise_mode_label(label) for label in y], dtype=str)
+        mask = np.array([label in subset_set for label in y_norm])
         features_flat = features_flat[mask]
-        y = y[mask]
+        y = y_norm[mask]
         if len(y) == 0:
             raise ValueError(
                 f"mode_subset={mode_subset} matched no samples in dataset at {out_path}."
@@ -681,14 +694,14 @@ def plot_auc_detectability_multi_configuration(
     """
     configs = [
         {
-            'name': r'MRNV all + $v_\phi$',
+            'name': r'MRNV all',
             'geometry_shot': ['MRNV'],
             'include_frequency_gap': False,
             'color': '#1f77b4',
             'force_rebuild': force_rebuild_all,
         },
         {
-            'name': r'MRNV horizontal + $v_\phi$',
+            'name': r'MRNV horizontal',
             'geometry_shot': [ 'MRNV_160M_H1', 'MRNV_160M_H2', 
                        'MRNV_160M_H3', 'MRNV_160M_H4', 'MRNV_160M_H5',\
                           'MRNV_340M_H1', 'MRNV_340M_H2', 'MRNV_340M_H3',\
@@ -697,16 +710,16 @@ def plot_auc_detectability_multi_configuration(
             'color': '#2ca02c',
             'force_rebuild': force_rebuild_all,
         },
-        # {
-        #     'name': r'MRNV vertical + $v_\phi$',
-        #     'geometry_shot': ['MRNV_160M_V1', 'MRNV_160M_V2', 'MRNV_160M_V3',\
-        #                        'MRNV_160M_V4', 'MRNV_160M_V5',
-        #                       'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3',\
-        #                           'MRNV_340M_V4', 'MRNV_340M_V5'],
-        #     'include_frequency_gap': False,
-        #     'color': '#ff7f0e',
-        #     'force_rebuild': force_rebuild_all,
-        # },
+        {
+            'name': r'MRNV vertical',
+            'geometry_shot': ['MRNV_160M_V1', 'MRNV_160M_V2', 'MRNV_160M_V3',\
+                               'MRNV_160M_V4', 'MRNV_160M_V5',
+                              'MRNV_340M_V1', 'MRNV_340M_V2', 'MRNV_340M_V3',\
+                                  'MRNV_340M_V4', 'MRNV_340M_V5'],
+            'include_frequency_gap': False,
+            'color': '#ff7f0e',
+            'force_rebuild': force_rebuild_all,
+        },
         # {
         #     'name': r'MRNV all (no $v_\phi$-info)',
         #     'geometry_shot': ['MRNV'],
@@ -778,6 +791,11 @@ def plot_auc_detectability_multi_configuration(
             if mode in detectability_map:
                 score_grid[i, j] = detectability_map[mode]
 
+    # Use a single reference configuration for worst-pair annotation text.
+    # This keeps one label per mode and avoids clutter from per-config annotations.
+    worst_pair_reference_cfg = configs[0]['name']
+    worst_pair_map = config_results[worst_pair_reference_cfg]['worst_auc_partners']
+
     # Pastel background colors cycling across groups
     _GROUP_BG_COLORS = [
         '#d4e6f1', '#fde8d8', '#d5f5e3', '#f9ebea',
@@ -809,10 +827,10 @@ def plot_auc_detectability_multi_configuration(
                 x_right = x[local_end - 1] + half_step
                 bg_color = _GROUP_BG_COLORS[_g_idx % len(_GROUP_BG_COLORS)]
                 ax.axvspan(x_left, x_right, alpha=0.35, color=bg_color, zorder=0, linewidth=0)
-                # Label placed inside the band, near the bottom-left corner
+                # Label placed inside the band, upper-left area for readability.
                 ax.text(
-                    x_left + 0.02 * (x_right - x_left), 0.03, _g_label,
-                    ha='left', va='bottom', fontsize=8, color='0.30',
+                    x_left + 0.03 * (x_right - x_left), 0.78, _g_label,
+                    ha='left', va='center', fontsize=12, fontweight='bold', color='0.25',
                     transform=ax.get_xaxis_transform(),
                     style='italic',
                 )
@@ -840,6 +858,24 @@ def plot_auc_detectability_multi_configuration(
         ax.set_ylabel(r'Detectability: $2\times (\mathrm{AUC}-\frac{1}{2})$')
         ax.set_xlabel(r'$m/n$ Mode \#')
         ax.grid(True, axis='y', alpha=0.3)
+
+        # Restore text annotation for each mode's worst pairwise discriminant.
+        for j, mode in enumerate(modes_slice):
+            partner = worst_pair_map.get(mode, None)
+            if partner is None:
+                continue
+            ax.text(
+                x[j],
+                0.60,
+                f"worst: {partner}",
+                ha='center',
+                va='bottom',
+                rotation=90,
+                fontsize=6,
+                color='0.2',
+                bbox=dict(facecolor='white', alpha=0.60, edgecolor='none', pad=0.4),
+                zorder=5,
+            )
 
         return np.any(np.isnan(scores_slice))
 
@@ -871,6 +907,16 @@ def plot_auc_detectability_multi_configuration(
                 fontsize=9,
                 alpha=0.8,
             )
+        ax_bottom.text(
+            0.99,
+            0.01,
+            f'Worst-pair text from {worst_pair_reference_cfg}',
+            transform=ax_bottom.transAxes,
+            ha='right',
+            va='bottom',
+            fontsize=8,
+            alpha=0.8,
+        )
     else:
         fig, ax = plt.subplots(figsize=(max(10, 0.9 * n_modes), 6), tight_layout=True)
         ax.set_title(shared_title)
@@ -885,6 +931,16 @@ def plot_auc_detectability_multi_configuration(
                 fontsize=9,
                 alpha=0.8,
             )
+        ax.text(
+            0.99,
+            0.01,
+            f'Worst-pair text from {worst_pair_reference_cfg}',
+            transform=ax.transAxes,
+            ha='right',
+            va='bottom',
+            fontsize=8,
+            alpha=0.8,
+        )
 
     split_tag = '_2panel' if (split_into_two_subplots and n_modes > 1) else ''
     grp_tag = f'_grp{len(mode_groups)}' if mode_groups is not None else ''
@@ -912,8 +968,14 @@ def run_multi_configuration_auc_detectability_diagnostic():
     doSave = True
 
     # Example: group modes by resonant surface (q=1 and q=2)
-    mode_groups = [['1/1', '2/2', '3/3'], ['2/1', '4/2', '6/3']]
-    mode_group_labels = [r'$q=1$ surface', r'$q=2$ surface']
+    # mode_groups = [['1/1', '2/2', '3/3'], ['2/1', '4/2', '6/3']]
+    mode_groups = [
+        ['1/1', '2/2','3/3','4/4','5/5','6/6','7/7','8/8','9/9','10/10','11/11','13/13','14/14','15/15'],
+        [ '3/2', '5/3','6/4','8/5','9/6','11/7','12/8','14/9','15/10','17/11','18/12','20/13','21/14','23/15'],
+        [ '2/1','4/2','6/3','8/4','10/5','12/6','14/7','18/9', '20/10','22/11','24/12','26/13','28/14','30/15'],
+        ['3/1', '6/2','9/3', '12/4','15/5', '18/6','21/7','24/8','27/9','30/10','33/11','36/12','39/13','42/14','45/15']
+    ]
+    mode_group_labels = [r'$q=1$ surface',r'$q=1.5$ surface', r'$q=2$ surface', r'$q=3$ surface']
     # mode_groups = None
     # mode_group_labels = None
 

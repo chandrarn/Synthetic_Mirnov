@@ -390,12 +390,101 @@ class CacheConfig:
     saveDataset: bool = True  # Whether to save the cached dataset to disk
     randomize_timepoints: bool = False  # Whether to randomize timepoint selection when num_timepoints is set
     include_frequency_gap: bool = False  # Include the gap in frequency between the plasma and the lab-frame
+    desired_mode_labels: Optional[List[str]] = None  # Optional list of "m/n" labels used to pre-filter files
 
 
-def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1, file_substring_identifier='spectrogram') -> List[str]:
-    """Get sorted list of NetCDF dataset file paths from directory."""
+def _normalise_mode_label(mode_label) -> Optional[str]:
+    """Normalize mode label into canonical "m/n" string."""
+    if mode_label is None:
+        return None
+    text = str(mode_label).strip()
+    if not text:
+        return None
+    try:
+        if '/' in text:
+            m_txt, n_txt = text.split('/', 1)
+            return f"{int(m_txt.strip())}/{int(n_txt.strip())}"
+    except Exception:
+        return None
+    return None
+
+
+def _extract_mode_labels_from_attrs(ds_attrs: Dict) -> set[str]:
+    """Extract dataset-level mode labels from attrs as canonical "m/n" strings."""
+    def _as_int_list(vals_obj) -> List[int]:
+        if vals_obj is None:
+            return []
+        try:
+            arr = np.atleast_1d(vals_obj).tolist()
+        except Exception:
+            arr = [vals_obj]
+        out = []
+        for val in arr:
+            try:
+                out.append(int(val))
+            except Exception:
+                continue
+        return out
+
+    m_vals = _as_int_list(ds_attrs.get('mode_m', None))
+    n_vals = _as_int_list(ds_attrs.get('mode_n', None))
+    if not m_vals or not n_vals:
+        return set()
+
+    if len(m_vals) == 1 and len(n_vals) > 1:
+        m_vals = m_vals * len(n_vals)
+    elif len(n_vals) == 1 and len(m_vals) > 1:
+        n_vals = n_vals * len(m_vals)
+
+    n_pairs = min(len(m_vals), len(n_vals))
+    return {f"{int(m_vals[i])}/{int(n_vals[i])}" for i in range(n_pairs)}
+
+
+def _filter_dataset_files_by_mode_labels(dataset_files: List[str], desired_mode_labels: Optional[List[str]]) -> List[str]:
+    """Keep only files that contain at least one desired dataset-level mode label."""
+    if not desired_mode_labels:
+        return dataset_files
+
+    desired = {
+        lbl for lbl in (_normalise_mode_label(v) for v in desired_mode_labels)
+        if lbl is not None
+    }
+    if not desired:
+        return dataset_files
+
+    filtered = []
+    skipped_unlabeled = 0
+    for fp in dataset_files:
+        try:
+            with xr.open_dataset(fp) as ds_meta:
+                labels_in_file = _extract_mode_labels_from_attrs(ds_meta.attrs)
+        except Exception as exc:
+            print(f"Warning: unable to inspect mode labels for {fp}: {exc}. Skipping file.")
+            continue
+
+        if not labels_in_file:
+            skipped_unlabeled += 1
+            continue
+
+        if labels_in_file.intersection(desired):
+            filtered.append(fp)
+
+    print(
+        f"Mode-label prefilter kept {len(filtered)}/{len(dataset_files)} files "
+        f"for desired labels {sorted(desired)}"
+    )
+    if skipped_unlabeled > 0:
+        print(f"Skipped {skipped_unlabeled} file(s) with missing or invalid mode labels in attrs")
+    return filtered
+
+
+def _get_dataset_filepaths(data_dir: str, n_datasets: int = -1, file_substring_identifier='spectrogram',
+                           desired_mode_labels: Optional[List[str]] = None) -> List[str]:
+    """Get sorted list of NetCDF dataset file paths from directory, optionally mode-filtered."""
     files = sorted([os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.nc') and file_substring_identifier in f])
-    
+
+    files = _filter_dataset_files_by_mode_labels(files, desired_mode_labels)
+
     if n_datasets > 0:
         files = files[:n_datasets]
     return files
@@ -660,7 +749,11 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         print(f"No existing cached dataset found at {cfg.out_path}. Building new dataset from NetCDF files in {cfg.data_dir}...")
 
     # Get list of dataset file paths
-    dataset_files = _get_dataset_filepaths(cfg.data_dir, n_datasets=cfg.n_datasets)
+    dataset_files = _get_dataset_filepaths(
+        cfg.data_dir,
+        n_datasets=cfg.n_datasets,
+        desired_mode_labels=cfg.desired_mode_labels,
+    )
     if not dataset_files:
         raise FileNotFoundError(f"No NetCDF datasets found in {cfg.data_dir}")
 
@@ -879,7 +972,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                                  load_saved_data : bool = True,
                                  doVisualize : bool = False,
                                  saveDataset: bool = True,
-                                 include_frequency_gap: bool = False) -> Tuple[
+                                 include_frequency_gap: bool = False,
+                                 desired_mode_labels: Optional[List[str]] = None) -> Tuple[
                                      np.ndarray, np.ndarray, np.ndarray, np.ndarray,
                                      np.ndarray, Optional[np.ndarray], Optional[np.ndarray]
                                  ]:
@@ -899,6 +993,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
         viz_save_path: Path to save visualization plots (e.g., '../output_plots/')
         viz_sensor: Sensor name to visualize (default: 'BP01_ABK')
         viz_freq_lim: Frequency limits [f_min, f_max] in kHz for visualization y-axis
+        desired_mode_labels: Optional list of "m/n" labels used to pre-filter
+            NetCDF files before loading (matches against dataset attrs mode_m/mode_n)
         
     Returns:
         X_ri: (N, S, 2) array of [real, imag] features
@@ -915,7 +1011,8 @@ def build_or_load_cached_dataset(data_dir: str, out_path: str, use_mode: str = '
                       visualize_first=visualize_first, viz_save_path=viz_save_path,
                       viz_sensor=viz_sensor, viz_freq_lim=viz_freq_lim,\
                         load_saved_data=load_saved_data, saveDataset=saveDataset,
-                        include_frequency_gap=include_frequency_gap)
+                                                include_frequency_gap=include_frequency_gap,
+                                                desired_mode_labels=desired_mode_labels)
     dat = cache_training_dataset(cfg)
     X_ri = dat['X_ri'] if isinstance(dat, dict) else dat.get('X_ri')
     y = dat['y'] if isinstance(dat, dict) else dat.get('y')
