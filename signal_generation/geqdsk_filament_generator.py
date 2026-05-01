@@ -75,6 +75,7 @@ def calc_filament_coords_geqdsk(
     phi,
     params,
     debug=False,
+    debug_plots=False,
     fil=0,
     R_lim=[1.5, 2.3],
     Z_lim=[-0.4, 0.4],
@@ -201,7 +202,7 @@ def calc_filament_coords_geqdsk(
             coords[-1].append([x, y, z])
 
         # Debug plots
-        if debug:
+        if debug_plots:
             if False:  # Old way
                 plt.close(
                     "filament_debug_%d-%d%s"
@@ -267,6 +268,12 @@ def calc_filament_coords_geqdsk(
                 )
                 ax.plot(coords[ind_m][0][0], coords[ind_m][0][1], coords[ind_m][0][2])
                 plt.show()
+
+    if debug:
+        print(
+            f"Calculated filament coordinates for m/n = {m}/{n} from gEQDSK: {file_geqdsk}"
+        )
+
     return coords
 
 

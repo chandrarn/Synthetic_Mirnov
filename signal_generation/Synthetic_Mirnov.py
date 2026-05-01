@@ -82,7 +82,9 @@ def gen_synthetic_Mirnov(
     theta, phi = gen_filament_coords(params, wind_in=wind_in)
 
     if wind_in == "phi":  # Older, not eqilibrium tracking
-        filament_coords = calc_filament_coords_geqdsk(file_geqdsk, theta, phi, params)
+        filament_coords = calc_filament_coords_geqdsk(
+            file_geqdsk, theta, phi, params, debug=debug
+        )
     else:
         filament_coords = calc_filament_coords_field_lines(
             params, file_geqdsk, doDebug=debug
