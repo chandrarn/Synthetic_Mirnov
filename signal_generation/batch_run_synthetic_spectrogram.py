@@ -218,7 +218,7 @@ def save_xarray_results(
         )
 
     # Generate filename
-    fName = f"spectrogram_mn_{mn_out}_f_{f_out}_{ThinCurr_params['sensor_set']}_{ThinCurr_params['mesh_file'][:-2]}_{save_Ext}_Count_{current_files + 1}.nc"
+    fName = f"spectrogram_mn_{mn_out}_f_{f_out}_{ThinCurr_params['sensor_set']}_{ThinCurr_params['mesh_file'][:-3]}_{save_Ext}_Count_{current_files + 1}.nc"
 
     f_save = os.path.join(output_directory, fName)
 
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     # Example usage
     # output_directory = '../data_output/synthetic_spectrograms/low_m-n_testing/new_Mirnov_set/'
     output_directory = (
-        working_directory + "../data_output/synthetic_spectrograms/SPARC/"
+        working_directory + "../data_output/synthetic_spectrograms/SPARC/tmp"
     )
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)

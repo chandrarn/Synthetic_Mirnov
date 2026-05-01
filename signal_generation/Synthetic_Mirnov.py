@@ -31,6 +31,10 @@ from geqdsk_filament_generator import (
     calc_filament_coords_field_lines,
 )
 
+import shutil
+import time
+import errno
+
 sys.path.append("../signal_analysis/")
 from plot_sensor_output import plot_single_sensor
 
@@ -388,12 +392,25 @@ def run_td(
         status_freq=100,
         plot_freq=10000,
     )
-    os.system(f"mv floops.hist {j_id}input_data/floops.hist")
+
+    # Special handling to deal with "stale" file handles
+    _src = "floops.hist"
+    _dst = f"{j_id}input_data/floops.hist"
+    for _attempt in range(5):
+        try:
+            shutil.move(_src, _dst)
+            break
+        except OSError as _e:
+            if _e.errno == errno.ESTALE and _attempt < 4:
+                print(f"Stale file handle moving {_src} -> {_dst}, retrying ({_attempt+1}/5)...")
+                time.sleep(2 ** _attempt)
+            else:
+                raise
 
     if doPlot:
         tw_mesh.plot_td(nsteps, compute_B=True, sensor_obj=sensor_obj, plot_freq=100)
 
-    # Save B-norm surface for later plotting # This may be unnecessar
+    # Save B-norm surface for later plotting # This may be unnecessary
     if doPlot:
         _, Bc = tw_mesh.compute_Bmat(
             cache_file=f"{j_id}input_data/HODLR_B_{mesh_file}_{sensor_set}.save"
