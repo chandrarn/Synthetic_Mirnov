@@ -368,6 +368,10 @@ def calc_filament_coords_field_lines(params, file_geqdsk, doDebug=False):
         # coords_[0,:2,:]=coords_[1,:2,:]
         coords.append(coords_.T)
 
+    if doDebug:
+        print(
+            f"Calculated filament coordinates for m/n = {m}/{n} using theta-winding from gEQDSK: {file_geqdsk}"
+        )
     return coords
 
 

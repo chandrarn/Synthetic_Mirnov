@@ -302,7 +302,7 @@ def gen_coil_currs(
         for ind_filament, starting_angle_list in enumerate(starting_angle):
             if debug:
                 print(
-                    f"Assigning currents to filaments for m/n = {m[ind_filament]}/{n[ind_filament]} from gEQDSK: {file_geqdsk}"
+                    f"Assigning currents to filaments for m/n = {m[ind_filament]}/{n[ind_filament]}"
                 )
 
             # Get (potentially time dependent) mode amplitude
