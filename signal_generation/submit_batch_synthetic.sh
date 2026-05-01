@@ -20,6 +20,9 @@ fi
 # Activate virtual environment
 source ~/venv/bin/activate
 
+# Force Python stdout/stderr to flush immediately so all output reaches the log file
+export PYTHONUNBUFFERED=1
+
 echo "Starting batch_run_synthetic_spectrogram at $(date)"
 echo "Running on host: $(hostname)"
 echo "CPUs available: ${SLURM_CPUS_PER_TASK:-unset}"
