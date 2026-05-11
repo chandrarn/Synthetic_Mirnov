@@ -1,0 +1,36 @@
+"""
+Dependencies for sawtooth precursor analysis pipeline.
+
+This project integrates with:
+- TARS analysis tools
+- HIREX_SR Doppler spectrometry loader
+- Diamagnetic drift estimation code
+- C-Mod diagnostic data loaders
+- Standard scientific Python stack
+
+Core dependencies installed via conda/pip.
+"""
+
+# Core scientific computing
+numpy>=1.21.0
+scipy>=1.7.0
+matplotlib>=3.4.0
+pandas>=1.3.0
+xarray>=0.19.0
+netCDF4>=1.5.0
+
+# TARS-specific (install from /path/to/TARS)
+# tars  # Add to sys.path or install in development mode
+
+# C-Mod diagnostics (install from /path/to/C-Mod)
+# hirexsr  # HIREX-SR spectroscopy tools
+# eqtools  # Equilibrium tools
+
+# Optional: for Jupyter notebook support
+jupyter>=1.0.0
+ipython>=7.0.0
+
+# Development
+pytest>=6.0.0
+black>=21.0.0
+flake8>=3.9.0
