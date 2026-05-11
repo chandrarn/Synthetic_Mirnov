@@ -548,7 +548,7 @@ if __name__ == "__main__":
         "wind_in": "theta",
         "file_geqdsk": "g1051202011.1000",
         "eta": eta,
-        "n_threads": 20,
+        "n_threads": 50,
     }
 
     Mode_params = {
@@ -563,7 +563,7 @@ if __name__ == "__main__":
         "max_modes": 1,
         "max_m": 16,
         "max_n": np.arange(2, 7, dtype=int),
-        "n_threads": 20,
+        "n_threads": 50,
     }
 
     # spectrogram_params = {'pad':230,'fft_window':230,'block_reduce':(230,10)}
@@ -578,15 +578,15 @@ if __name__ == "__main__":
     gEQDSK_files_dir = "input_data/gEQDSK_files/SPARC/"
     one_of_each_mn = True
     prescribed_mn_pairs = [
-        (8, 8),
-        (9, 9),
-        (14, 9),
-        (15, 10),
-        (17, 11),
-        (18, 12),
-        (20, 13),
-        (21, 14),
-        (23, 15),
+        # (8, 8),
+        # (9, 9),
+        # (14, 9),
+        # (15, 10),
+        # (17, 11),
+        # (18, 12),
+        # (20, 13),
+        # (21, 14),
+        # (23, 15),
         (10, 5),
         (12, 6),
         (14, 7),

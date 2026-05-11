@@ -23,6 +23,9 @@ from header_signal_generation import (
     sys,
     j_id,
     working_directory,
+    _flush_process_stdio,
+    _copy_file_with_retries,
+    NFS_Estale_aware_copy
 )
 from gen_MAGX_Coords import gen_Sensors_Updated
 from geqdsk_filament_generator import (
@@ -31,9 +34,7 @@ from geqdsk_filament_generator import (
     calc_filament_coords_field_lines,
 )
 
-import shutil
-import time
-import errno
+
 
 sys.path.append("../signal_analysis/")
 from plot_sensor_output import plot_single_sensor
@@ -41,6 +42,7 @@ from plot_sensor_output import plot_single_sensor
 jobId = os.environ.get("SLURM_JOB_ID", "")
 
 
+############################################################3
 # main loop
 def gen_synthetic_Mirnov(
     input_file="",
@@ -383,7 +385,14 @@ def run_td(
     # run time depenent simulation, save floops.hist file for output sensor measurements
     # Note: plot_freq creates output files for the nth timestep: needs to be less than nsteps for
     # plotting at minimum the J_surf plot :
-
+    
+    # Adding test output to understand how to properly log ouput during slurm job run
+    start_time = time.time()
+    print(
+        f"Entering ThinCurr run_td for m/n={m}/{n}, nsteps={nsteps}, dt={dt:0.3e}",
+        flush=True,
+    )
+    _flush_process_stdio()
     tw_mesh.run_td(
         dt,
         nsteps,
@@ -392,20 +401,16 @@ def run_td(
         status_freq=100,
         plot_freq=10000,
     )
+    _flush_process_stdio()
+    print(
+        f"ThinCurr run_td returned after {time.time() - start_time:0.1f}s",
+        flush=True,
+    )
 
-    # Special handling to deal with "stale" file handles
+    # Stage output history into input_data/ with retry logic for NFS ESTALE.
     _src = "floops.hist"
     _dst = f"{j_id}input_data/floops.hist"
-    for _attempt in range(5):
-        try:
-            shutil.move(_src, _dst)
-            break
-        except OSError as _e:
-            if _e.errno == errno.ESTALE and _attempt < 4:
-                print(f"Stale file handle moving {_src} -> {_dst}, retrying ({_attempt+1}/5)...")
-                time.sleep(2 ** _attempt)
-            else:
-                raise
+    hist_path = NFS_Estale_aware_copy(_src, _dst, max_retries=8, remove_src=True, debug=debug)
 
     if doPlot:
         tw_mesh.plot_td(nsteps, compute_B=True, sensor_obj=sensor_obj, plot_freq=100)
@@ -416,10 +421,8 @@ def run_td(
             cache_file=f"{j_id}input_data/HODLR_B_{mesh_file}_{sensor_set}.save"
         )
 
-    # Saves floops.hist
-    hist_file = histfile(
-        f"{j_id}input_data/floops.hist"
-    )  # floops.hist created after run_td(), but it's loaded back in here
+    # Load the history from staged path when possible, otherwise from source path.
+    hist_file = histfile(hist_path)
 
     if debug:
         print("Ran time dependent simulation for the following sensors:")
@@ -427,7 +430,16 @@ def run_td(
             print(h)
 
     f_save = __do_save_output(
-        f, m, n, archiveExt, sensor_set, mesh_file, save_Ext, debug, hist_file
+        f,
+        m,
+        n,
+        archiveExt,
+        sensor_set,
+        mesh_file,
+        save_Ext,
+        debug,
+        hist_file,
+        hist_path,
     )
 
     # Test plot for a few single sensors
@@ -446,7 +458,7 @@ def run_td(
 
 ################################################################################################
 def __do_save_output(
-    f, m, n, archiveExt, sensor_set, mesh_file, save_Ext, debug, hist_file
+    f, m, n, archiveExt, sensor_set, mesh_file, save_Ext, debug, hist_file, hist_path
 ):
     # Rename output
     if type(f) is float:
@@ -465,7 +477,9 @@ def __do_save_output(
         % (archiveExt, sensor_set, mn_out, f_out, mesh_file, save_Ext)
     )
 
-    subprocess.run(["cp", "input_data/floops.hist", f_save + ".hist"])
+    _copy_file_with_retries(
+        hist_path, f_save + ".hist", max_retries=8, remove_src=False, debug=debug
+    )
     if debug:
         print("Saved output to %s.hist" % f_save)
 

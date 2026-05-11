@@ -33,6 +33,12 @@ mkdir -p "${SLURM_SUBMIT_DIR}/slurm_logs"
 # Run from signal_generation/ so relative paths (input_data/, training_data/, etc.) resolve correctly
 cd "${SLURM_SUBMIT_DIR}/signal_generation"
 
-python -u batch_run_synthetic_spectrogram.py
+# Python -u only flushes Python streams. OFT/ThinCurr native stdout can still block-buffer
+# when SLURM redirects output to a file, so run the process under a PTY to force line buffering.
+if command -v script >/dev/null 2>&1; then
+    script -efq -c "python -u batch_run_synthetic_spectrogram.py" /dev/null
+else
+    stdbuf -oL -eL python -u batch_run_synthetic_spectrogram.py
+fi
 
 echo "Finished at $(date)"

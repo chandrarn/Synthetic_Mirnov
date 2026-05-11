@@ -94,8 +94,13 @@ try:
     plt.ion()
 except:pass # TkAgg can't be assigned in headless operations
 
-
-
+################################################################################################
+####################
+# Sbatch environment and error handling
+import shutil
+import time
+import errno
+import ctypes
 
 server = (gethostname()[:4] == 'orcd') or (gethostname()[:4]=='node')
 # Save files in job specific folders if possible [necessary for multi-node operations]
@@ -103,3 +108,86 @@ j_id =  os.environ.get('SLURM_WORKING_FOLDER',os.getcwd()+'/')
 working_directory = os.environ.get('SCRIPT_DIR', j_id)
 #from rolling_spectrogram import rolling_spectrogram
 
+###########################
+def _flush_process_stdio():
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        ctypes.CDLL(None).fflush(None)
+    except Exception:
+        pass
+
+####################################################
+def _copy_file_with_retries(src, dst, max_retries=8, remove_src=False, debug=True):
+    """Robust file copy helper for NFS/SLURM environments.
+
+    Uses copy-to-temp + atomic replace to avoid partial destination files
+    and retries transient filesystem errors (including ESTALE).
+    """
+
+    src_abs = os.path.abspath(src)
+    dst_abs = os.path.abspath(dst)
+    os.makedirs(os.path.dirname(dst_abs), exist_ok=True)
+    tmp_dst = dst_abs + ".tmp"
+
+    transient_errnos = {errno.ESTALE, errno.EIO, errno.EBUSY}
+
+    for attempt in range(max_retries):
+        try:
+            with open(src_abs, "rb") as f_src, open(tmp_dst, "wb") as f_dst:
+                shutil.copyfileobj(f_src, f_dst, length=1024 * 1024)
+                f_dst.flush()
+                os.fsync(f_dst.fileno())
+            os.replace(tmp_dst, dst_abs)
+
+            if remove_src:
+                try:
+                    os.unlink(src_abs)
+                except OSError as exc:
+                    if exc.errno not in {errno.ENOENT, errno.ESTALE}:
+                        raise
+            return dst_abs
+        except OSError as exc:
+            try:
+                if os.path.exists(tmp_dst):
+                    os.unlink(tmp_dst)
+            except OSError:
+                pass
+
+            should_retry = (
+                exc.errno in transient_errnos
+                or (exc.errno == errno.ENOENT and attempt < max_retries - 1)
+            )
+            if should_retry and attempt < max_retries - 1:
+                if debug:
+                    print(
+                        f"Transient file error copying {src_abs} -> {dst_abs}: {exc}. "
+                        + f"Retrying ({attempt + 1}/{max_retries})...",
+                        flush=True,
+                    )
+                time.sleep(2 ** min(attempt, 4))
+                continue
+            raise
+
+    raise RuntimeError(
+        f"Failed to copy {src_abs} -> {dst_abs} after {max_retries} attempts"
+    )
+
+#####################################################################
+################################################################################################
+def NFS_Estale_aware_copy(_src, _dst, max_retries=8, remove_src=False, debug=False):
+    # Stage output history into input_data/ with retry logic for NFS ESTALE.
+    try:
+        new_file_path = _copy_file_with_retries(
+            _src, _dst, max_retries=8, remove_src=True, debug=debug
+        )
+    except OSError as exc:
+        if exc.errno == errno.ESTALE:
+            print(
+                f"Persistent ESTALE when staging {_src} -> {_dst}; falling back to source path",
+                flush=True,
+            )
+            new_file_path = _src
+        else:
+            raise
+    return new_file_path
