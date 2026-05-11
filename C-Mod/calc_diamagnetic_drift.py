@@ -3,7 +3,7 @@
 Compute electron and ion diamagnetic drift frequencies with time-dependent inputs.
 
 Assumptions implemented:
-- B_t is 1D over time: [nt]
+- B_t is available as a full surface in major radius and time: [nR, nt]
 - Zeff is 1D over time: [nt]
 - ne, Te, Ti are 2D: [nspace, nt]
 - psi_n and q are 2D in time as well: [nspace, nt] (or [nq, nt] for q grid)
@@ -18,17 +18,20 @@ import argparse
 from dataclasses import dataclass
 import os
 import sys
+import warnings
 
 import eqtools as eq
 import matplotlib.pyplot as plt
 plt.ion()
 import numpy as np
 
+# Thomson scattering laser Te, Ne profiles
 from get_Cmod_Data import YAG
 
+# HIREXSR package necessary for V_phi(r), Z_eff -> n_i(r) profile data
+from HIREXSR_py.hirexsr_get_profile_py import hirexsr_get_profile_py as _hxsr  # type: ignore[reportMissingImports]
+from HIREXSR_py.zeff_neo_python import zeff_neo  # type: ignore[reportMissingImports]
 
-from HIREXSR_py.hirexsr_get_profile_py import hirexsr_get_profile_py as _hxsr
-from HIREXSR_py.zeff_neo_python import zeff_neo
 
 plt.rcParams.update(
     {
@@ -65,12 +68,14 @@ class EquilibriumData:
     time_s: np.ndarray          # [nt_eq]
     psi_n_q: np.ndarray         # [nq, nt_eq]
     q_profile: np.ndarray       # [nq, nt_eq]
-    b_t_t: np.ndarray           # [nt_eq]
+    b_t_t: np.ndarray           # [nR, nt_eq] full toroidal field surface B_t(R,t)
+    r_major_full_m: np.ndarray  # [nR] full major-radius grid (inboard to outboard)
     r_minor_q_m: np.ndarray     # [nq, nt_eq]
     r_major_q_m: np.ndarray     # [nq, nt_eq]
     elongation_t: np.ndarray    # [nt_eq]
     circumference_q_m: np.ndarray  # [nq, nt_eq]
     q95: np.ndarray             # [nt_eq]
+    b_pol_q_T: np.ndarray       # [nq, nt_eq]  poloidal field on q-grid, computed at midplane
 
 @dataclass
 class DiamagneticResult:
@@ -88,12 +93,17 @@ class DiamagneticResult:
     f_star_i_Hz: np.ndarray     # [nspace, nt]
     omega_star_e_rad_s: np.ndarray
     omega_star_i_rad_s: np.ndarray
+    f_star_e_tor_Hz: np.ndarray  # [nspace, nt]  toroidal drift frequency (uses B_pol)
+    f_star_i_tor_Hz: np.ndarray  # [nspace, nt]
+    omega_star_e_tor_rad_s: np.ndarray
+    omega_star_i_tor_rad_s: np.ndarray
 
 def do_equilibrium_dimensionality_check(
     time_s: np.ndarray,
     psi_n_q: np.ndarray,
     q_profile: np.ndarray,
     b_t_t: np.ndarray,
+    r_major_full_m: np.ndarray,
     r_minor_q_m: np.ndarray,
     r_out_q: np.ndarray,
     elongation_t: np.ndarray,
@@ -103,7 +113,9 @@ def do_equilibrium_dimensionality_check(
     # Ensure dimensionality is correct for eqtools loaded equilibrium profiles
     nt_eq = time_s.size
     assert psi_n_q.shape == q_profile.shape, f"Expected psi_n_q and q_profile to have the same shape, got {psi_n_q.shape} vs {q_profile.shape}"
-    assert b_t_t.shape == (nt_eq,), f"Expected b_t_t to have shape ({nt_eq},), got {b_t_t.shape}"
+    assert b_t_t.shape == (r_major_full_m.size, nt_eq), (
+        f"Expected b_t_t to have shape ({r_major_full_m.size}, {nt_eq}), got {b_t_t.shape}"
+    )
     assert r_minor_q_m.shape == q_profile.shape, f"Expected r_minor_q_m to have the same shape as q_profile, got {r_minor_q_m.shape} vs {q_profile.shape}"
     assert r_out_q.shape == q_profile.shape, f"Expected r_out_q to have the same shape as q_profile, got {r_out_q.shape} vs {q_profile.shape}"
     assert elongation_t.shape == (nt_eq,), f"Expected elongation_t to have shape ({nt_eq},), got {elongation_t.shape}"
@@ -349,6 +361,10 @@ def _load_zeff_timeseries(shot: int, time_diag: np.ndarray) -> np.ndarray:
     dt = 0.1 # for Z_eff, resample after calculation into YAG timebase
     trange = (float(np.nanmin(t)), float(np.nanmax(t)))
 
+    if zeff_neo is None:
+        print("Warning: zeff_neo not available; using Zeff(t)=1 fallback.")
+        return np.ones_like(t)
+
     try:
         # Zeff_neo has a consistency check, will raise exception if values are invalid
         zeff_out = zeff_neo(
@@ -387,6 +403,9 @@ def _load_ti_from_hirexsr(
     """
 
 
+
+    if _hxsr is None:
+        raise RuntimeError("HIREXSR profile loader is unavailable in this environment.")
 
     result = _hxsr(shot=shot, line=line, tht=tht, quiet=True)
     ti_keV = np.asarray(result.ti, dtype=float)
@@ -534,7 +553,21 @@ def load_profiles_for_shot(
 
     # Get Ti from HIREXSR, with times mapped to YAG. Keep spatial points mapped to psi, interpolate on equilibrium grid later
     if not fallback_ti_eV:
-        ti_eV, psi_hx, rho_hx, omega_tor, omega_tor_err = _load_ti_from_hirexsr(shot, t_diag, r_diag=r_all, line=line, tht = tht)
+        try:
+            ti_eV, psi_hx, rho_hx, omega_tor, omega_tor_err = _load_ti_from_hirexsr(
+                shot,
+                t_diag,
+                r_diag=r_all,
+                line=line,
+                tht=tht,
+            )
+        except Exception as exc:
+            print(f"Warning: Ti from HIREXSR unavailable, falling back to Ti=Te. Reason: {exc}")
+            ti_eV = te_eV
+            psi_hx = None
+            rho_hx = None
+            omega_tor = None
+            omega_tor_err = None
     else:        
         print("Warning: using Ti = Te*correction fallback instead of HIREXSR data.")
         ti_eV = te_eV * fallback_ti_eV
@@ -561,7 +594,7 @@ def load_profiles_for_shot(
     )
 
 
-def load_equilibrium_for_shot(shot: int, tree: str = "efit20") -> EquilibriumData:
+def load_equilibrium_for_shot(shot: int, tree: str = "efit20", diagnosticPlot=False) -> EquilibriumData:
     """
     Load equilibrium data from eqtools EFIT tree and convert to time-dependent q, psi_n, and B_t.
     """
@@ -575,11 +608,29 @@ def load_equilibrium_for_shot(shot: int, tree: str = "efit20") -> EquilibriumDat
 
     psi_n_q = _normalize_psi_to_psi_n(psi_raw)
 
-    b_t_raw = np.asarray(eq_f.getBtPla(), dtype=float).squeeze()
-    if b_t_raw.ndim == 0:
-        b_t_t = np.full(nt_eq, float(b_t_raw))
+    r_grid_full_m = np.asarray(eq_f.getRGrid(), dtype=float).squeeze()
+
+    # Build full toroidal-field surface B_t(R,t) from F(t,...) / R.
+    # F from eqtools may be scalar, [nt], [nt,nR], or [nR,nt], so normalize to [nR,nt].
+    f_raw = np.asarray(eq_f.getF(), dtype=float)
+    if f_raw.ndim == 0:
+        b_t_t = np.full((r_grid_full_m.size, nt_eq), float(f_raw)) / r_grid_full_m[:, np.newaxis]
+    elif f_raw.ndim == 1:
+        if f_raw.size == nt_eq:
+            b_t_t = f_raw[np.newaxis, :] / r_grid_full_m[:, np.newaxis]
+        elif f_raw.size == r_grid_full_m.size:
+            b_t_t = np.repeat((f_raw / np.maximum(r_grid_full_m, 1e-8))[:, np.newaxis], nt_eq, axis=1)
+        else:
+            raise ValueError(f"Unexpected getF() shape {f_raw.shape} for nt={nt_eq}, nR={r_grid_full_m.size}")
+    elif f_raw.ndim == 2:
+        if f_raw.shape == (nt_eq, r_grid_full_m.size):
+            b_t_t = (f_raw / r_grid_full_m[np.newaxis, :]).T
+        elif f_raw.shape == (r_grid_full_m.size, nt_eq):
+            b_t_t = f_raw / r_grid_full_m[:, np.newaxis]
+        else:
+            raise ValueError(f"Unexpected getF() 2D shape {f_raw.shape} for nt={nt_eq}, nR={r_grid_full_m.size}")
     else:
-        b_t_t = b_t_raw
+        raise ValueError(f"Unsupported getF() dimensionality: {f_raw.shape}")
 
     q95 = eq_f.getQ95()
 
@@ -604,19 +655,101 @@ def load_equilibrium_for_shot(shot: int, tree: str = "efit20") -> EquilibriumDat
     circumference_q_m = _ellipse_circumference(r_minor_q_m, elongation_t[np.newaxis, :])
 
     # Ensure dimensionality is correct
-    do_equilibrium_dimensionality_check(t_eq, psi_n_q, q_raw, b_t_t, r_minor_q_m, r_out_q, elongation_t, circumference_q_m, q95)    
+    do_equilibrium_dimensionality_check(
+        t_eq,
+        psi_n_q,
+        q_raw,
+        b_t_t,
+        r_grid_full_m,
+        r_minor_q_m,
+        r_out_q,
+        elongation_t,
+        circumference_q_m,
+        q95,
+    )
   
+    if diagnosticPlot:
+        plot_magnetic_equilibrium(r_out_q, _compute_b_pol_midplane(eq_f, r_out_q, nt_eq), t_eq, eq_f)
+
     return EquilibriumData(
         time_s=t_eq,
         psi_n_q=psi_n_q,
         q_profile=q_raw,
         b_t_t=b_t_t,
+        r_major_full_m=r_grid_full_m,
         r_minor_q_m=r_minor_q_m,
         r_major_q_m=r_out_q,
         elongation_t=elongation_t,
         circumference_q_m=circumference_q_m,
         q95=q95,
+        b_pol_q_T=_compute_b_pol_midplane(eq_f, r_out_q, nt_eq),
     )
+
+
+def plot_magnetic_equilibrium(r_out_q: np.ndarray, b_pol_q_T: np.ndarray, t_eq: np.ndarray, eq_f: eq.CModEFIT.CModEFITTree):
+    import matplotlib.pyplot as plt
+    fig,axs = plt.subplots(1,2,figsize=(7,2.5),layout='constrained', sharey=True);
+    ctr1 = axs[0].contourf(r_out_q,np.tile(t_eq, (r_out_q.shape[0], 1)),b_pol_q_T,levels=20,zorder=-5);
+    axs[0].set_xlabel('R-major [m]');
+    axs[0].set_ylabel('Time [s]');
+    plt.colorbar(ctr1,label=r'$B_\theta$ [T]', ax=axs[0]);
+    axs[0].set_rasterization_zorder(-1);
+    axs[0].grid();
+
+    ctr2 = axs[1].contourf(eq_f.getRGrid(),t_eq,(eq_f.getF()/eq_f.getRGrid()),levels=20,zorder=-5);
+    axs[1].set_xlabel('R-major [m]');
+    # axs[1].set_ylabel('Time [s]');
+    plt.colorbar(ctr2,label=r'$B_\phi$ [T]', ax=axs[1]);
+    axs[1].set_rasterization_zorder(-1);
+    axs[1].grid();
+    
+
+    fig.savefig('../output_plots/C_Mod_B_profiles.pdf',transparent=True);
+    
+    plt.show()
+
+def _compute_b_pol_midplane(
+    eq_f,
+    r_major_q_m: np.ndarray,
+    nt_eq: int,
+) -> np.ndarray:
+    """Compute the poloidal magnetic field at the outboard midplane on the q-grid.
+
+    At the midplane (Z=0) up-down symmetry gives dPsi/dZ = 0, so B_r = 0 and
+    B_p = B_z = (1/R) * dPsi/dR.
+
+    The 2D flux grid from eqtools has shape [nt, nZ, nR] (or [nZ, nR] when nt=1).
+    The result is interpolated onto the outboard midplane major-radius grid used
+    for the q-profile, giving shape [nq, nt_eq].
+    """
+    psi_2d = np.asarray(eq_f.getFluxGrid(), dtype=float)  # [nt, nZ, nR]
+    R_grid = np.asarray(eq_f.getRGrid(length_unit='m'), dtype=float)   # [nR]
+    Z_grid = np.asarray(eq_f.getZGrid(length_unit='m'), dtype=float)   # [nZ]
+
+    iz_mid = int(np.argmin(np.abs(Z_grid)))
+
+    # Extract midplane psi: ensure shape [nR, nt_eq]
+    if psi_2d.ndim == 3:
+        psi_mid = psi_2d[:, iz_mid, :].T  # [nR, nt]
+    else:
+        # Fallback for single-time case
+        psi_mid = psi_2d[iz_mid, :][:, np.newaxis]  # [nR, 1]
+        psi_mid = np.repeat(psi_mid, nt_eq, axis=1)
+
+    # B_z = (1/R) * dPsi/dR at midplane; B_r = 0 by symmetry
+    dPsi_dR = np.gradient(psi_mid, R_grid, axis=0)       # [nR, nt]
+    B_pol_mid = dPsi_dR / R_grid[:, np.newaxis]  # [nR, nt]
+
+    # Interpolate onto the outboard midplane R grid used for q-profile [nq, nt]
+    nq = r_major_q_m.shape[0]
+    b_pol_q = np.empty((nq, nt_eq), dtype=float)
+    for it in range(nt_eq):
+        b_pol_q[:, it] = np.interp(r_major_q_m[:, it], R_grid, B_pol_mid[:, it])
+
+    # plt.figure();plt.contour(r_major_q_m,np.tile(np.arange(nt_eq),(len(r_major_q_m),1)),b_pol_q,levels=20);
+    # plt.xlabel('R [m]');plt.ylabel('Time [s]');
+    # plt.colorbar(label=r'$B_\theta$ [T]');plt.show()
+    return b_pol_q
 
 
 def _normalize_psi_to_psi_n(psi_space_time: np.ndarray) -> np.ndarray:
@@ -765,7 +898,9 @@ def _gradient_axis0_nonuniform_polyfit(
                 continue
 
             deg = min(pord, xs.size - 1)
-            coeff = np.polyfit(xs, ys, deg=deg)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", np.exceptions.RankWarning)
+                coeff = np.polyfit(xs, ys, deg=deg)
             dcoeff = np.polyder(coeff)
             grad[i, it] = np.polyval(dcoeff, xcol[i])
 
@@ -1054,7 +1189,7 @@ def compute_diamagnetic_drift_frequencies(
         Compute diamagnetic drift frequencies from pressure-gradient drift velocity
         and flux-surface circumference on the equilibrium psi grid.
 
-            v_*s = (1 / (q_s n_s B_t)) * d(p_s)/dr
+            v_*s = (1 / (q_s n_s B^2)) * d(p_s)/dr x B
             f_*s = v_*s / C(psi, t)
             omega_*s = 2*pi*f_*s
 
@@ -1098,10 +1233,12 @@ def compute_diamagnetic_drift_frequencies(
         q95_t = q95_raw
     q95_t = np.maximum(q95_t, 0.0)
 
-    b_t_t = np.asarray(equilibrium.b_t_t, dtype=float).squeeze()
+    b_t_rt = np.asarray(equilibrium.b_t_t, dtype=float)
+    r_major_full_m = np.asarray(equilibrium.r_major_full_m, dtype=float).squeeze()
     r_minor_q_t_eq = np.asarray(equilibrium.r_minor_q_m, dtype=float)
     r_major_q_t_eq = np.asarray(equilibrium.r_major_q_m, dtype=float)
     circumference_q_t_eq = np.asarray(equilibrium.circumference_q_m, dtype=float)
+    b_pol_q_t_eq = np.asarray(equilibrium.b_pol_q_T, dtype=float)
 
     # Use equilibrium time as the master output timebase, and map diagnostics onto it.
     t = t_eq
@@ -1111,22 +1248,30 @@ def compute_diamagnetic_drift_frequencies(
     ne_m3_t = _interp_space_time_in_time(ne_m3, t_diag, t)
     te_eV_t = _interp_space_time_in_time(te_eV, t_diag, t)
     ti_eV_t = _interp_space_time_in_time(ti_eV, t_diag, t)
-    rho_ti_t = _interp_space_time_in_time(profiles.rho_hx, t_diag, t) 
+    rho_ti_t = (
+        _interp_space_time_in_time(np.asarray(profiles.rho_hx, dtype=float), t_diag, t)
+        if profiles.rho_hx is not None
+        else None
+    )
     psi_hx_t = _interp_space_time_in_time(psi_hx, t_diag, t) if psi_hx is not None else r_major_diag_t
     zeff_t = np.interp(t, t_diag, zeff_t_diag)
 
     psi_n_q_t = psi_n_q
     q_profile_t = q_profile
-    b_t = b_t_t
     r_minor_q_t = r_minor_q_t_eq
     r_major_q_t = r_major_q_t_eq
     circumference_q_t = circumference_q_t_eq
+    b_pol_q_t = b_pol_q_t_eq
+    r_major_full_t = np.repeat(r_major_full_m[:, np.newaxis], nt, axis=1)
+    b_t_q_t = _interp_columns_to_grid(b_t_rt, r_major_full_t, r_major_q_t)
 
     ne_q = _interp_columns_to_grid(ne_m3_t, r_major_diag_t, r_major_q_t)
     te_q_eV = _interp_columns_to_grid(te_eV_t, r_major_diag_t, r_major_q_t)
     psi_diag_mapped = _interp_columns_to_grid(psi_n_q_t, r_major_q_t, r_major_diag_t)
     if has_hx_grid:
         ti_q_eV = _interp_columns_to_grid(ti_eV_t, psi_hx_t, psi_n_q_t)
+        if rho_ti_t is None:
+            rho_ti_t = psi_hx_t
         ti_diag_eV_t = _map_ti_psi_to_diagnostic_radius_grid(
             ti_eV_t=ti_eV_t,
             rho_hx_t=rho_ti_t,
@@ -1138,6 +1283,8 @@ def compute_diamagnetic_drift_frequencies(
     else:
         ti_q_eV = _interp_columns_to_grid(ti_eV_t, r_major_diag_t, r_major_q_t)
         ti_diag_eV_t = ti_eV_t
+        if rho_ti_t is None:
+            rho_ti_t = psi_diag_mapped
 
     ne_q_raw = ne_q
     te_q_eV_raw = te_q_eV
@@ -1227,14 +1374,28 @@ def compute_diamagnetic_drift_frequencies(
     dpe_dr = _interp_columns_to_grid(dpe_dR_diag, r_major_diag_t, r_major_q_t)
     dpi_dr = _interp_columns_to_grid(dpi_dR_diag, r_major_diag_t, r_major_q_t)
 
-    v_star_e = dpe_dr / (q_e * np.maximum(ne_q, 1e-12) * b_t[np.newaxis, :])
-    v_star_i = dpi_dr / (q_i * np.maximum(ni_q, 1e-12) * b_t[np.newaxis, :])
+    # Use v_* = (1/(q n B^2)) (grad p x B), resolved into component magnitudes.
+    # For radial grad p and B = B_t e_tor + B_p e_pol:
+    #   |v_*pol| ~ (dp/dr) * B_t / (q n B^2)
+    #   |v_*tor| ~ (dp/dr) * B_p / (q n B^2)
+    b_tot_sq = np.maximum(b_t_q_t * b_t_q_t + b_pol_q_t * b_pol_q_t, 1e-12)
+    v_star_e = dpe_dr * b_t_q_t / (q_e * np.maximum(ne_q, 1e-12) * b_tot_sq)
+    v_star_i = dpi_dr * b_t_q_t / (q_i * np.maximum(ni_q, 1e-12) * b_tot_sq)
 
     valid_circumference = circumference_q_t >= 0.10
     f_star_e = np.where(valid_circumference, v_star_e / circumference_q_t, np.nan)
     f_star_i = np.where(valid_circumference, v_star_i / circumference_q_t, np.nan)
     omega_star_e = TWO_PI * f_star_e
     omega_star_i = TWO_PI * f_star_i
+
+    # Toroidal diamagnetic drift component from the same B/B^2 projection.
+    v_star_e_tor = dpe_dr * b_pol_q_t / (q_e * np.maximum(ne_q, 1e-12) * b_tot_sq)
+    v_star_i_tor = dpi_dr * b_pol_q_t / (q_i * np.maximum(ni_q, 1e-12) * b_tot_sq)
+    toroidal_circ = TWO_PI * r_major_q_t  # [nq, nt]
+    f_star_e_tor = v_star_e_tor / toroidal_circ
+    f_star_i_tor = v_star_i_tor / toroidal_circ
+    omega_star_e_tor = TWO_PI * f_star_e_tor
+    omega_star_i_tor = TWO_PI * f_star_i_tor
 
     # Restrict computed drifts to q surfaces inside q95 at each time.
     q_valid = (q_profile_t > 0.0) & (q_profile_t <= q95_t[np.newaxis, :])
@@ -1246,6 +1407,10 @@ def compute_diamagnetic_drift_frequencies(
     dpi_dr = np.where(q_valid, dpi_dr, np.nan)
     q_profile_masked = np.where(q_valid, q_profile_t, np.nan)
     circumference_masked = np.where(q_valid, circumference_q_t, np.nan)
+    f_star_e_tor = np.where(q_valid, f_star_e_tor, np.nan)
+    f_star_i_tor = np.where(q_valid, f_star_i_tor, np.nan)
+    omega_star_e_tor = np.where(q_valid, omega_star_e_tor, np.nan)
+    omega_star_i_tor = np.where(q_valid, omega_star_i_tor, np.nan)
 
     if do_diagnostic_plot and selected_times_s is not None:
         _plot_compute_grid_diagnostics(
@@ -1290,6 +1455,10 @@ def compute_diamagnetic_drift_frequencies(
         f_star_i_Hz=f_star_i,
         omega_star_e_rad_s=omega_star_e,
         omega_star_i_rad_s=omega_star_i,
+        f_star_e_tor_Hz=f_star_e_tor,
+        f_star_i_tor_Hz=f_star_i_tor,
+        omega_star_e_tor_rad_s=omega_star_e_tor,
+        omega_star_i_tor_rad_s=omega_star_i_tor,
     )
 
 
@@ -1322,6 +1491,7 @@ def plot_diamagnetic_vs_q_times(
     doSave: str = '',
     f_lims_omega: list[float] = [-50, 50],
     f_lims_f: list[float] = [-15, 15],
+    f_lims_f_tor: list[float] = [-1, 1],
     line: int = 2,
     tht: int = 0,
     max_err_omega: float = 10.0,
@@ -1335,6 +1505,16 @@ def plot_diamagnetic_vs_q_times(
     - Right:  HIREXSR toroidal rotation with 1-sigma error bars vs psi_n,
               with q(psi_n) overlaid on the right-hand y-axis (cut at q_95).
     """
+    """Production summary plot: pressure vs psi_n, combined poloidal and toroidal
+    drift frequencies vs q, and toroidal rotation (omega_tor) with error bars vs psi_n.
+
+    Layout: 1 row x 4 columns.
+    - Panel 1: Smoothed electron and ion pressure profiles vs normalised poloidal flux.
+    - Panel 2: Poloidal diamagnetic drift frequencies (uses B_t) vs q.
+    - Panel 3: Toroidal diamagnetic drift frequencies (uses B_pol) vs q.
+    - Panel 4: HIREXSR toroidal rotation with 1-sigma error bars vs psi_n,
+               with q(psi_n) overlaid on the right-hand y-axis (cut at q_95).
+    """
     if len(selected_times_s) == 0:
         raise ValueError("selected_times_s must contain at least one time.")
 
@@ -1343,19 +1523,21 @@ def plot_diamagnetic_vs_q_times(
     t_eq = np.asarray(equilibrium.time_s, dtype=float).squeeze()
 
     fig, axes = plt.subplots(
-        1, 3,
-        figsize=(15, 5),
+        1, 4,
+        figsize=(20, 5),
         num=f"Diamagnetic Drift Summary: shot {shot}",
     )
     ax_p = axes[0]
     ax_f = axes[1]
-    ax_omg = axes[2]
+    ax_f_tor = axes[2]
+    ax_omg = axes[3]
     ax_q_omg = ax_omg.twinx()  # right-hand q(psi_n) axis on omega panel
 
     cmap = plt.get_cmap("tab10")
 
     has_omega = (
         profiles.omega_tor_rad_s is not None
+        and profiles.omega_tor_err_rad_s is not None
         and profiles.psi_hx is not None
     )
 
@@ -1401,11 +1583,32 @@ def plot_diamagnetic_vs_q_times(
         if f_lims_f:
             ax_f.set_ylim(f_lims_f)
 
+        # --- Toroidal diamagnetic frequencies (B_pol) on q grid ---
+        fe_tor_khz = result.f_star_e_tor_Hz[:, it_res][order_q] / 1e3
+        fi_tor_khz = result.f_star_i_tor_Hz[:, it_res][order_q] / 1e3
+        ax_f_tor.plot(
+            q_s, fe_tor_khz,
+            color=color, lw=2.0, ls="-",
+            label=rf"$f_{{*e}}^{{\mathrm{{tor}}}}$ ({time_label})",
+        )
+        ax_f_tor.plot(
+            q_s, fi_tor_khz,
+            color=color, lw=2.0, ls="--",
+            label=rf"$f_{{*i}}^{{\mathrm{{tor}}}}$ ({time_label})",
+        )
+        if f_lims_f_tor:
+            ax_f_tor.set_ylim(f_lims_f_tor)
+
         # --- Toroidal rotation with error bars on psi_hx grid ---
         if has_omega:
-            psi_hx_col = np.asarray(profiles.psi_hx[:-1, it_diag], dtype=float) # Last point is artificial Psi=1.0 boundary
-            omg_col = np.asarray(profiles.omega_tor_rad_s[:, it_diag], dtype=float)
-            omg_err_col = np.asarray(profiles.omega_tor_err_rad_s[:, it_diag], dtype=float)
+            psi_hx_arr = profiles.psi_hx
+            omg_arr = profiles.omega_tor_rad_s
+            omg_err_arr = profiles.omega_tor_err_rad_s
+            if psi_hx_arr is None or omg_arr is None or omg_err_arr is None:
+                continue
+            psi_hx_col = np.asarray(psi_hx_arr[:-1, it_diag], dtype=float) # Last point is artificial Psi=1.0 boundary
+            omg_col = np.asarray(omg_arr[:, it_diag], dtype=float)
+            omg_err_col = np.asarray(omg_err_arr[:, it_diag], dtype=float)
             order_hx = np.argsort(psi_hx_col)
             psi_hx_s = psi_hx_col[order_hx]
             omg_s = omg_col[order_hx] # kHz
@@ -1453,6 +1656,13 @@ def plot_diamagnetic_vs_q_times(
     ax_f.axhline(0.0, color="k", ls="--", lw=1)
     ax_f.grid(alpha=0.3)
     ax_f.legend(fontsize=9, ncol=1)
+
+    ax_f_tor.set_title(r"Toroidal Diamagnetic Drift Frequencies ($B_p$)")
+    ax_f_tor.set_xlabel(r"$q(\psi_N,\,t)$")
+    ax_f_tor.set_ylabel(r"$f_*^{\mathrm{tor}}$ [kHz]")
+    ax_f_tor.axhline(0.0, color="k", ls="--", lw=1)
+    ax_f_tor.grid(alpha=0.3)
+    ax_f_tor.legend(fontsize=9, ncol=1)
 
     if has_omega:
         ax_omg.set_title(r"Toroidal Rotation (HIREXSR) \& $q(\psi_N)$")
@@ -1537,7 +1747,9 @@ def _demo_equilibrium(time_s: np.ndarray) -> EquilibriumData:
 
 
     q_profile = 0.9 + 2.7 * psi_n_q**1.8 + 0.08 * np.sin(2.0 * np.pi * tau)
-    b_t_t = 5.4 + 0.15 * np.cos(2.0 * np.pi * time_s)
+    b_t_time = 5.4 + 0.15 * np.cos(2.0 * np.pi * time_s)
+    r_major_full_m = np.linspace(C_MOD_R0_M - C_MOD_A_MINOR_M, C_MOD_R0_M + C_MOD_A_MINOR_M, 196)
+    b_t_t = b_t_time[np.newaxis, :] * (C_MOD_R0_M / np.maximum(r_major_full_m[:, np.newaxis], 1e-6))
     q95 = np.full(time_s.size, 3.2, dtype=float)
 
     return EquilibriumData(
@@ -1545,12 +1757,25 @@ def _demo_equilibrium(time_s: np.ndarray) -> EquilibriumData:
         psi_n_q=psi_n_q,
         q_profile=q_profile,
         b_t_t=b_t_t,
+        r_major_full_m=r_major_full_m,
         r_minor_q_m=r_minor_q_m,
         r_major_q_m=C_MOD_R0_M + r_minor_q_m,
         elongation_t=elongation_t,
         circumference_q_m=circumference_q_m,
         q95=q95,
+        b_pol_q_T=_demo_b_pol(r_minor_q_m, C_MOD_R0_M + r_minor_q_m, b_t_time[np.newaxis, :], q_profile),
     )
+
+
+def _demo_b_pol(
+    r_minor_q_m: np.ndarray,
+    r_major_q_m: np.ndarray,
+    b_t_t: np.ndarray,
+    q_profile: np.ndarray,
+) -> np.ndarray:
+    """Synthetic poloidal field from q = r * B_t / (R * B_p)  =>  B_p = r * B_t / (R * q)."""
+    q_safe = np.maximum(np.abs(q_profile), 0.1)
+    return r_minor_q_m * b_t_t / (r_major_q_m * q_safe)
 
 
 def parse_args() -> argparse.Namespace:

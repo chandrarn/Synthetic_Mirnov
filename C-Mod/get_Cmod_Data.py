@@ -474,7 +474,7 @@ class YAG():
         
         # only the old system is availible early on
         old = shotno < 1020000000
-        edge = shotno > 1000000000 # edge TS only avilible here and newer
+        edge = shotno > 1105000000 # edge TS only avilible here and newer
         
         ne_node = r'\ELECTRONS::TOP.YAG.RESULTS.GLOBAL.PROFILE:NE_RZ_T' if old else \
             r'\ELECTRONS::TOP.YAG_NEW.RESULTS.PROFILES:NE_RZ'

@@ -221,12 +221,13 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
     name = 'Spectrogram_%s'%'-'.join(sensor_set) if type(sensor_set) is list else 'Spectrogram_%s'%sensor_set
     name='%s%s'%(name,save_Ext)
     fName = __gen_fName(params,sensor_set,save_Ext,filament,shotno)   
-    plt.close(name)
-    
+
     if external_axes is not None:
         ax = external_axes
-        fig = plt.gcf()
+        fig = ax.figure
+        ax.clear()
     else:
+        plt.close(name)
         fig,ax=plt.subplots(1,1,tight_layout=True,num=name,figsize=figsize)
     
     # Get fLim
@@ -262,7 +263,14 @@ def plot_spectrogram(time,freq,out_spect,doSave,sensor_set,params,filament,
 
     if doColorbar:
         norm = Normalize(vmin,vmax)
-        fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cmap),ax=ax, label=clabel)
+        old_cbar = getattr(ax, '_spectrogram_cbar', None)
+        if old_cbar is not None:
+            try:
+                old_cbar.remove()
+            except Exception:
+                pass
+        ax._spectrogram_cbar = fig.colorbar(cm.ScalarMappable(norm=norm,cmap=cmap),
+                                            ax=ax, label=clabel)
         
     if shotno and external_axes is None:
         ax.text(.05,.95,'%d'%shotno,transform=ax.transAxes,fontsize=8,
@@ -607,7 +615,16 @@ def gen_lf_signals():
     shotnos.sort()
     shotnos=shotnos[::-1]
     shotnos = [ ]#[1160714026]#1160826001#[1160930034]#[1110316031]#[1160930033]#[1050615011]
-    shotnos=[1120927023
+    shotnos=[1160920012,
+            1160708013,
+            1160823017,
+            1160826011,
+            1160902018,
+            1160718021,
+            1160718025,
+            1160725023,
+            1160725027,
+            1110325019,
             ] 
     shotnos = np.unique(shotnos)
 
@@ -620,9 +637,9 @@ def gen_lf_signals():
     #               'f_lim':[[0,100],[100,600]]}
     
     # Block reduce: [keep samples, drop samples]
-    dataRanges = {'tLim':[[1,1.2]], 'signal_reduce':1,\
+    dataRanges = {'tLim':[[0.5,1.6]], 'signal_reduce':1,\
                   'block_reduce':[3000,500],'sigma':(2,2),'plot_reduce':(1,1)}
-    f_lim=[0,50]; c_lim=[0,1.5]
+    f_lim=[0,80]; c_lim=[0,1.5]
     pad = 14000;fft_window=5000;HP_Freq=2e3
     doSave_data=True
     cmap='viridis'
@@ -641,22 +658,25 @@ def gen_lf_signals():
             #for ind_f, f_lim in enumerate(dataRanges['f_lim']):
                 # try: 
                 out = \
-                    signal_spectrogram_C_Mod(shot,sensor_set='BP_K',diag=diag,\
-                        sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
-                            block_reduce=dataRanges['block_reduce'],
-                            signal_reduce=dataRanges['signal_reduce'],
-                            pad=pad,fft_window=fft_window,cmap=cmap,
-                            figsize=figsize,doSave='../output_plots/training_plots/'*False,\
-                            params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
-                            batch=True,sigma_plot_reduce=dataRanges['sigma'],\
-                                plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
-                                doSave_data=True, use_rolling_fft=use_rolling_fft,
-                                external_axes=ax[0] if include_traces else None)
-                # except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
+                signal_spectrogram_C_Mod(shot,sensor_set='BP_K',diag=diag,\
+                    sensor_name='',tLim=tLim,HP_Freq=HP_Freq,f_lim=f_lim,\
+                        block_reduce=dataRanges['block_reduce'],
+                        signal_reduce=dataRanges['signal_reduce'],
+                        pad=pad,fft_window=fft_window,cmap=cmap,
+                        figsize=figsize,doSave='../output_plots/training_plots/'*False,\
+                        params={'tLim':tLim,'f_lim':f_lim},save_Ext=save_Ext,
+                        batch=True,sigma_plot_reduce=dataRanges['sigma'],\
+                            plot_reduce=dataRanges['plot_reduce'],cLim=c_lim,\
+                            doSave_data=True, use_rolling_fft=use_rolling_fft,
+                            external_axes=ax[0] if include_traces else None,
+                            doPlot=True)
+            
+
                 for ind, trace in enumerate(include_traces):
                     __add_traces_to_axes(ax, trace, fig, tLim, ind, shot, \
                         doSave='../output_plots/training_plots/'*(ind == len(include_traces)-1) )
-
+                        
+                # except Exception as e: print('\n\n\nWARNING: Skipping shot %d, error code: %s\n\n\n'%(shot,e))
     print('Finished Batch')
 
 ###############################################################################

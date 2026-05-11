@@ -216,7 +216,7 @@ def load_calibrated_RL_csv(
         for fk, (sum_R, sum_L, cnt) in freq_map.items():
             if cnt <= 0:
                 continue
-            out_freqs[fk] = RLMeasurement(R=sum_R / cnt, L=sum_L / cnt)
+            out_freqs[fk] = RLMeasurement(R=sum_R / cnt, L=sum_L / cnt, C=0.0)  # C is not measured, set to 0 or could be made optional
         if out_freqs:
             result[name] = out_freqs
 
@@ -231,12 +231,12 @@ def write_cleaned_RL_csv(
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["sensor", "freq", "R_ohm", "L_H"])
+        w.writerow(["sensor", "freq", "R_ohm", "L_uH", 'C_pF'])
         for name, freq_map in sorted(data.items()):
             # sort by the intended freq order 1k, 10k, 100k
             order = {k: i for i, k in enumerate(FREQUENCIES_HZ.keys())}
             for fk, meas in sorted(freq_map.items(), key=lambda kv: order.get(kv[0], 999)):
-                w.writerow([name, fk, f"{meas.R:.6g}", f"{meas.L:.6g}"])
+                w.writerow([name, fk, f"{meas.R:.6g}", f"{meas.L * 1e6:.6g}", f"{meas.C * 1e12:.6g}"])
 
 def generate_RLC_Transfer_Function_C_mod(plot_R=False):
     # Placeholder for future integration with per-sensor R/L
@@ -256,8 +256,8 @@ def load_cleaned_RL_csv_simple(path):
             freq = row["freq"]
             try:
                 R = float(row["R_ohm"])
-                L = float(row["L_H"])
-                C = float(row["C_pF"])
+                L = float(row["L_uH"]) * 1e-6  # Convert from microhenry to henry
+                C = float(row["C_pF"]) * 1e-12  # Convert from picofarad to farad
             except Exception:
                 continue
             data[name][freq] = RLMeasurement(R=R, L=L, C=C)
@@ -501,46 +501,46 @@ def plot_RL_vs_frequency(data: Dict[str, Dict[str, RLMeasurement]], sensors: Opt
 
 if __name__ == "__main__":
     # # Lightweight CLI to clean the calibration spreadsheet.
-    # import argparse
+    import argparse
 
-    # parser = argparse.ArgumentParser(description="Clean and average C-Mod R/L calibration CSV.")
-    # parser.add_argument("csv", nargs="?", default="C_Mod_Calibrated_RLC.csv",
-    #                     help="Path to input CSV (default: C_Mod_Calibrated_RLC.csv)")
-    # parser.add_argument("--out", default="C_Mod_Calibrated_RLC_cleaned.csv",
-    #                     help="Output CSV path (default: C_Mod_Calibrated_RLC_cleaned.csv)")
-    # parser.add_argument("--R-min", type=float, default=DEFAULT_R_MIN, dest="R_min",
-    #                     help=f"Minimum R (Ohm), default {DEFAULT_R_MIN}")
-    # parser.add_argument("--R-max", type=float, default=DEFAULT_R_MAX, dest="R_max",
-    #                     help=f"Maximum R (Ohm), default {DEFAULT_R_MAX}")
-    # parser.add_argument("--L-min", type=float, default=DEFAULT_L_MIN, dest="L_min",
-    #                     help=f"Minimum L (H), default {DEFAULT_L_MIN}")
-    # parser.add_argument("--L-max", type=float, default=DEFAULT_L_MAX, dest="L_max",
-    #                     help=f"Maximum L (H), default {DEFAULT_L_MAX}")
-    # parser.add_argument("--L-scale", type=float, default=1e-6, dest="L_scale",
-    #                     help="Scale to apply to L values before thresholding (default: 1e-6 for microhenry→henry)")
-    # parser.add_argument("--summary", action="store_true", help="Print a short summary to stdout")
+    parser = argparse.ArgumentParser(description="Clean and average C-Mod R/L calibration CSV.")
+    parser.add_argument("csv", nargs="?", default="C_Mod_Calibrated_RLC.csv",
+                        help="Path to input CSV (default: C_Mod_Calibrated_RLC.csv)")
+    parser.add_argument("--out", default="C_Mod_Calibrated_RLC_cleaned.csv",
+                        help="Output CSV path (default: C_Mod_Calibrated_RLC_cleaned.csv)")
+    parser.add_argument("--R-min", type=float, default=DEFAULT_R_MIN, dest="R_min",
+                        help=f"Minimum R (Ohm), default {DEFAULT_R_MIN}")
+    parser.add_argument("--R-max", type=float, default=DEFAULT_R_MAX, dest="R_max",
+                        help=f"Maximum R (Ohm), default {DEFAULT_R_MAX}")
+    parser.add_argument("--L-min", type=float, default=DEFAULT_L_MIN, dest="L_min",
+                        help=f"Minimum L (H), default {DEFAULT_L_MIN}")
+    parser.add_argument("--L-max", type=float, default=DEFAULT_L_MAX, dest="L_max",
+                        help=f"Maximum L (H), default {DEFAULT_L_MAX}")
+    parser.add_argument("--L-scale", type=float, default=1e-6, dest="L_scale",
+                        help="Scale to apply to L values before thresholding (default: 1e-6 for microhenry→henry)")
+    parser.add_argument("--summary", action="store_true", help="Print a short summary to stdout")
 
-    # args = parser.parse_args()
+    args = parser.parse_args()
 
-    # data = load_calibrated_RL_csv(
-    #     args.csv, R_min=args.R_min, R_max=args.R_max, L_min=args.L_min, L_max=args.L_max, L_scale=args.L_scale
-    # )
-    # write_cleaned_RL_csv(data, args.out)
+    data = load_calibrated_RL_csv(
+        args.csv, R_min=args.R_min, R_max=args.R_max, L_min=args.L_min, L_max=args.L_max, L_scale=args.L_scale
+    )
+    write_cleaned_RL_csv(data, args.out)
 
-    # if args.summary:
-    #     total_pairs = sum(len(freqs) for freqs in data.values())
-    #     sensors = len(data)
-    #     print(f"Wrote {args.out}: {sensors} sensors, {total_pairs} (sensor,freq) pairs")
-    #     # Show a few example lines
-    #     shown = 0
-    #     for name, freqs in data.items():
-    #         for fk, m in freqs.items():
-    #             print(f"  {name} @ {fk}: R={m.R:.3g} Ω, L={m.L:.3g} H")
-    #             shown += 1
-    #             if shown >= 3:
-    #                 break
-    #         if shown >= 3:
-    #             break
+    if args.summary:
+        total_pairs = sum(len(freqs) for freqs in data.values())
+        sensors = len(data)
+        print(f"Wrote {args.out}: {sensors} sensors, {total_pairs} (sensor,freq) pairs")
+        # Show a few example lines
+        shown = 0
+        for name, freqs in data.items():
+            for fk, m in freqs.items():
+                print(f"  {name} @ {fk}: R={m.R:.3g} Ω, L={m.L:.3g} H")
+                shown += 1
+                if shown >= 3:
+                    break
+            if shown >= 3:
+                break
 
     # # Plot all sensors from the cleaned CSV
     # try:

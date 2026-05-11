@@ -800,18 +800,37 @@ def cache_training_dataset(cfg: CacheConfig) -> Dict[str, np.ndarray]:
         for nm in names_sorted:
             idx_map.append(name_to_idx.get(nm, -1))
 
-        # Determine time indices to use
-        times = np.arange(len(ds['time']))
+        F_mode_vars = [str(v) for v in ds.data_vars if str(v).startswith('F_Mode_')]
+
+        # Determine time indices to use — restrict to times where at least one
+        # mode has a nonzero, finite frequency so we never waste a sample slot on
+        # a zero-signal timepoint (important for sparse high-n modes).
+        all_times = np.arange(len(ds['time']))
+        if F_mode_vars:
+            # Build a boolean mask: True where any mode has nonzero finite frequency
+            any_valid = np.zeros(len(all_times), dtype=bool)
+            for _fv in F_mode_vars:
+                _f_series = ds[_fv].values  # (time,)
+                any_valid |= ((_f_series != 0) & np.isfinite(_f_series))
+            valid_times = all_times[any_valid]
+        else:
+            valid_times = all_times
+        
+        if len(valid_times) == 0:
+            print(f"   Warning: no valid (nonzero) timepoints found in {os.path.basename(ds_filepath)}, skipping.")
+            ds.close(); del ds
+            continue
+
+        times = valid_times
         if cfg.num_timepoints is not None and cfg.num_timepoints > 0 and cfg.num_timepoints < len(times):
             if cfg.randomize_timepoints:
                 # random subset for caching speed
                 rng = np.random.default_rng(42)
                 times = np.sort(rng.choice(times, size=cfg.num_timepoints, replace=False))
             else:
-                # Take N evenly spaced timepoints across the range
-                times = np.linspace(times[0], times[-1], num=cfg.num_timepoints, dtype=int)
-
-        F_mode_vars = [str(v) for v in ds.data_vars if str(v).startswith('F_Mode_')]
+                # Take N evenly spaced timepoints across the valid (signal) range
+                indices = np.round(np.linspace(0, len(times) - 1, cfg.num_timepoints)).astype(int)
+                times = times[indices]
         mode_label_pairs = _get_mode_labels(ds, F_mode_vars)
         regions = _define_mode_regions_time(ds, F_mode_vars, times, cfg.freq_tolerance)
 

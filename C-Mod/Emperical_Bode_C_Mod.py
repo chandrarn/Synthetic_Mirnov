@@ -35,7 +35,9 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
                                         'save_ext_input':''},
                  plot_sensors='all',input_channel=16, ACQ_board=3, B0_normalize=False,
                  freq_domain_calculation=False,save_Ext='_f-sweep',R=6,L=60e-6,C=760e-12,
-                 yLim_mag=[0,10],yLim_phase=[60,460],save_Ext_plot=''):
+                 yLim_mag=[0,10],yLim_phase=[60,460],save_Ext_plot='',legend_ext='',
+                 input_signal_freq_range=(30e3,1.2e6), do_transfer_ratio_plot=False,
+                 do_save_transfer_splines=False):
     
     # Get driver signal
     calib, time = __load_calib_signal(shotno, tLim, input_channel, ACQ_board)
@@ -48,6 +50,10 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
         __gen_Empirical_Transfer_Functions(shotno,calib,needs_correction,fLim,mirnovs,plot_sensors,\
                                            t_inds, B0_normalize)
     
+    # Correct frequency response below calibration frequency
+    f, transfer_mag, transfer_phase = __correct_Low_Frequency_Response(transfer_mag, transfer_phase, f,
+                                        input_signal_freq_range, sensor_names = mirnovs.names, \
+                                            f_fit_cutoff = 125e3)
 
     # Pull synthetic transfer function for comparison
     if compareSynthetic:
@@ -62,14 +68,21 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
 
     # Plot data
     if doPlot:
-        plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSave,\
+        if not do_transfer_ratio_plot:
+            plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno,doSave,\
                                       bad_sensor, synthetic_transfer_mag,synthetic_transfer_phase,f_synth,
                                       synthDataFileNameInfo, B0_normalize,yLim_mag=yLim_mag,
-                                      yLim_phase=yLim_phase,save_ext=save_Ext_plot)
-        __plot_ratios(transfer_mag, transfer_phase, f, sensors,  bad_sensor, \
+                                      yLim_phase=yLim_phase,save_ext=save_Ext_plot,legend_ext=legend_ext)
+        if do_transfer_ratio_plot:
+            __plot_ratios(transfer_mag, transfer_phase, f, sensors,  bad_sensor, \
                             synthetic_transfer_mag, synthetic_transfer_phase, f_synth,shotno,\
                             B0_normalize=False, yLim_mag=[0,10], \
                             yLim_phase=[60,460], save_ext='_ratio')
+    
+    # Build and save spline fits for empirical transfer function, for use in synthetic data generation
+    if do_save_transfer_splines:
+        __save_transfer_splines(transfer_mag, transfer_phase, f, sensors, shotno)
+
     print('Finished')
     return transfer_mag, transfer_phase, f, sensors, synthetic_transfer_mag, \
         synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds
@@ -82,6 +95,75 @@ def compareBode(shotno=1151208900, doSave='', doPlot=True,\
 
 
 ################################################################################################
+################################################################################################
+def __save_transfer_splines(transfer_mag, transfer_phase, f, sensors, calib_shotno):
+    # Build and save spline fits for empirical transfer function, for use in synthetic data generation
+    transfer_splines = {}
+    for i, sensor in enumerate(sensors):
+        mag_spline = make_smoothing_spline(f, transfer_mag[i], lam = None)
+        phase_spline = make_smoothing_spline(f, transfer_phase[i] - 360, lam = None)
+        transfer_splines[sensor] = {'mag_spline': mag_spline, 'phase_spline': phase_spline}
+
+    np.savez(f'../data_output/Empirical_Transfer_Function_Splines_{calib_shotno}.npz', **transfer_splines)
+    print('Saved empirical transfer function splines to ../data_output/Empirical_Transfer_Function_Splines.npz')
+################################################################################################
+def __correct_Low_Frequency_Response(transfer_mag, transfer_phase, f, input_signal_freq_range, \
+                                     f_fit_cutoff=150e3,fit_order_mag=2,fit_order_phase=2,\
+                                        extrapolation_points=[0e3, 5e3, 10e3, 15e3, 20e3, 25e3],
+                                        doDebugPlots=True, sensor_names=None,):
+    # Correct low frequency response by extrapolating from higher frequencies
+    corrected_mag = []
+    corrected_phase = []
+
+    valid_freq_inds = np.where((input_signal_freq_range[0] <= f) & (f <= input_signal_freq_range[1]))[0]
+
+    for i in range(transfer_mag.shape[0]):
+        # Find indices below cutoff
+        low_freq_inds = np.where((input_signal_freq_range[0] <= f) & (f <= f_fit_cutoff))[0]
+        if len(low_freq_inds) == 0: 
+            raise ValueError('No frequencies found below cutoff. Adjust f_fit_cutoff or input_signal_freq_range.')
+
+
+        # Fit a curve
+        fit_f = f[low_freq_inds].squeeze()
+        mag_fit = np.polyfit(fit_f, transfer_mag[i, low_freq_inds].squeeze(), fit_order_mag)
+        phase_fit = np.polyfit(fit_f, transfer_phase[i, low_freq_inds].squeeze(), fit_order_phase)
+
+        corrected_mag.append(np.concatenate([np.polyval(mag_fit, extrapolation_points)] +\
+                                             [transfer_mag[i, valid_freq_inds].squeeze()]))
+        corrected_phase.append(np.concatenate([np.polyval(phase_fit, extrapolation_points)] +\
+                                               [transfer_phase[i, valid_freq_inds].squeeze()]))
+
+    new_f = np.concatenate([extrapolation_points] + [f[valid_freq_inds].squeeze()])
+
+    # Sanity check for negative amplitudes or other unphysical behavior in the extrapolated region
+    if np.any(np.array(corrected_mag) < 0):
+        raise ValueError('Negative magnitude found in corrected transfer function. Check fit and extrapolation parameters.')
+    if np.any(np.array(corrected_phase) < -360) or np.any(np.array(corrected_phase) > 720):
+        raise ValueError('Unphysical phase values found in corrected transfer function. Check fit and extrapolation parameters.')
+    
+    if doDebugPlots:
+        plt.close('Low_Frequency_Correction_Debug')
+        fig, ax = plt.subplots(2,1,num='Low_Frequency_Correction_Debug', figsize=(4,6),\
+                                layout='constrained', sharex=True)
+        plot_f_inds = np.where((f <= 125e3) & (f >= 0))[0]
+        plot_f_new_inds = np.where((new_f <= 125e3) & (new_f >= 0))[0]
+        for i in [0,10,20]: # Just plot a few sensors for clarity
+            ax[0].plot(f[plot_f_inds]*1e-3, transfer_mag[i][plot_f_inds], label=f'Sensor {sensor_names[i]} Original')
+            ax[0].plot(new_f[plot_f_new_inds]*1e-3, corrected_mag[i][plot_f_new_inds], label=f'Sensor {sensor_names[i]} Corrected', linestyle='--')
+            ax[1].plot(f[plot_f_inds]*1e-3, transfer_phase[i][plot_f_inds], label=f'Sensor {sensor_names[i]} Original', linestyle=':')
+            ax[1].plot(new_f[plot_f_new_inds]*1e-3, corrected_phase[i][plot_f_new_inds], label=f'Sensor {sensor_names[i]} Corrected', linestyle='--')
+        ax[0].set_xlabel('Frequency [kHz]')
+        ax[0].set_ylabel('Magnitude')
+        ax[1].set_xlabel('Frequency [kHz]')
+        ax[1].set_ylabel('Phase [Degrees]')
+        ax[0].legend()
+        ax[1].legend()
+        for i in range(2): ax[i].grid()
+        plt.show()
+        fig.savefig('../output_plots/Low_Frequency_Correction_Debug.pdf',transparent=True)
+        print('Saved to: ../output_plots/Low_Frequency_Correction_Debug.pdf')
+    return new_f, np.array(corrected_mag), np.array(corrected_phase)
 ################################################################################################
 def __gen_Empirical_Transfer_Functions(shotno,calib,needs_correction,fLim,mirnovs,\
                                        plot_sensors,t_inds, B0_normalize=False):
@@ -451,7 +533,7 @@ def __prep_RLC_Transfer_Function_Fixed(R = 6, L = 60e-6, C = 760e-12, plot_R=Fal
 def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno, doSave, bad_sensor, \
                            transfer_mag_synth=None, transfer_phase_synth=None, f_synth=None,
                            synthDataFileNameInfo=None, B0_normalize=False, yLim_mag=[0,10], \
-                            yLim_phase=[60,460], save_ext='',phase_normalization=False):
+                            yLim_phase=[60,460], save_ext='',phase_normalization=False, legend_ext=''):
     # Plot transfer function
 
     fig_mag, ax_mag, fig_phase, ax_phase, sensors = __prep_plots(shotno,save_ext,sensors)
@@ -469,7 +551,7 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno, doS
                             transfer_mag_synth=transfer_mag_synth, transfer_phase_synth=transfer_phase_synth,\
                             f_synth=f_synth,
                             B0_normalize=B0_normalize, yLim_mag=yLim_mag, \
-                            yLim_phase=yLim_phase, save_ext=save_ext,break_plot = ['bp28_ghk','bp6t_ghk'])
+                            yLim_phase=yLim_phase, save_ext=save_ext,break_plot = ['bp28_ghk','bp6t_ghk'], legend_ext=legend_ext)
 
     # Save plots
     if doSave:
@@ -478,9 +560,12 @@ def plot_transfer_function(transfer_mag, transfer_phase, f, sensors, shotno, doS
         synth += '_B0norm' if B0_normalize else ''
         if len(sensors) == 1:
             fig_mag.savefig(f'{doSave}_Cmod_Transfer_Function_CSD_{shotno}_{sensors[0]}{synth}.pdf', dpi=300, transparent=True)
+            print(f'Saved {doSave}_Cmod_Transfer_Function_CSD_{shotno}_{sensors[0]}{synth}.pdf')
         else:
             fig_mag.savefig(f'{doSave}_Cmod_Transfer_Magnitude_CSD_{shotno}{synth}.pdf', dpi=300, transparent=True)
             fig_phase.savefig(f'{doSave}_Cmod_Transfer_Phase_CSD_{shotno}{synth}.pdf', dpi=300, transparent=True)
+            print(f'Saved {doSave}_Cmod_Transfer_Magnitude_CSD_{shotno}{synth}.pdf')
+            print(f'Saved {doSave}_Cmod_Transfer_Phase_CSD_{shotno}{synth}.pdf')
 
     plt.show()
 
@@ -516,13 +601,13 @@ def __plot_ratios(transfer_mag, transfer_phase, f, sensors,  bad_sensor, \
     for i in range(ratio_mag.shape[0]):
         ratio_mag_cleaned[i,inds_replace] = np.polyval(np.polyfit(
                                     f[f_synth_inds][mag_interp].squeeze(),\
-                                    ratio_mag[i,mag_interp],1),f[f_synth_inds][inds_replace])
+                                    ratio_mag[i,mag_interp],1),f[f_synth_inds][inds_replace]).squeeze()
   
     # Replace some sensors with swapouts
     bad_sensor_swap = {'bp05_abk':'bp06_abk','bp08_ghk':'bp07_ghk'}
 
     # Run fits on ratio data here if desired
-    spline_fit_mag = make_smoothing_spline(f[f_synth_inds].squeeze(),ratio_mag_cleaned,axis=1)
+    spline_fit_mag = make_smoothing_spline(f[f_synth_inds].squeeze(),ratio_mag_cleaned.squeeze(),axis=1)
     spline_fit_phase = make_smoothing_spline(f[f_synth_inds].squeeze(), ratio_phase_cleaned,axis=1)
 
     ratio_mag_cleaned = spline_fit_mag(f[f_synth_inds])
@@ -559,7 +644,7 @@ def __plot_ratios(transfer_mag, transfer_phase, f, sensors,  bad_sensor, \
 def __plot_individual_transfer_function(transfer_mag, transfer_phase, f, sensors, ax_mag, ax_phase, bad_sensor, \
                             transfer_mag_synth=None, transfer_phase_synth=None, f_synth=None,
                             B0_normalize=False, yLim_mag=[0,10], \
-                            yLim_phase=[60,460], save_ext='',break_plot = ['bp28_ghk','bp6t_ghk']):
+                            yLim_phase=[60,460], save_ext='',break_plot = ['bp28_ghk','bp6t_ghk'], legend_ext=''):
     
     # Loop through each sensor
     index_plot =0
@@ -568,7 +653,7 @@ def __plot_individual_transfer_function(transfer_mag, transfer_phase, f, sensors
 
 
         ax_mag[index_plot].plot(f * 1e-6, transfer_mag[i],\
-                        label=f'{name}'+(' Magnitude' if len(sensors)==1 else ''))
+                        label=f'{name}'+(' Magnitude' if len(sensors)==1 else '') + legend_ext )
         
         ax_phase[index_plot].plot(f * 1e-6, transfer_phase[i], color='C1' if len(sensors)==1 else 'C0',\
                           label=f'{name}'+(' Phase' if len(sensors)==1 else ''), \
@@ -720,7 +805,7 @@ def sandbox_(shotno,tLim=[0,1],input_channel=16,ACQ_board=3,mirnov_channel='bp_e
     ax[1].grid()
     plt.show()
     fig.savefig('../output_plots/Cmod_Input_Signals_%d.pdf'%shotno,dpi=300,transparent=True)
-
+    print('Saved: ../output_plots/Cmod_Input_Signals_%d.pdf'%shotno)
     
     # Cross spectral density between calib and mirnov signal
     #  and auto spectral density of calib signal
@@ -751,6 +836,8 @@ def sandbox_(shotno,tLim=[0,1],input_channel=16,ACQ_board=3,mirnov_channel='bp_e
     
 
     fig.savefig('../output_plots/Cmod_Transfer_Function_CSD_%d.pdf'%shotno,dpi=300,transparent=True)
+    print('Saved: ../output_plots/Cmod_Transfer_Function_CSD_%d.pdf'%shotno)
+    
     # Build spectrogram
     from scipy import signal
     
@@ -775,7 +862,8 @@ def sandbox_(shotno,tLim=[0,1],input_channel=16,ACQ_board=3,mirnov_channel='bp_e
     plt.gca().set_rasterization_zorder(-1)
 
     plt.show()
-    # plt.savefig('../output_plots/Cmod_Cross_Spectrogram_%d.pdf'%shotno,dpi=300)
+    plt.savefig('../output_plots/Cmod_Cross_Spectrogram_%d.pdf'%shotno,dpi=300)
+    print('Saved: ../output_plots/Cmod_Cross_Spectrogram_%d.pdf'%shotno)
 
     print('Done')
 
@@ -794,35 +882,38 @@ def sandbox(sensor_name='BP2T_ABK'):
 if __name__ == '__main__':
     # __prep_RLC_Transfer_Function()
     # sandbox(1150319903,tLim=[.5,1.65],input_channel=16,ACQ_board=2)
-
+    # Notes: On shot 1150319903, 1150319904, bp_ef_top has the shielding tile removed
     # sandbox()
     mesh_file = 'C_Mod_ThinCurr_Limiters-homology.h5'
     mesh_file = 'C_Mod_ThinCurr_Combined-homology.h5'
-    mesh_file = 'C_Mod_ThinCurr_VV-homology.h5'
+    # mesh_file = 'C_Mod_ThinCurr_VV-homology.h5'
     # mesh_file = 'vacuum_mesh.h5'
 
     sensor_set = 'C_MOD_ALL' # Example sensor names
     calibration_magnitude = 6.325 # Replace with actual calibration magnitude
-    calibration_frequency_limits = (10, 1e6)  # Frequency range in Hz
+    calibration_frequency_limits = (10, 1.0e6)  # Frequency range in Hz
     comparison_shot = 1150319903 # Example shot number for comparison
     synthDataFileNameInfo={'mesh_file':mesh_file,
                                         'sensor_set':'C_MOD_ALL',
-                                        'calibration_frequency_limits':(10,1e6),
+                                        'calibration_frequency_limits':calibration_frequency_limits,
                                         'I':4.5,'T':2e-2,'dt':1e-6,'m':[1],'n':[1],
                                         'save_ext_input':'_f-sweep_All-Mirnovs-Corrected-3D_Tiles'*False}
-    plot_sensors =  ['bp_ef_top']
+    plot_sensors =  'all'#['bp_ef_top'] #
     needs_correction = ['12_abk', '1t_ghk', '3t_ghk', '_ef_bot', '_ef_top']
     input_channel = 16 # Channel for calibration signal
     ACQ_board = 2 # ACQ board for calibration signal
     tLim = [.5,1.65]
     B0_normalize = False
     compareSynthetic = True
-    fLim = [0,1e6]
+    fLim = [0,1.2e6]
     yLim_mag = [0,25]#[[0,5],[0,4],[0,24]]#
     yLim_phase = [-10,340]
     freq_domain_calculation = True # If True, use synthetic frequency domain data, otherwise time domain
     doSave='../output_plots/'*True
     save_Ext_plot='_newCoords_Tiles_Mirnov_Shields_3D_Norm_Phase'*True
+    legend_ext = ' (Tile Off)'
+    do_transfer_ratio_plot = False
+    do_save_transfer_splines =  True
 
     R = 6*1+0     # Ohms 
     L = 60e-6      # Henry
@@ -834,7 +925,9 @@ if __name__ == '__main__':
                 needs_correction=needs_correction, B0_normalize=B0_normalize,
                 compareSynthetic=compareSynthetic,fLim=fLim, R=R, L=L, C=C,
                 freq_domain_calculation=freq_domain_calculation,yLim_mag=yLim_mag,
-                yLim_phase=yLim_phase,save_Ext_plot=save_Ext_plot,) 
+                yLim_phase=yLim_phase,save_Ext_plot=save_Ext_plot,legend_ext=legend_ext,
+                do_transfer_ratio_plot=do_transfer_ratio_plot, 
+                do_save_transfer_splines=do_save_transfer_splines) 
     
     transfer_mag, transfer_phase, f, sensors, synthetic_transfer_mag, \
         synthetic_transfer_phase,f_synth, calib, time, mirnovs, t_inds = out
